@@ -2,12 +2,24 @@
 
 ## 0.10.1 / Connector 0.7.2
 
-- Craft Graph lazily requests item icons only for nodes entering the visible viewport.
+- Replaced automatic full JEI layout indexing with on-demand rendering for visible Craft Graph nodes.
+- Added the client-side `/kvs bake` command for explicit incremental full-index generation.
+- Avoided downloading the Minecraft fallback display catalog twice when opening Craft Graph.
 - Added fail-fast protection for non-advancing recipe snapshot pagination.
+- Preserved cached/offline data while JEI is still initializing.
+
+## Connector 0.7.1
+
+- Fixed JEI 19.42 startup log flooding caused by creating recipe layouts before client configs.
+- Deferred indexing until the next client tick and limited layout creation to 32 recipes per tick.
+- Added safe retry while JEI is not ready, cancellation on runtime reload and incremental snapshot
+  publication for large modpacks.
+- Updated the compile-only JEI API to 19.42.0.385.
 
 ## 0.10.0 / Connector 0.7.0
 
 - Rebuilt Craft Graph as a movable, pannable and zoomable node canvas with persisted positions.
+- Added lazy images rendered from JEI's real recipe layout, with structured fallback on servers.
 - Fixed tag ingredients being expanded into every tag member in resource totals and graph nodes.
 - Added release minification/obfuscation and author metadata for F_ery_a228 (`@F_ery_a`).
 - Verified remote workspace write, revision round-trip and two-client file-lock handoff against a
@@ -15,12 +27,17 @@
 
 ## 0.9.0
 
-- Craft Graph показывает канонические названия операций, станки, жидкости и игровые иконки;
-  данные и иконки загружаются постранично и лениво, Offline Mode сохранён.
+- Добавлен единый мост Recipe Viewer с необязательными клиентскими адаптерами JEI и EMI и
+  безопасным fallback на Minecraft RecipeManager для dedicated server.
+- Craft Graph показывает канонические названия операций, станки, катализаторы, жидкости и
+  богатые игровые иконки; данные и иконки загружаются постранично и лениво, Offline Mode сохранён.
 - Recipe Builder поддерживает жидкостные входы и результаты Create Mixing/Compacting в mB,
   поиск по реестру жидкостей, автоматические иконки и строгую проверку формата NeoForge.
+- Connector 0.6.1 предоставляет capability-gated методы `recipeViewers.*`; JEI/EMI API остаются
+  compile-only и не встраиваются в итоговый JAR.
 - Порт, адрес, удалённый доступ, reload и уровень прав `/kvs join` перенесены из JVM-флагов в
   автоматически создаваемый `config/kubevs-connector.toml`.
+
 ## 0.8.0
 
 - Удаление и восстановление рецептов выполняются строго по recipe ID через managed-файл без

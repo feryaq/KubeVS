@@ -29,6 +29,7 @@ Available protocol operations:
 - bounded Connector logs;
 - server resource reload when explicitly enabled;
 - remote `kubejs` file read/write with revision checks and per-user edit locks;
+- structured JEI/EMI recipe data and lazy exact JEI layout images on an integrated client.
 
 Network, reload and permission options live in `config/kubevs-connector.toml`:
 
@@ -47,6 +48,13 @@ For a remote dedicated server, set `host` to the server interface and explicitly
 pretend that plain WebSocket is safe on the public internet. Each teammate receives an individual
 Minecraft-linked token through `/kvs join`; file locks prevent silent concurrent overwrites.
 
+Exact JEI category windows are rendered by JEI itself, on the Minecraft client render thread, and
+requested only for Craft Graph nodes that enter the viewport. A dedicated server has no JEI GUI;
+there KubeVS uses RecipeManager data until a future authenticated client-visual relay is connected.
+
+По умолчанию KubeVS создаёт JEI-layout только для видимых нод и не перебирает весь модпак.
+Клиентская команда `/kvs bake` вручную запекает полный JEI-индекс пакетами по 32 рецепта за тик.
+Прогресс показывается над хотбаром; повторный запуск безопасно начинает новый snapshot.
 
 Build from the repository root:
 

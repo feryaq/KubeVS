@@ -1,6 +1,19 @@
-import { canonicalRecipeLabel, defaultWorkstations } from './recipePresentation.js';
+import {
+  canonicalRecipeLabel,
+  defaultWorkstations,
+  type RecipeViewerDisplay,
+  type RecipeViewerProvider,
+} from './recipeViewerCore.js';
 
-export { canonicalRecipeLabel, defaultWorkstations } from './recipePresentation.js';
+export {
+  canonicalRecipeLabel,
+  defaultWorkstations,
+  mergeRecipeViewerDisplays,
+  parseRecipeViewerDisplay,
+  parseRecipeViewerPage,
+  parseRecipeViewerStatus,
+  recipeViewerCapability,
+} from './recipeViewerCore.js';
 
 export type FlowKind = 'item' | 'tag' | 'fluid';
 
@@ -22,6 +35,7 @@ export interface CraftRecipe {
   readonly recipeType: string;
   readonly label?: string;
   readonly categoryId?: string;
+  readonly provider?: RecipeViewerProvider;
   readonly catalysts?: readonly FlowStack[];
   readonly workstations?: readonly FlowStack[];
   readonly inputs: readonly FlowStack[];
@@ -37,6 +51,7 @@ export interface CraftTreeNode {
   readonly recipeType?: string;
   readonly recipeLabel?: string;
   readonly categoryId?: string;
+  readonly provider?: RecipeViewerProvider;
   readonly catalysts: readonly FlowStack[];
   readonly workstations: readonly FlowStack[];
   readonly batches: number;
@@ -72,7 +87,7 @@ export function normalizeRecipe(entry: RecipeSnapshotEntry): CraftRecipe | undef
     id: entry.id,
     recipeType: entry.recipeType,
     label: canonicalRecipeLabel(entry.recipeType),
-    workstations: workstationStacks(entry.recipeType),
+    workstations: defaultWorkstations(entry.recipeType).map(toFlowStack),
     inputs: mergeStacks(inputs),
     outputs: mergeStacks(outputs),
     duration: positiveNumber(
@@ -81,6 +96,45 @@ export function normalizeRecipe(entry: RecipeSnapshotEntry): CraftRecipe | undef
     ),
     energy: positiveNumber(raw.energy ?? raw.energyCost ?? raw.energy_cost, 0),
   };
+}
+
+export function normalizeRecipeViewerDisplay(display: RecipeViewerDisplay): CraftRecipe {
+  return {
+    id: display.recipeId,
+    recipeType: display.recipeType,
+    label: display.categoryName,
+    categoryId: display.categoryId,
+    provider: display.provider,
+    inputs: collapseViewerSlots(display.inputs).map(toFlowStack),
+    outputs: collapseViewerSlots(display.outputs).map(toFlowStack),
+    catalysts: collapseViewerSlots(display.catalysts).map(toFlowStack),
+    workstations: display.workstations.map(toFlowStack),
+    duration: display.duration,
+    energy: display.energy,
+  };
+}
+
+export function enrichCraftRecipes(
+  snapshotRecipes: readonly CraftRecipe[],
+  viewerRecipes: readonly CraftRecipe[],
+): readonly CraftRecipe[] {
+  const viewerById = new Map(viewerRecipes.map((recipe) => [recipe.id, recipe]));
+  const merged = snapshotRecipes.map((snapshot) => {
+    const viewer = viewerById.get(snapshot.id);
+    if (!viewer) return snapshot;
+    viewerById.delete(snapshot.id);
+    return {
+      ...snapshot,
+      ...(viewer.label !== undefined ? { label: viewer.label } : {}),
+      ...(viewer.categoryId !== undefined ? { categoryId: viewer.categoryId } : {}),
+      ...(viewer.provider !== undefined ? { provider: viewer.provider } : {}),
+      ...(viewer.catalysts !== undefined ? { catalysts: viewer.catalysts } : {}),
+      ...(viewer.workstations !== undefined ? { workstations: viewer.workstations } : {}),
+      duration: viewer.duration || snapshot.duration,
+      energy: viewer.energy || snapshot.energy,
+    };
+  });
+  return [...merged, ...viewerById.values()];
 }
 
 export function buildCraftTree(
@@ -132,8 +186,9 @@ export function buildCraftTree(
       recipeType: recipe.recipeType,
       recipeLabel: recipe.label ?? canonicalRecipeLabel(recipe.recipeType),
       ...(recipe.categoryId === undefined ? {} : { categoryId: recipe.categoryId }),
+      ...(recipe.provider === undefined ? {} : { provider: recipe.provider }),
       catalysts: recipe.catalysts ?? [],
-      workstations: recipe.workstations ?? workstationStacks(recipe.recipeType),
+      workstations: recipe.workstations ?? defaultWorkstations(recipe.recipeType).map(toFlowStack),
       batches,
       alternatives: alternatives.length,
       selectedAlternative: selectedIndex,
@@ -193,13 +248,27 @@ function leaf(item: FlowStack, required: number, state: 'base' | 'cycle' | 'dept
   };
 }
 
-function workstationStacks(recipeType: string): FlowStack[] {
-  return defaultWorkstations(recipeType).map((id) => ({
-    kind: 'item',
-    id,
-    count: 1,
-    chance: 1,
-  }));
+function toFlowStack(stack: {
+  readonly kind: FlowKind;
+  readonly id: string;
+  readonly count: number;
+  readonly chance: number;
+}): FlowStack {
+  return { kind: stack.kind, id: stack.id, count: stack.count, chance: stack.chance };
+}
+
+function collapseViewerSlots<T extends { readonly slot?: number }>(stacks: readonly T[]): T[] {
+  const result: T[] = [];
+  const seen = new Set<number>();
+  for (const stack of stacks) {
+    if (stack.slot === undefined) {
+      result.push(stack);
+    } else if (!seen.has(stack.slot)) {
+      seen.add(stack.slot);
+      result.push(stack);
+    }
+  }
+  return result;
 }
 
 function shapedInputs(pattern: unknown[], key: Readonly<Record<string, unknown>>): FlowStack[] {

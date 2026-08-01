@@ -45,6 +45,7 @@ import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
+import xd.ferya.kubevs.viewer.RecipeViewerProtocol;
 
 final class KubeVSSocketServer extends WebSocketServer {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -58,6 +59,7 @@ final class KubeVSSocketServer extends WebSocketServer {
     private final Map<WebSocket, SessionIdentity> identities = new ConcurrentHashMap<>();
     private final WorkspaceFileService workspaceFiles;
     private final WorkspaceLockManager workspaceLocks = new WorkspaceLockManager();
+    private final RecipeViewerProtocol recipeViewers;
     private final Map<String, Optional<String>> iconCache = Collections.synchronizedMap(
             new LinkedHashMap<>(64, 0.75f, true) {
                 @Override
@@ -78,6 +80,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                         .toAbsolutePath()
                         .normalize()
                         .resolve("kubejs"));
+        this.recipeViewers = new RecipeViewerProtocol(minecraftServer);
         setConnectionLostTimeout(30);
         setReuseAddr(true);
     }
@@ -256,6 +259,22 @@ final class KubeVSSocketServer extends WebSocketServer {
                     response(requestId, recipeJson(params)).toString());
             case "recipes.snapshot" -> connection.send(
                     response(requestId, recipeSnapshot(params)).toString());
+            case "recipeViewers.status" -> connection.send(
+                    response(requestId, recipeViewers.status()).toString());
+            case "recipeViewers.categories" -> connection.send(
+                    response(requestId, recipeViewers.categories(params)).toString());
+            case "recipeViewers.displays" -> connection.send(
+                    response(requestId, recipeViewers.displays(params)).toString());
+            case "recipeViewers.display.get" -> connection.send(
+                    response(requestId, recipeViewers.display(params)).toString());
+            case "recipeViewers.render" -> connection.send(
+                    response(requestId, recipeViewers.render(params)).toString());
+            case "recipeViewers.workstations" -> connection.send(
+                    response(requestId, recipeViewers.workstations(params)).toString());
+            case "recipeViewers.usages" -> connection.send(
+                    response(requestId, recipeViewers.usages(params)).toString());
+            case "recipeViewers.recipesFor" -> connection.send(
+                    response(requestId, recipeViewers.recipesFor(params)).toString());
             case "mods.list" -> connection.send(response(requestId, mods()).toString());
             case "logs.list" -> logsList(connection, requestId);
             case "workspace.files.list" -> workspaceFilesList(connection, requestId);
@@ -316,6 +335,10 @@ final class KubeVSSocketServer extends WebSocketServer {
                 ConnectorPermissions.allows(
                         identity.permissionLevel(), ConnectorPermissions.EDIT_WORKSPACE));
         capabilities.addProperty("workspaceMaxFileBytes", WorkspaceFileService.DEFAULT_MAX_FILE_BYTES);
+        recipeViewers
+                .capabilities()
+                .entrySet()
+                .forEach(entry -> capabilities.add(entry.getKey(), entry.getValue()));
         JsonArray integrations = new JsonArray();
         for (String modId : List.of("create", "oritech", "farmersdelight", "lootjs")) {
             if (ModList.get().isLoaded(modId)) {

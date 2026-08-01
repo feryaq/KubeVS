@@ -18,6 +18,12 @@ export interface ConnectorCapabilities {
   readonly workspaceFiles?: boolean;
   readonly workspaceLocks?: boolean;
   readonly workspaceMaxFileBytes?: number;
+  readonly recipeViewer?: boolean;
+  readonly recipeDisplays?: boolean;
+  readonly recipeWorkstations?: boolean;
+  readonly recipeLayoutImages?: boolean;
+  readonly recipeViewerProvider?: RecipeViewerProvider;
+  readonly recipeViewerVersion?: string | null;
 }
 
 export interface ConnectorHello {
@@ -124,6 +130,58 @@ export interface PagedRecipeSnapshots {
   readonly hasMore: boolean;
 }
 
+export type RecipeViewerProvider = 'minecraft' | 'jei' | 'emi' | 'unknown';
+export type RecipeViewerRole = 'input' | 'output' | 'catalyst' | 'render-only';
+export type RecipeViewerStackKind = 'item' | 'tag' | 'fluid';
+
+export interface RecipeViewerStack {
+  readonly kind: RecipeViewerStackKind;
+  readonly id: string;
+  readonly count: number;
+  readonly chance: number;
+  readonly name?: string;
+  readonly role: RecipeViewerRole;
+  readonly slot?: number;
+}
+
+export interface RecipeLayoutImage {
+  readonly recipeId: string;
+  readonly provider: RecipeViewerProvider;
+  readonly width: number;
+  readonly height: number;
+  readonly dataUri: string;
+}
+
+export interface RecipeViewerDisplay {
+  readonly recipeId: string;
+  readonly recipeType: string;
+  readonly categoryId: string;
+  readonly categoryName: string;
+  readonly provider: RecipeViewerProvider;
+  readonly inputs: readonly RecipeViewerStack[];
+  readonly outputs: readonly RecipeViewerStack[];
+  readonly catalysts: readonly RecipeViewerStack[];
+  readonly workstations: readonly RecipeViewerStack[];
+  readonly duration: number;
+  readonly energy: number;
+  readonly width?: number;
+  readonly height?: number;
+}
+
+export interface RecipeViewerStatus {
+  readonly available: boolean;
+  readonly provider: RecipeViewerProvider;
+  readonly version?: string;
+  readonly displays: boolean;
+  readonly workstations: boolean;
+}
+
+export interface PagedRecipeViewerDisplays {
+  readonly entries: readonly RecipeViewerDisplay[];
+  readonly offset: number;
+  readonly total: number;
+  readonly hasMore: boolean;
+}
 
 export interface ModEntry {
   readonly id: string;

@@ -16,6 +16,16 @@ group = mod_group_id
 repositories {
     mavenLocal()
     mavenCentral()
+    maven {
+        name = 'BlameJared'
+        url = 'https://maven.blamejared.com'
+        content { includeGroup 'mezz.jei' }
+    }
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/releases'
+        content { includeGroup 'dev.emi' }
+    }
 }
 
 base {
@@ -113,6 +123,12 @@ dependencies {
     }
     additionalRuntimeClasspath 'org.java-websocket:Java-WebSocket:1.6.0'
 
+    // Optional client integrations. API jars are compile-only, are not jarJar'ed, and are not
+    // placed on the normal runtime classpath. Dedicated servers therefore have no JEI/EMI
+    // dependency. Their annotated plugin classes are discovered only by the corresponding mod.
+    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    compileOnly "dev.emi:emi-neoforge:${emi_version}:api"
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testImplementation 'com.google.code.gson:gson:2.11.0'
@@ -153,6 +169,8 @@ tasks.register('obfuscatedJar', proguard.gradle.ProGuardTask) {
     dontwarn()
     keepattributes 'RuntimeVisibleAnnotations,RuntimeInvisibleAnnotations,AnnotationDefault,Signature,Record,InnerClasses,EnclosingMethod'
     keep '@net.neoforged.fml.common.Mod class * { *; }'
+    keep '@mezz.jei.api.JeiPlugin class * { *; }'
+    keep '@dev.emi.emi.api.EmiEntrypoint class * { *; }'
     keepclassmembers 'class * { @net.neoforged.bus.api.SubscribeEvent <methods>; }'
     keepclassmembers 'enum * { public static **[] values(); public static ** valueOf(java.lang.String); }'
     adaptresourcefilecontents 'META-INF/neoforge.mods.toml'

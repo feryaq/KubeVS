@@ -19,6 +19,13 @@ Implemented methods:
 - `recipes.list`
 - `recipes.types`
 - `recipes.get`
+- `recipeViewers.status`
+- `recipeViewers.categories`
+- `recipeViewers.displays`
+- `recipeViewers.display.get`
+- `recipeViewers.workstations`
+- `recipeViewers.usages`
+- `recipeViewers.recipesFor`
 - `mods.list`
 - `logs.list`
 - `reload.server`
@@ -32,3 +39,44 @@ Generic registry methods accept a namespaced `registry` key such as `minecraft:i
 Invalid parameters produce a structured error carrying the original `requestId`.
 
 Protocol version 1 remains experimental; compatibility is checked before any snapshot request.
+
+## Optional JEI/EMI recipe displays
+
+The Connector advertises `recipeViewer`, `recipeViewerProvider`, `recipeDisplays`,
+`recipeWorkstations`, and `recipeViewerProviders` in `hello.capabilities`.
+
+`recipeViewers.displays` accepts optional `categoryId` and `ingredientId` filters plus the standard
+`offset`/`limit` pagination fields. Every entry is a full display:
+
+```json
+{
+  "recipeId": "create:pressing/iron_ingot",
+  "recipeType": "create:pressing",
+  "categoryId": "create:pressing",
+  "categoryName": "Прессование",
+  "provider": "emi",
+  "inputs": [
+    {
+      "kind": "item",
+      "id": "minecraft:iron_ingot",
+      "count": 1,
+      "amount": 1,
+      "chance": 1.0,
+      "name": "Железный слиток",
+      "slot": 0
+    }
+  ],
+  "outputs": [],
+  "catalysts": [],
+  "workstations": [],
+  "width": 134,
+  "height": 60
+}
+```
+
+`slot` groups alternatives occupying the same visual recipe slot. `count` and `amount` intentionally
+carry the same value so item-oriented and fluid-oriented consumers can share the DTO.
+
+JEI and EMI are optional, client-only integrations. With neither rich provider available, all
+recipe-viewer methods remain available through the server `RecipeManager`; fallback displays include
+the registry-aware recipe JSON in `rawJson`. The fallback does not invent machine/workstation data.
