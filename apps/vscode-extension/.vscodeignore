@@ -1,0 +1,13 @@
+.vscode-test/**
+src/**
+test/**
+node_modules/**
+tsconfig.json
+PRODUCT.md
+*.vsix
+dist/*.map
+dist/addonRecipeCore.*
+dist/lootRuleCore.*
+dist/connectorClient.*
+dist/connectorAuthCore.*
+artifacts/**

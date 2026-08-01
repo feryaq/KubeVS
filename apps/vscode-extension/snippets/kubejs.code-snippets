@@ -1,0 +1,12 @@
+{
+  "KubeJS server recipe event": {
+    "prefix": "kubevs-recipes",
+    "body": ["ServerEvents.recipes(event => {", "\t$0", "})"],
+    "description": "Create a KubeJS server recipe event",
+  },
+  "KubeJS startup item": {
+    "prefix": "kubevs-item",
+    "body": ["StartupEvents.registry('item', event => {", "\tevent.create('${1:example}')", "})"],
+    "description": "Register a KubeJS item",
+  },
+}

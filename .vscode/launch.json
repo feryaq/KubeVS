@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run KubeVS Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/apps/vscode-extension",
+        "${workspaceFolder}/examples/basic-kubejs"
+      ],
+      "outFiles": ["${workspaceFolder}/apps/vscode-extension/dist/**/*.js"],
+      "preLaunchTask": "KubeVS: Build Extension"
+    }
+  ]
+}

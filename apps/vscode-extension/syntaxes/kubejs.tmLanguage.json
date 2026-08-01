@@ -1,0 +1,18 @@
+{
+  "scopeName": "kubevs.injection",
+  "injectionSelector": "L:source.js, L:source.ts",
+  "patterns": [
+    {
+      "match": "\\b(?:Server|Startup|Client|Item|Block|Player|Entity|Level|Network)Events\\b",
+      "name": "support.type.kubejs"
+    },
+    {
+      "match": "\\b(?:recipes|tags|registry|modification)\\b(?=\\s*\\()",
+      "name": "support.function.kubejs"
+    },
+    {
+      "match": "(?<=['\"])[a-z0-9_.-]+:[a-z0-9_./-]+(?=['\"])",
+      "name": "string.unquoted.resource-location.kubejs"
+    }
+  ]
+}

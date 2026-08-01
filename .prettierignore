@@ -1,0 +1,11 @@
+node_modules
+dist
+out
+build
+.gradle
+run
+pnpm-lock.yaml
+*.jar
+.vscode-test
+**/.kubevs/cache
+**/kubevs-generated

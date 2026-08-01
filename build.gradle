@@ -1,0 +1,9 @@
+plugins {
+    id 'base'
+}
+
+tasks.register('connectorBuild') {
+    group = 'build'
+    description = 'Builds the KubeVS Connector subproject.'
+    dependsOn ':mods:kubevs-connector:build'
+}
