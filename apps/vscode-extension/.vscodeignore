@@ -7,6 +7,7 @@ PRODUCT.md
 *.vsix
 dist/*.map
 dist/addonRecipeCore.*
+dist/addonRecipeEditor.*
 dist/lootRuleCore.*
 dist/connectorClient.*
 dist/connectorAuthCore.*

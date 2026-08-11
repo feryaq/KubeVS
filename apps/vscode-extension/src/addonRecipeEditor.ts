@@ -95,7 +95,7 @@ function isAddonRecipeMessage(value: unknown): value is AddonRecipeMessage {
   }
 }
 
-function addonRecipeEditorHtml(
+export function addonRecipeEditorHtml(
   webview: vscode.Webview,
   nonce: string,
   availableIntegrations?: ReadonlySet<string>,
@@ -107,7 +107,7 @@ function addonRecipeEditorHtml(
     `script-src 'nonce-${nonce}'`,
   ].join('; ');
   return `<!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -363,7 +363,7 @@ function addonRecipeEditorHtml(
       if (!recipeIdAutomatic) return;
       readRows();
       const output = outputsEl.querySelector('[data-field="item"]')?.value.trim() || outputs[0]?.item || '';
-      const ingredients = document.getElementById('ingredients').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+      const ingredients = document.getElementById('ingredients').value.split(/\\r?\\n/).map(value => value.trim()).filter(Boolean);
       const primaryIngredient = ingredients[0] || fluidInputs[0]?.fluid || '';
       const outputPart = canonicalPart(output, 'new_recipe');
       const inputPart = canonicalPart(primaryIngredient, 'material');

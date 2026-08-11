@@ -2,7 +2,7 @@
   "name": "kubevs-extension",
   "displayName": "KubeVS",
   "description": "%extension.description%",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "private": true,
   "publisher": "kubevs",
   "repository": {
@@ -40,6 +40,7 @@
     "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs --sourcemap",
     "build:release": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs --minify --legal-comments=none",
     "build:test-addon": "esbuild src/addonRecipeCore.ts --bundle --platform=node --format=esm --outfile=dist/addonRecipeCore.mjs",
+    "build:test-webview": "esbuild src/addonRecipeEditor.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/addonRecipeEditor.cjs",
     "build:test-loot": "esbuild src/lootRuleCore.ts --bundle --platform=node --format=esm --outfile=dist/lootRuleCore.mjs",
     "build:test-auth": "esbuild src/connectorAuthCore.ts --bundle --platform=node --format=esm --outfile=dist/connectorAuthCore.mjs",
     "build:test-client": "esbuild src/connectorClient.ts --bundle --platform=node --format=cjs --outfile=dist/connectorClient.cjs",
@@ -50,9 +51,9 @@
     "build:test-replacement": "esbuild src/recipeReplacementCore.ts --bundle --platform=node --format=esm --outfile=dist/recipeReplacementCore.mjs",
     "package:vsix": "vsce package --no-dependencies",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "pnpm build \u0026\u0026 pnpm build:test-addon \u0026\u0026 pnpm build:test-loot \u0026\u0026 pnpm build:test-auth \u0026\u0026 pnpm build:test-client \u0026\u0026 pnpm build:test-removal \u0026\u0026 pnpm build:test-graph \u0026\u0026 pnpm build:test-target \u0026\u0026 pnpm build:test-content \u0026\u0026 pnpm build:test-replacement \u0026\u0026 node --test test/addonRecipeCore.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs \u0026\u0026 node ./test/run.mjs",
+    "test": "pnpm build \u0026\u0026 pnpm build:test-addon \u0026\u0026 pnpm build:test-webview \u0026\u0026 pnpm build:test-loot \u0026\u0026 pnpm build:test-auth \u0026\u0026 pnpm build:test-client \u0026\u0026 pnpm build:test-removal \u0026\u0026 pnpm build:test-graph \u0026\u0026 pnpm build:test-target \u0026\u0026 pnpm build:test-content \u0026\u0026 pnpm build:test-replacement \u0026\u0026 node --test test/addonRecipeCore.test.mjs test/addonRecipeWebview.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs \u0026\u0026 node ./test/run.mjs",
     "test:live-vscode": "pnpm build \u0026\u0026 node ./test/run-live-vscode.mjs",
-    "test:unit": "pnpm build:test-addon \u0026\u0026 pnpm build:test-loot \u0026\u0026 pnpm build:test-auth \u0026\u0026 pnpm build:test-client \u0026\u0026 pnpm build:test-removal \u0026\u0026 pnpm build:test-graph \u0026\u0026 pnpm build:test-target \u0026\u0026 pnpm build:test-content \u0026\u0026 pnpm build:test-replacement \u0026\u0026 node --test test/*.test.mjs",
+    "test:unit": "pnpm build:test-addon \u0026\u0026 pnpm build:test-webview \u0026\u0026 pnpm build:test-loot \u0026\u0026 pnpm build:test-auth \u0026\u0026 pnpm build:test-client \u0026\u0026 pnpm build:test-removal \u0026\u0026 pnpm build:test-graph \u0026\u0026 pnpm build:test-target \u0026\u0026 pnpm build:test-content \u0026\u0026 pnpm build:test-replacement \u0026\u0026 node --test test/*.test.mjs",
     "clean": "node -e \"require(\u0027fs\u0027).rmSync(\u0027dist\u0027,{recursive:true,force:true})\""
   },
   "dependencies": {

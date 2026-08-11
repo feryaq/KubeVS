@@ -6,6 +6,16 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ---
 
+## [1.1.5 / Connector 1.1.5] — 2026-08-11
+
+### Mod Recipes webview controls
+
+- Fixed a malformed newline regular expression in the generated Mod Recipes webview script that prevented every button handler from registering.
+- Added a regression test that compiles the exact generated browser script before release.
+- Corrected the Mod Recipes document language metadata to English.
+
+---
+
 ## [1.1.4 / Connector 1.1.4] — 2026-08-11
 
 ### English-only extension
