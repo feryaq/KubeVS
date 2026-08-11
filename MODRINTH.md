@@ -1,6 +1,9 @@
 # KubeVS Connector
 
-![KubeVS logo](https://raw.githubusercontent.com/Feryaq/KubeVS/main/apps/vscode-extension/media/kubevs-logo.png)
+<!-- IMAGE — LOGO
+Upload apps/vscode-extension/media/kubevs-logo.png to the Modrinth project gallery, then insert its Modrinth CDN URL here:
+![KubeVS logo](YOUR_MODRINTH_CDN_URL)
+-->
 
 > **Turn Visual Studio Code into a complete KubeJS workspace — with visual recipe tools, live Minecraft data, Craft Graph, LootJS builders, and secure server editing.**
 
@@ -53,7 +56,10 @@ Craft Graph turns the recipes from the running modpack into an interactive produ
 - JEI-style tag visualization that rotates through real members of ingredients such as **#c:plates**
 - Offline snapshots for previously loaded recipe data
 
-![KubeVS Craft Graph showing connected recipe nodes with Minecraft item textures](https://raw.githubusercontent.com/Feryaq/KubeVS/main/assets/screenshots/craft-graph.png)
+<!-- IMAGE — CRAFT GRAPH
+Upload assets/screenshots/craft-graph.png to the Modrinth project gallery, then insert its Modrinth CDN URL here:
+![KubeVS Craft Graph showing connected recipe nodes with Minecraft item textures](YOUR_MODRINTH_CDN_URL)
+-->
 
 ## 🎁 Create LootJS rules without fighting the syntax
 
