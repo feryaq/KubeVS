@@ -14,6 +14,7 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 - **Where:** Repository Prettier configuration and synchronized release metadata.
 - **Why:** GitHub Actions runs the extension job on Windows, where checkout converts tracked files to CRLF; Prettier's LF-only default incorrectly reported nearly the entire repository as unformatted.
 - **Was:** Lint, typecheck, tests, and builds passed, but the final format check failed on 134 files and prevented VSIX packaging.
+- **Packaging:** The Windows workflow now creates the `artifacts` directory before asking `vsce` to write the production VSIX.
 
 Mass-formatting the repository was rejected because it would create a large non-functional diff and obscure real changes.
 
