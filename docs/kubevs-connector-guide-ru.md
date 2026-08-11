@@ -1,14 +1,14 @@
 # Установка KubeVS Connector
 
-Актуально для Connector 1.1.1, Minecraft 1.21.1, NeoForge 21.x и Java 21.
+Актуально для Connector 1.1.2, Minecraft 1.21.1, NeoForge 21.x и Java 21.
 
 ## Что устанавливать
 
 Connector ставится только на dedicated server или в локальную Minecraft-сборку. Игрокам не нужен
-клиентский мод. В VS Code устанавливается KubeVS Extension 1.1.1.
+клиентский мод. В VS Code устанавливается KubeVS Extension 1.1.2.
 
 1. Остановите сервер.
-2. Скопируйте `kubevs-1.1.1.jar` в `mods`.
+2. Скопируйте `kubevs-1.1.2.jar` в `mods`.
 3. Примите Minecraft EULA в `eula.txt`, если согласны с ней.
 4. Запустите сервер.
 5. Проверьте строку `KubeVS Connector listening on ...`.

@@ -13,7 +13,11 @@ export async function generatedDirectoryUri(): Promise<vscode.Uri> {
   const configured = vscode.workspace
     .getConfiguration('kubevs.generatedFiles')
     .get('directory', 'kubejs/server_scripts/kubevs');
-  const segments = generatedDirectorySegments(path.basename(folder.uri.fsPath), configured);
+  const segments = generatedDirectorySegments(
+    path.basename(folder.uri.fsPath),
+    configured,
+    folder.uri.scheme,
+  );
   const directory = vscode.Uri.joinPath(folder.uri, ...segments);
   await vscode.workspace.fs.createDirectory(directory);
   return directory;
@@ -32,7 +36,11 @@ export async function generatedStartupDirectoryUri(): Promise<vscode.Uri> {
           '$1startup_scripts',
         )
       : `kubejs/startup_scripts/${configured}`;
-  const segments = generatedDirectorySegments(path.basename(folder.uri.fsPath), startupConfigured);
+  const segments = generatedDirectorySegments(
+    path.basename(folder.uri.fsPath),
+    startupConfigured,
+    folder.uri.scheme,
+  );
   const directory = vscode.Uri.joinPath(folder.uri, ...segments);
   await vscode.workspace.fs.createDirectory(directory);
   return directory;

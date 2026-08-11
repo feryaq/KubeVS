@@ -4,13 +4,16 @@ const SAFE_SEGMENT = /^[a-z0-9_.-]+$/u;
 export function generatedDirectorySegments(
   workspaceName: string,
   configuredDirectory: string,
+  workspaceScheme = 'file',
 ): string[] {
   const segments = configuredDirectory.split(/[\\/]/u).filter(Boolean);
   if (segments.length === 0 || segments.some((segment) => segment === '.' || segment === '..')) {
     throw new Error('Папка kubevs.generatedFiles.directory должна находиться внутри проекта.');
   }
 
-  const root = workspaceName.toLocaleLowerCase('en');
+  const root = (workspaceScheme === 'kubevs-remote' ? 'kubejs' : workspaceName).toLocaleLowerCase(
+    'en',
+  );
   if (root === 'kubejs' && segments[0]?.toLocaleLowerCase('en') === 'kubejs') {
     segments.shift();
   } else if (SCRIPT_DIRECTORIES.has(root)) {

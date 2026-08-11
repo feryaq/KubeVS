@@ -6,6 +6,16 @@
 
 ---
 
+## [1.1.2 / Connector 1.1.2] — 2026-08-11
+
+### Remote generated files
+
+- Fixed recipe, LootJS, and content generation in `kubevs-remote://server/` workspaces.
+- The mounted remote root already represents the server `kubejs` directory, so generated files now target `server_scripts/kubevs/...` instead of creating a nested `kubejs/server_scripts/...` tree.
+- Added a regression test for the remote workspace URI scheme.
+
+---
+
 ## [1.1.1 / Connector 1.1.1] — 2026-08-11
 
 ### Component branches

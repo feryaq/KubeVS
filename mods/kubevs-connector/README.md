@@ -1,4 +1,4 @@
-# KubeVS Connector 1.1.1
+# KubeVS Connector 1.1.2
 
 KubeVS Connector is the secure NeoForge bridge between a Minecraft 1.21.1 server and the KubeVS Visual Studio Code extension.
 

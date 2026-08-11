@@ -14,6 +14,13 @@ test('не дублирует kubejs, когда открыта сама пап�
   ]);
 });
 
+test('не дублирует kubejs в удалённой серверной рабочей области', () => {
+  assert.deepEqual(
+    generatedDirectorySegments('', 'kubejs/server_scripts/kubevs', 'kubevs-remote'),
+    ['server_scripts', 'kubevs'],
+  );
+});
+
 test('не дублирует server_scripts, когда открыта папка скриптов', () => {
   assert.deepEqual(
     generatedDirectorySegments('server_scripts', 'kubejs/server_scripts/kubevs-generated'),
