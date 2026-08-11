@@ -63,7 +63,7 @@ Tagging a verified commit as `v1.1.9` runs the production release workflow and p
 - [Craft Graph](docs/craft-graph-ru.md) — Russian
 - [Recipe Editor](docs/recipe-editor.md)
 - [Architecture](ARCHITECTURE.md)
-- [Modrinth listing copy](docs/modrinth-listing.md)
+- [Modrinth listing copy](MODRINTH.md)
 
 ## License
 
