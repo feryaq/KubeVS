@@ -1,5 +1,7 @@
 # KubeVS Connector
 
+![KubeVS logo](https://raw.githubusercontent.com/Feryaq/KubeVS/main/apps/vscode-extension/media/kubevs-logo.png)
+
 > **Turn Visual Studio Code into a complete KubeJS workspace — with visual recipe tools, live Minecraft data, Craft Graph, LootJS builders, and secure server editing.**
 
 KubeVS is a two-part development environment for modpack authors and server developers:
@@ -16,7 +18,7 @@ Recommended: a wide 16:9 screenshot of the KubeVS Dashboard next to Minecraft.
 Replace this comment with: ![KubeVS Dashboard connected to Minecraft](YOUR_IMAGE_URL)
 -->
 
-## Build recipes visually — keep the code readable
+## 🧩 Build recipes visually — keep the code readable
 
 Create and manage KubeJS recipes without memorizing every JSON shape or addon-specific field. KubeVS generates clean JavaScript that remains easy to review and edit manually.
 
@@ -39,7 +41,7 @@ Recommended: a recipe editor showing real item icons, inputs, outputs, and gener
 Replace this comment with: ![Visual recipe editor with live Minecraft items](YOUR_IMAGE_URL)
 -->
 
-## Understand entire production chains with Craft Graph
+## 🕸️ Understand entire production chains with Craft Graph
 
 Craft Graph turns the recipes from the running modpack into an interactive production tree. Choose an output, compare alternative recipes, and inspect what the complete chain actually costs.
 
@@ -51,12 +53,9 @@ Craft Graph turns the recipes from the running modpack into an interactive produ
 - JEI-style tag visualization that rotates through real members of ingredients such as **#c:plates**
 - Offline snapshots for previously loaded recipe data
 
-<!-- SCREENSHOT 03 — CRAFT GRAPH
-Recommended: a wide graph with several recipe types, branching paths, and the totals panel visible.
-Replace this comment with: ![Craft Graph production tree](YOUR_IMAGE_URL)
--->
+![KubeVS Craft Graph showing connected recipe nodes with Minecraft item textures](https://raw.githubusercontent.com/Feryaq/KubeVS/main/assets/screenshots/craft-graph.png)
 
-## Create LootJS rules without fighting the syntax
+## 🎁 Create LootJS rules without fighting the syntax
 
 The LootJS Builder provides a structured target → action → condition workflow and produces readable **LootJS.modifiers(...)** scripts.
 
@@ -81,7 +80,7 @@ Recommended: the LootJS Builder with a preset selected and nested conditions exp
 Replace this comment with: ![LootJS visual rule builder](YOUR_IMAGE_URL)
 -->
 
-## Browse the live Minecraft registry
+## 🔎 Browse the live Minecraft registry
 
 Search the actual data loaded by the server instead of guessing IDs from documentation.
 
@@ -98,7 +97,7 @@ Recommended: Registry Browser search results with names, IDs, tags, and modded i
 Replace this comment with: ![Live Minecraft Registry Browser](YOUR_IMAGE_URL)
 -->
 
-## A real KubeJS development environment
+## 🧰 A real KubeJS development environment
 
 KubeVS adds focused tooling to regular VS Code editing:
 
@@ -112,7 +111,7 @@ KubeVS adds focused tooling to regular VS Code editing:
 
 Generated files stay ordinary KubeJS source files. You can inspect, change, move, or version them like the rest of your project.
 
-## Edit a server workspace directly from VS Code
+## 🌐 Edit a server workspace directly from VS Code
 
 When connected, KubeVS can mount the server's complete **kubejs** directory in VS Code Explorer — not just generated scripts.
 
@@ -130,7 +129,7 @@ Recommended: VS Code Explorer showing kubevs-remote files and the Connection vie
 Replace this comment with: ![Remote KubeJS server workspace in VS Code](YOUR_IMAGE_URL)
 -->
 
-## Installation
+## 🚀 Installation
 
 ### Requirements
 
@@ -151,7 +150,7 @@ Replace this comment with: ![Remote KubeJS server workspace in VS Code](YOUR_IMA
 5. In VS Code, run **KubeVS: Connect with /kvs join code** from the Command Palette.
 6. Open the mounted server workspace or keep working with a local KubeJS project.
 
-## Secure by default
+## 🛡️ Secure by default
 
 KubeVS Connector listens on **127.0.0.1:32145** by default and rejects remote clients until remote access is explicitly enabled.
 
@@ -164,7 +163,7 @@ KubeVS Connector listens on **127.0.0.1:32145** by default and rejects remote cl
 
 The Connector's **publicHost**, **publicPort**, and **publicSecure** settings only control the address included in connection codes; they do not add TLS to the Java server.
 
-## Compatibility and addon detection
+## 🔌 Compatibility and addon detection
 
 KubeVS detects installed integrations such as KubeJS, LootJS, Create, Oritech, and Farmer's Delight. Features that depend on a missing addon stay unavailable instead of generating scripts that cannot run in the current instance.
 
