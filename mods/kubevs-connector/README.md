@@ -1,4 +1,4 @@
-# KubeVS Connector 1.1.7
+# KubeVS Connector 1.1.8
 
 KubeVS Connector is the secure NeoForge bridge between a Minecraft 1.21.1 server and the KubeVS Visual Studio Code extension.
 
@@ -10,7 +10,7 @@ It exposes live registries, recipes, tags, mods, and logs, then mounts the serve
 2. Start and stop the server once to create `config/kubevs-connector.toml`.
 3. Review the network and permission settings.
 4. Start the server and run `/kvs join` in game.
-5. In VS Code, run **KubeVS: Connect with /kvs join code**.
+5. Install the required extension from the [latest GitHub Release](https://github.com/Feryaq/KubeVS/releases/latest), then run **KubeVS: Connect with /kvs join code** in VS Code.
 
 KubeJS is optional for registry inspection but required for creating and applying KubeJS scripts.
 

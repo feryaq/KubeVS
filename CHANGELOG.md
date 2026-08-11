@@ -6,6 +6,16 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ---
 
+## [1.1.8 / Connector 1.1.8] — 2026-08-11
+
+### Extension-only GitHub releases
+
+- **What:** Tagged GitHub Releases now build and publish only the production VSIX. The Connector remains tested by CI and distributed separately through Modrinth.
+- **Minecraft:** `/kvs` now marks the VS Code extension as required and provides a clickable link to the latest GitHub Release.
+- **Why:** GitHub Releases are the extension download channel; publishing the Connector JAR there duplicated the Modrinth distribution and made installation less clear.
+
+---
+
 ## [1.1.7 / Connector 1.1.7] — 2026-08-11
 
 ### Stable formatting checks on Windows CI

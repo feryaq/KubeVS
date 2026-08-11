@@ -22,6 +22,8 @@ import net.minecraft.server.level.ServerPlayer;
 final class ConnectorAuthCommands {
     private static final int OP_PERMISSION_LEVEL = 2;
     private static final int ADMIN_PERMISSION_LEVEL = 4;
+    private static final String LATEST_RELEASE_URL =
+            "https://github.com/Feryaq/KubeVS/releases/latest";
     private static final ChatFormatting BRAND = ChatFormatting.AQUA;
     private static final ChatFormatting LABEL = ChatFormatting.GRAY;
     private static final ChatFormatting VALUE = ChatFormatting.WHITE;
@@ -117,6 +119,18 @@ final class ConnectorAuthCommands {
                         .append(Component.literal("    VS Code clients  ").withStyle(MUTED))
                         .append(Component.literal(Integer.toString(server.connectedClientCount()))
                                 .withStyle(server.connectedClientCount() > 0 ? SUCCESS : VALUE)),
+                false);
+        source.sendSuccess(
+                () -> Component.literal("VS Code extension  ")
+                        .withStyle(LABEL)
+                        .append(Component.literal("REQUIRED  ")
+                                .withStyle(WARNING, ChatFormatting.BOLD))
+                        .append(actionButton(
+                                "[Install latest release]",
+                                BRAND,
+                                ClickEvent.Action.OPEN_URL,
+                                LATEST_RELEASE_URL,
+                                "Open the latest KubeVS extension release")),
                 false);
 
         if (!source.hasPermission(ADMIN_PERMISSION_LEVEL)) {
