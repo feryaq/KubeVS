@@ -26,9 +26,11 @@ if (connectorVersion && connectorVersion !== extensionPackage.version) {
 }
 if (protocolVersion !== '2')
   errors.push('Production protocol must be 2, got ' + (protocolVersion ?? 'missing'));
-if (rootPackage.license !== 'UNLICENSED') errors.push('Root package must be UNLICENSED');
+if (rootPackage.license !== 'SEE LICENSE IN LICENSE') {
+  errors.push('Root package must reference the repository LICENSE file');
+}
 if (extensionPackage.license !== 'SEE LICENSE IN LICENSE') {
-  errors.push('Extension must reference its commercial LICENSE file');
+  errors.push('Extension must reference its Community Source LICENSE file');
 }
 if (existsSync(resolve(root, 'apps/vscode-extension/media/pixel'))) {
   errors.push('Unlicensed user-supplied pixel assets are present');

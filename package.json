@@ -1,9 +1,9 @@
 {
   "name": "kubevs",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "private": true,
   "description": "KubeJS development, visually integrated into VS Code.",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "pnpm -r --if-present build",

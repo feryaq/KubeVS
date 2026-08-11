@@ -6,6 +6,19 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ---
 
+## [1.1.6 / Connector 1.1.6] — 2026-08-11
+
+### Community-friendly source license
+
+- **What:** Contributors may study, build, modify, commit, and submit pull requests without separate permission. Contribution forks are allowed, while independent distribution and commercial products still require written approval.
+- **Where:** Root and extension LICENSE files, CONTRIBUTING.md, package metadata, Connector metadata, and public README licensing text.
+- **Why:** The previous all-rights-reserved wording treated ordinary development activity like redistribution and discouraged legitimate contributors.
+- **Was:** Even local modification, merging, and derivative work were broadly prohibited unless covered by a separate written license.
+
+A standard open-source license was not selected because it would also grant unrestricted redistribution and derivative distribution, which is outside the intended permission model.
+
+---
+
 ## [1.1.5 / Connector 1.1.5] — 2026-08-11
 
 ### Mod Recipes webview controls

@@ -8,4 +8,4 @@ Run `/kvs join` in Minecraft, then use **KubeVS: Connect with /kvs join code**. 
 
 For remote servers, use a VPN or WSS through a TLS reverse proxy. Connector remains localhost-only by default, and credentials are stored in VS Code SecretStorage.
 
-KubeVS is proprietary commercial software. See the included license.
+KubeVS uses the KubeVS Community Source License 1.0. You may study, build, modify, commit, and contribute through pull requests. Independent distribution and commercial use require written permission. Your generated project files remain yours.

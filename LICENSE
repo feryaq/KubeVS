@@ -1,23 +1,87 @@
-KubeVS Commercial License
+KubeVS Community Source License 1.0
 
-Copyright (c) 2026 F_ery_a228. All rights reserved.
+Copyright (c) 2026 F_ery_a228
 
-KubeVS, KubeVS Connector, their source code, compiled binaries, documentation,
-branding and original assets are proprietary software.
+This license supports collaboration while keeping KubeVS under the copyright
+holder's control. It is a source-available license, not an open-source license
+approved by the Open Source Initiative.
 
-No permission is granted to copy, modify, merge, publish, distribute,
-sublicense, sell, reverse engineer or create derivative works from this
-software except under a separate written license issued by the copyright
-holder. An authorized customer may install and use the software only within
-the scope of the purchased license.
+1. What you may do without separate permission
 
-Third-party components remain governed by their respective licenses and are
-listed in THIRD_PARTY_NOTICES.md.
+You may:
+
+- view, download, and study the source code;
+- make local copies, branches, commits, patches, and modifications;
+- build and run KubeVS for personal use, evaluation, testing, education, and
+  development;
+- create a GitHub fork when its primary purpose is preparing and submitting a
+  contribution to the official KubeVS repository;
+- submit issues, patches, and pull requests to the official repository; and
+- use, modify, publish, and sell scripts, recipes, configuration, or other
+  project files that you create with KubeVS.
+
+A contribution fork must retain this license and copyright notice. It may not
+publish KubeVS releases, offer KubeVS as a product or service, or present itself
+as the official project.
+
+2. What requires written permission
+
+You need prior written permission from the copyright holder to:
+
+- maintain or publish a fork for a purpose other than contributing changes back;
+- distribute KubeVS source code or compiled binaries outside an allowed
+  contribution fork;
+- publish a modified version, derivative product, mirror, or unofficial release;
+- use KubeVS or a substantial part of it in a commercial product or paid
+  service;
+- sublicense, sell, rent, or resell KubeVS; or
+- use KubeVS branding, logos, or names in a way that suggests endorsement or
+  official status.
+
+Permission may be recorded in a GitHub issue, pull request, or another written
+message from the copyright holder. Permission may include additional conditions.
+
+3. Contributions
+
+You keep copyright in your original contribution. By intentionally submitting a
+patch or pull request to the official KubeVS repository, you grant the copyright
+holder a perpetual, worldwide, non-exclusive, royalty-free license to use,
+reproduce, modify, distribute, sublicense, and relicense that contribution as
+part of KubeVS.
+
+You confirm that you have the right to submit the contribution and that it does
+not knowingly violate another person's rights. Accepting a contribution does
+not grant permission to distribute the rest of KubeVS outside this license.
+
+4. Generated output and user projects
+
+This license does not claim ownership of KubeJS scripts, recipes, configuration,
+assets, or other project content created by a user with KubeVS. Those files
+belong to their respective authors, subject to any third-party rights they
+contain.
+
+5. Third-party software
+
+Third-party components and assets remain governed by their own licenses. See
+THIRD_PARTY_NOTICES.md and any notices shipped with those components.
+
+6. Notices and trademarks
+
+You must preserve copyright, license, and third-party notices in permitted
+copies. This license does not grant trademark rights in the KubeVS name, logo,
+or branding.
+
+7. Termination and cure
+
+Your rights under this license end automatically if you violate its terms. If
+the violation is corrected within 30 days after you discover it or receive
+notice of it, your rights are reinstated automatically for that violation.
+Repeated or intentional violations may be denied reinstatement.
+
+8. No warranty
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
-
-Commercial licensing: Telegram / Discord @F_ery_a
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT. TO THE MAXIMUM
+EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER IS NOT LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
