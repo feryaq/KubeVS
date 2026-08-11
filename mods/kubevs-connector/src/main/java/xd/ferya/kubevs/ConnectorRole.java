@@ -7,7 +7,7 @@ import java.util.Locale;
 enum ConnectorRole {
     VIEWER(
             "viewer",
-            "Наблюдатель",
+            "Viewer",
             1,
             List.of(
                     ConnectorPermissions.CONNECT,
@@ -16,7 +16,7 @@ enum ConnectorRole {
                     ConnectorPermissions.WORKSPACE_READ)),
     EDITOR(
             "editor",
-            "Редактор",
+            "Editor",
             2,
             List.of(
                     ConnectorPermissions.CONNECT,
@@ -27,7 +27,7 @@ enum ConnectorRole {
                     ConnectorPermissions.WORKSPACE_MANAGE)),
     OPERATOR(
             "operator",
-            "Оператор",
+            "Operator",
             3,
             List.of(
                     ConnectorPermissions.CONNECT,
@@ -40,7 +40,7 @@ enum ConnectorRole {
                     ConnectorPermissions.WORKSPACE_MANAGE)),
     ADMIN(
             "admin",
-            "Администратор",
+            "Administrator",
             4,
             List.of(
                     ConnectorPermissions.CONNECT,
@@ -84,14 +84,14 @@ enum ConnectorRole {
 
     static ConnectorRole parse(String value) {
         if (value == null) {
-            throw new IllegalArgumentException("Роль не указана");
+            throw new IllegalArgumentException("Role is required");
         }
         String normalized = value.trim().toLowerCase(Locale.ROOT);
         return Arrays.stream(values())
                 .filter(role -> role.id.equals(normalized))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Неизвестная роль: " + value + ". Доступны viewer, editor, operator, admin"));
+                        "Unknown role: " + value + ". Available roles: viewer, editor, operator, admin"));
     }
 
     static ConnectorRole fromLegacyLevel(int level) {

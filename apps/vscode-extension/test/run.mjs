@@ -196,5 +196,5 @@ try {
 } finally {
   for (const socket of server.clients) socket.terminate();
   await new Promise((resolve) => server.close(resolve));
-  await fs.rm(userDataDir, { recursive: true, force: true });
+  await fs.rm(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
 }

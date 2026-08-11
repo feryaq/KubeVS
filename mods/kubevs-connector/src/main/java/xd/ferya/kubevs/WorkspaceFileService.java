@@ -60,7 +60,7 @@ final class WorkspaceFileService {
         private final String actualRevision;
 
         RevisionConflictException(String actualRevision) {
-            super("Файл был изменён другим участником");
+            super("The file was changed by another collaborator");
             this.actualRevision = actualRevision;
         }
 
@@ -99,7 +99,7 @@ final class WorkspaceFileService {
                 }
                 verifyRealContainment(path);
                 if (result.size() >= maxListEntries) {
-                    throw new IOException("В папке kubejs слишком много файлов");
+                    throw new IOException("The kubejs workspace contains too many files");
                 }
                 if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
                     result.add(entry(path, EntryType.DIRECTORY, new byte[0]));
@@ -114,7 +114,7 @@ final class WorkspaceFileService {
                 }
                 hashedBytes += size;
                 if (hashedBytes > MAX_LIST_HASH_BYTES) {
-                    throw new IOException("Превышен лимит индексирования папки kubejs");
+                    throw new IOException("The kubejs workspace indexing limit was exceeded");
                 }
                 byte[] bytes = Files.readAllBytes(path);
                 result.add(entry(path, EntryType.FILE, bytes));
@@ -130,7 +130,7 @@ final class WorkspaceFileService {
             return entry(target, EntryType.DIRECTORY, new byte[0]);
         }
         if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
-            throw new AccessDeniedException(relativePath, null, "Неподдерживаемый тип файла");
+            throw new AccessDeniedException(relativePath, null, "Unsupported file type");
         }
         byte[] bytes = readLimited(target);
         return entry(target, EntryType.FILE, bytes);
@@ -139,7 +139,7 @@ final class WorkspaceFileService {
     synchronized FileContent read(String relativePath) throws IOException {
         Path target = resolveExisting(relativePath);
         if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
-            throw new AccessDeniedException(relativePath, null, "Это не обычный файл");
+            throw new AccessDeniedException(relativePath, null, "The path is not a regular file");
         }
         byte[] bytes = readLimited(target);
         FileEntry entry = entry(target, EntryType.FILE, bytes);
@@ -164,7 +164,7 @@ final class WorkspaceFileService {
         Objects.requireNonNull(expectedRevision, "expectedRevision");
         byte[] bytes = content.clone();
         if (bytes.length > maxFileBytes) {
-            throw new AccessDeniedException(relativePath, null, "Файл превышает лимит размера");
+            throw new AccessDeniedException(relativePath, null, "The file exceeds the size limit");
         }
 
         Path target = resolveForWrite(relativePath);
@@ -173,7 +173,7 @@ final class WorkspaceFileService {
         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
             if (Files.isSymbolicLink(target)
                     || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
-                throw new AccessDeniedException(relativePath, null, "Это не обычный файл");
+                throw new AccessDeniedException(relativePath, null, "The path is not a regular file");
             }
             actualRevision = revision(readLimited(target));
         }
@@ -235,7 +235,7 @@ final class WorkspaceFileService {
         Path source = resolveExisting(sourcePath);
         Path destination = resolveForWrite(destinationPath);
         if (destination.startsWith(source)) {
-            throw new AccessDeniedException(destinationPath, null, "Нельзя переместить папку в саму себя");
+            throw new AccessDeniedException(destinationPath, null, "A directory cannot be moved into itself");
         }
         ensureExistingParent(destination);
         if (Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) {
@@ -259,7 +259,7 @@ final class WorkspaceFileService {
         Path source = resolveExisting(sourcePath);
         Path destination = resolveForWrite(destinationPath);
         if (destination.startsWith(source)) {
-            throw new AccessDeniedException(destinationPath, null, "Нельзя копировать папку в саму себя");
+            throw new AccessDeniedException(destinationPath, null, "A directory cannot be copied into itself");
         }
         ensureExistingParent(destination);
         if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
@@ -280,7 +280,7 @@ final class WorkspaceFileService {
         try (Stream<Path> paths = Files.walk(source)) {
             for (Path current : paths.toList()) {
                 if (Files.isSymbolicLink(current)) {
-                    throw new AccessDeniedException(relative(current), null, "Символические ссылки запрещены");
+                    throw new AccessDeniedException(relative(current), null, "Symbolic links are not allowed");
                 }
                 verifyRealContainment(current);
                 Path target = destination.resolve(source.relativize(current));
@@ -316,7 +316,7 @@ final class WorkspaceFileService {
     private byte[] readLimited(Path target) throws IOException {
         long size = Files.size(target);
         if (size > maxFileBytes) {
-            throw new AccessDeniedException(relative(target), null, "Файл превышает лимит размера");
+            throw new AccessDeniedException(relative(target), null, "The file exceeds the size limit");
         }
         return Files.readAllBytes(target);
     }
@@ -327,7 +327,7 @@ final class WorkspaceFileService {
             throw new NoSuchFileException(relativePath);
         }
         if (Files.isSymbolicLink(target)) {
-            throw new AccessDeniedException(relativePath, null, "Символические ссылки запрещены");
+            throw new AccessDeniedException(relativePath, null, "Symbolic links are not allowed");
         }
         verifyRealContainment(target);
         return target;
@@ -340,7 +340,7 @@ final class WorkspaceFileService {
             cursor = cursor.getParent();
         }
         if (cursor == null || Files.isSymbolicLink(cursor)) {
-            throw new AccessDeniedException(relativePath, null, "Небезопасный путь");
+            throw new AccessDeniedException(relativePath, null, "Unsafe path");
         }
         verifyRealContainment(cursor);
         return target;
@@ -348,20 +348,20 @@ final class WorkspaceFileService {
 
     private Path resolveLexically(String relativePath) throws IOException {
         if (relativePath == null || relativePath.isBlank() || relativePath.indexOf('\0') >= 0) {
-            throw new IOException("Путь внутри kubejs обязателен");
+            throw new IOException("A path inside kubejs is required");
         }
         Path supplied;
         try {
             supplied = Path.of(relativePath.replace('/', root.getFileSystem().getSeparator().charAt(0)));
         } catch (RuntimeException exception) {
-            throw new IOException("Некорректный путь", exception);
+            throw new IOException("Invalid path", exception);
         }
         if (supplied.isAbsolute()) {
-            throw new AccessDeniedException(relativePath, null, "Абсолютные пути запрещены");
+            throw new AccessDeniedException(relativePath, null, "Absolute paths are not allowed");
         }
         Path target = root.resolve(supplied).normalize();
         if (target.equals(root) || !target.startsWith(root)) {
-            throw new AccessDeniedException(relativePath, null, "Путь выходит за пределы kubejs");
+            throw new AccessDeniedException(relativePath, null, "The path escapes the kubejs workspace");
         }
         return target;
     }
@@ -369,10 +369,10 @@ final class WorkspaceFileService {
     private void ensureExistingParent(Path target) throws IOException {
         Path parent = target.getParent();
         if (parent == null || !Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS)) {
-            throw new NoSuchFileException(relative(target), null, "Родительская папка не существует");
+            throw new NoSuchFileException(relative(target), null, "The parent directory does not exist");
         }
         if (Files.isSymbolicLink(parent)) {
-            throw new AccessDeniedException(relative(target), null, "Символические ссылки запрещены");
+            throw new AccessDeniedException(relative(target), null, "Symbolic links are not allowed");
         }
         verifyRealContainment(parent);
     }
@@ -380,7 +380,7 @@ final class WorkspaceFileService {
     private void verifyRealContainment(Path path) throws IOException {
         Path real = path.toRealPath();
         if (!real.startsWith(root)) {
-            throw new AccessDeniedException(path.toString(), null, "Путь выходит за пределы kubejs");
+            throw new AccessDeniedException(path.toString(), null, "The path escapes the kubejs workspace");
         }
     }
 

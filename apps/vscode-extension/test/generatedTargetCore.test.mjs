@@ -48,6 +48,17 @@ test('не пропускает путь через имя генерируем�
   assert.equal(safeGeneratedSegment('../outside', 'loot_rule'), 'loot_rule');
 });
 
+test('создаёт читаемые канонические имена файлов без hash-хвоста', () => {
+  assert.equal(
+    generatedArtifactStem('kubevs:iron_ingot_from_smelting_iron_ore', 'recipe'),
+    'iron_ingot_from_smelting_iron_ore',
+  );
+  assert.equal(
+    generatedArtifactStem('create:pressing/iron_sheet', 'recipe'),
+    'create--pressing__iron_sheet',
+  );
+});
+
 test('не сталкивает namespace и похожие пути в одном generated-файле', () => {
   assert.notEqual(
     generatedArtifactStem('create:foo/bar', 'recipe'),

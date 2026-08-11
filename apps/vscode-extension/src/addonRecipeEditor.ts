@@ -224,7 +224,7 @@ function addonRecipeEditorHtml(
     </nav>
     <section class="workspace">
       <div class="fields">
-        <label>ID рецепта<span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="mini" type="button">Изменить</button></span><span class="help">Создаётся автоматически; короткий отпечаток отличает альтернативные рецепты.</span></label>
+        <label>ID рецепта<span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="mini" type="button">Изменить</button></span><span class="help">Формируется из результата, процесса и основного ингредиента.</span></label>
         <label>Тип машины<input id="selectedType" value="create:pressing" readonly></label>
       </div>
       <div class="section">
@@ -358,30 +358,22 @@ function addonRecipeEditorHtml(
       const next = ++revision;
       vscode.postMessage({ type: 'preview', revision: next, draft: draft() });
     }
+    function canonicalPart(value, fallback) {
+      const match = /^#?([a-z0-9_.-]+):([a-z0-9_./-]+)/.exec(value.trim());
+      if (!match) return fallback;
+      const path = match[2].replaceAll('/', '_');
+      return match[1] === 'minecraft' ? path : match[1] + '_' + path;
+    }
     function updateRecipeId() {
       if (!recipeIdAutomatic) return;
       readRows();
       const output = outputsEl.querySelector('[data-field="item"]')?.value.trim() || outputs[0]?.item || '';
-      const match = /^([a-z0-9_.-]+):([a-z0-9_./-]+)$/.exec(output);
-      const outputPart = match ? (match[1] + '_' + match[2]).replaceAll('/', '_') : 'new_recipe';
-      const signature = JSON.stringify({
-        type: recipeType,
-        ingredients: document.getElementById('ingredients').value.split(/\\r?\\n/).map(value => value.trim()).filter(Boolean),
-        fluidInputs,
-        outputs,
-        fluidOutputs,
-        steps,
-        heat: document.getElementById('heat').value,
-      });
-      recipeId.value = 'kubevs:' + outputPart + '_' + recipeType.replace(':', '_') + '_' + shortHash(signature);
-    }
-    function shortHash(value) {
-      let hash = 2166136261;
-      for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-      }
-      return (hash >>> 0).toString(36).padStart(6, '0').slice(-6);
+      const ingredients = document.getElementById('ingredients').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+      const primaryIngredient = ingredients[0] || fluidInputs[0]?.fluid || '';
+      const outputPart = canonicalPart(output, 'new_recipe');
+      const inputPart = canonicalPart(primaryIngredient, 'material');
+      const processPart = recipeType.split(':').at(-1).replaceAll('/', '_');
+      recipeId.value = 'kubevs:' + outputPart + '_from_' + processPart + '_' + inputPart;
     }
     function applyIcon(input, icon, source) {
       icon.hidden = !source;

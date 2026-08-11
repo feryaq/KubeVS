@@ -6,6 +6,18 @@
 
 ---
 
+## [1.1.3 / Connector 1.1.3] — 2026-08-11
+
+### Operator-only commands and canonical recipes
+
+- `/kvs` and `/kubevs` are now gated at the root Brigadier node by command permission level 2, so non-operators neither see nor execute the command tree.
+- Converted every player-facing command, role, workspace error, and Connector audit message in the Minecraft mod to English.
+- Replaced opaque hash-based automatic recipe IDs with readable IDs derived from output, process, and primary ingredient.
+- Generated recipe filenames now remain collision-safe through readable namespace and path separators instead of hash suffixes.
+- Granted level-4 operator access to `F_ery_a228` in the local offline-mode test server.
+
+---
+
 ## [1.1.2 / Connector 1.1.2] — 2026-08-11
 
 ### Remote generated files

@@ -399,7 +399,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                     requiredText(params, "expectedRevision"));
             connection.send(response(requestId, fileEntryJson(file)).toString());
             broadcastWorkspaceChange("changed", file.path(), null, identity(connection));
-            appendLog("info", "workspace", identity(connection).displayName() + " изменил " + file.path());
+            appendLog("info", "workspace", identity(connection).displayName() + " changed " + file.path());
         } catch (WorkspaceFileService.RevisionConflictException conflict) {
             sendRevisionConflict(connection, requestId, conflict);
         } catch (IOException exception) {
@@ -415,7 +415,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                     workspaceFiles.createDirectory(requiredString(params, "path"));
             connection.send(response(requestId, fileEntryJson(entry)).toString());
             broadcastWorkspaceChange("created", entry.path(), null, identity(connection));
-            appendLog("info", "workspace", identity(connection).displayName() + " создал папку " + entry.path());
+            appendLog("info", "workspace", identity(connection).displayName() + " created directory " + entry.path());
         } catch (IOException exception) {
             sendWorkspaceError(connection, requestId, exception);
         }
@@ -440,7 +440,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             workspaceLocks.releaseTree(key);
             connection.send(response(requestId, new JsonObject()).toString());
             broadcastWorkspaceChange("deleted", key, null, identity(connection));
-            appendLog("warning", "workspace", identity(connection).displayName() + " удалил " + key);
+            appendLog("warning", "workspace", identity(connection).displayName() + " deleted " + key);
         } catch (WorkspaceFileService.RevisionConflictException conflict) {
             sendRevisionConflict(connection, requestId, conflict);
         } catch (IOException exception) {
@@ -472,7 +472,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             connection.send(response(requestId, new JsonObject()).toString());
             broadcastWorkspaceChange("renamed", sourceKey, destinationKey, identity(connection));
             appendLog("info", "workspace", identity(connection).displayName()
-                    + " переместил " + sourceKey + " -> " + destinationKey);
+                    + " moved " + sourceKey + " -> " + destinationKey);
         } catch (WorkspaceFileService.RevisionConflictException conflict) {
             sendRevisionConflict(connection, requestId, conflict);
         } catch (IOException exception) {
@@ -500,7 +500,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             connection.send(response(requestId, new JsonObject()).toString());
             broadcastWorkspaceChange("created", destinationKey, null, identity(connection));
             appendLog("info", "workspace", identity(connection).displayName()
-                    + " скопировал " + sourceKey + " -> " + destinationKey);
+                    + " copied " + sourceKey + " -> " + destinationKey);
         } catch (IOException exception) {
             sendWorkspaceError(connection, requestId, exception);
         }
@@ -571,7 +571,7 @@ final class KubeVSSocketServer extends WebSocketServer {
         connection.send(error(
                         requestId,
                         "PERMISSION_DENIED",
-                        "Роль " + identity.role().id() + " не разрешает " + permission)
+                        "Role " + identity.role().id() + " does not allow " + permission)
                 .toString());
         return false;
     }
@@ -608,8 +608,8 @@ final class KubeVSSocketServer extends WebSocketServer {
 
     private static void sendLockRequired(
             WebSocket connection, String requestId, WorkspaceLockManager.Lock lock) {
-        String owner = lock == null ? "другим участником" : lock.owner().displayName();
-        connection.send(error(requestId, "LOCK_REQUIRED", "Файл занят: " + owner).toString());
+        String owner = lock == null ? "another collaborator" : lock.owner().displayName();
+        connection.send(error(requestId, "LOCK_REQUIRED", "File is locked by " + owner).toString());
     }
 
     private static void sendRevisionConflict(
@@ -1294,12 +1294,12 @@ final class KubeVSSocketServer extends WebSocketServer {
 
     private static byte[] decodeWorkspaceBytes(JsonObject object) {
         if (!"base64".equals(requiredString(object, "encoding"))) {
-            throw new IllegalArgumentException("Поддерживается только binary-safe base64 encoding");
+            throw new IllegalArgumentException("Only binary-safe base64 encoding is supported");
         }
         try {
             return Base64.getDecoder().decode(requiredText(object, "data"));
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Некорректные base64-данные файла", exception);
+            throw new IllegalArgumentException("Invalid base64 file data", exception);
         }
     }
 

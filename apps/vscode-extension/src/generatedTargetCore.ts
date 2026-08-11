@@ -39,13 +39,13 @@ export function safeGeneratedSegment(value: string, fallback: string): string {
 
 export function generatedArtifactStem(resourceId: string, fallbackName: string): string {
   const normalized = resourceId.trim().toLocaleLowerCase('en');
-  const readable = normalized
-    .replace(':', '__')
-    .replaceAll('/', '_')
-    .replace(/[^\p{L}\p{N}_.-]/gu, '_')
-    .slice(0, 96);
-  const safe = safeGeneratedSegment(readable, fallbackName);
-  const hash = createHash('sha256').update(normalized).digest('hex').slice(0, 10);
-  return `${safe}__${hash}`;
+  const match = /^([a-z0-9_.-]+):([a-z0-9_./-]+)$/u.exec(normalized);
+  if (!match) return fallbackName;
+
+  const namespace = match[1];
+  const recipePath = match[2];
+  if (!namespace || !recipePath) return fallbackName;
+  const readablePath = recipePath.replaceAll('/', '__').slice(0, 96);
+  const readable = namespace === 'kubevs' ? readablePath : `${namespace}--${readablePath}`;
+  return safeGeneratedSegment(readable, fallbackName);
 }
-import { createHash } from 'node:crypto';

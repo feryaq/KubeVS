@@ -1,4 +1,4 @@
 {
-  "block.kubevs.debug_block": "Отладочный блок KubeVS",
-  "item.kubevs.debug_item": "Отладочный предмет KubeVS"
+  "block.kubevs.debug_block": "KubeVS Debug Block",
+  "item.kubevs.debug_item": "KubeVS Debug Item"
 }

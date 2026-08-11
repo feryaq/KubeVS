@@ -271,7 +271,7 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
   <main>
     <aside>
       <h2>Параметры рецепта</h2>
-      <label>ID рецепта <span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="pick" type="button">Изменить</button></span><span class="hint">Создаётся автоматически; короткий отпечаток отличает альтернативные рецепты.</span></label>
+      <label>ID рецепта <span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="pick" type="button">Изменить</button></span><span class="hint">Формируется из результата, процесса и основного ингредиента.</span></label>
       <div class="row">
         <label>Результат <span class="picker has-icon"><img id="outputIcon" class="item-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="output" value="minecraft:diamond" spellcheck="false"><button id="pickOutput" class="pick" type="button" title="Найти предмет по имени или ID">⌕</button></span></label>
         <label>Кол-во <input id="count" type="number" min="1" max="64" value="1"></label>
@@ -329,20 +329,19 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
       pendingPicks.set(requestId, {input, icon});
       vscode.postMessage({type:'pickRegistry',requestId,registry:'minecraft:item',includeTags,current:input.value,title:'KubeVS — выберите предмет или тег'});
     }
+    function canonicalPart(value, fallback) {
+      const match = /^#?([a-z0-9_.-]+):([a-z0-9_./-]+)/.exec(value.trim());
+      if (!match) return fallback;
+      const path = match[2].replaceAll('/', '_');
+      return match[1] === 'minecraft' ? path : match[1] + '_' + path;
+    }
     function updateRecipeId() {
       if (!recipeIdAutomatic) return;
-      const match = /^([a-z0-9_.-]+):([a-z0-9_./-]+)$/.exec(output.value.trim());
-      const base = match ? (match[1] + '_' + match[2]).replaceAll('/', '_') : 'new_recipe';
-      const signature = JSON.stringify({kind, output: output.value.trim(), count: count.value, slots: slots.map(slot => slot.value.trim())});
-      recipeId.value = 'kubevs:' + base + '_' + kind + '_' + shortHash(signature);
-    }
-    function shortHash(value) {
-      let hash = 2166136261;
-      for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-      }
-      return (hash >>> 0).toString(36).padStart(6, '0').slice(-6);
+      const outputPart = canonicalPart(output.value, 'new_recipe');
+      const primaryIngredient = slots.map(slot => slot.value.trim()).find(Boolean) || '';
+      const inputPart = canonicalPart(primaryIngredient, 'material');
+      const processPart = kind === 'shaped' || kind === 'shapeless' ? '' : kind + '_';
+      recipeId.value = 'kubevs:' + outputPart + '_from_' + processPart + inputPart;
     }
     function iconFor(input) {
       return input === output ? outputIcon : input.closest('.slot-frame')?.querySelector('.slot-icon');

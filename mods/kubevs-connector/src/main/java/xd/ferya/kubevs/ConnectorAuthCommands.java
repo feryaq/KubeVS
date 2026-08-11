@@ -20,6 +20,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 
 final class ConnectorAuthCommands {
+    private static final int OP_PERMISSION_LEVEL = 2;
     private static final int ADMIN_PERMISSION_LEVEL = 4;
     private static final ChatFormatting BRAND = ChatFormatting.AQUA;
     private static final ChatFormatting LABEL = ChatFormatting.GRAY;
@@ -44,6 +45,7 @@ final class ConnectorAuthCommands {
             Supplier<ConnectorConfig> configSupplier,
             Supplier<KubeVSSocketServer> serverSupplier) {
         return literal(root)
+                .requires(source -> source.hasPermission(OP_PERMISSION_LEVEL))
                 .executes(context -> showStatus(
                         context.getSource(), configSupplier.get(), serverSupplier.get()))
                 .then(literal("join").executes(context -> join(
@@ -108,40 +110,40 @@ final class ConnectorAuthCommands {
                         .append(Component.literal("  ONLINE").withStyle(SUCCESS, ChatFormatting.BOLD)),
                 false);
         source.sendSuccess(
-                () -> Component.literal("Адрес  ")
+                () -> Component.literal("Address  ")
                         .withStyle(LABEL)
                         .append(Component.literal(config.publicHost() + ":" + config.publicPort())
                                 .withStyle(VALUE))
-                        .append(Component.literal("    Клиенты VS Code  ").withStyle(MUTED))
+                        .append(Component.literal("    VS Code clients  ").withStyle(MUTED))
                         .append(Component.literal(Integer.toString(server.connectedClientCount()))
                                 .withStyle(server.connectedClientCount() > 0 ? SUCCESS : VALUE)),
                 false);
 
         if (!source.hasPermission(ADMIN_PERMISSION_LEVEL)) {
             source.sendSuccess(
-                    () -> Component.literal("Подключить VS Code  ")
+                    () -> Component.literal("Connect VS Code  ")
                             .withStyle(LABEL)
-                            .append(commandHint("/kvs join", "Создать личный код подключения")),
+                            .append(commandHint("/kvs join", "Create a personal connection code")),
                     false);
             return 1;
         }
 
         source.sendSuccess(
-                () -> Component.literal("Аккаунты  ")
+                () -> Component.literal("Accounts  ")
                         .withStyle(LABEL)
                         .append(Component.literal(Integer.toString(config.playerTokens().size()))
                                 .withStyle(VALUE))
                         .append(Component.literal("    "))
                         .append(actionButton(
-                                "[Управление]",
+                                "[Manage]",
                                 BRAND,
                                 ClickEvent.Action.RUN_COMMAND,
                                 "/kvs users",
-                                "Открыть список ролей и доступов")),
+                                "Open roles and access")),
                 false);
         if (source.getEntity() instanceof ServerPlayer) {
             source.sendSuccess(
-                    () -> Component.literal("Администратор  ")
+                    () -> Component.literal("Administrator  ")
                             .withStyle(LABEL)
                             .append(copyAccessButton(config, server.authenticationToken()))
                             .append(Component.literal("    "))
@@ -149,7 +151,7 @@ final class ConnectorAuthCommands {
                     false);
         } else {
             source.sendSuccess(
-                    () -> Component.literal("Админ-токен  ")
+                    () -> Component.literal("Admin token  ")
                             .withStyle(LABEL)
                             .append(Component.literal(config.tokenFile().toAbsolutePath().normalize().toString())
                                     .withStyle(VALUE)),
@@ -163,14 +165,14 @@ final class ConnectorAuthCommands {
         if (!isRunning(config, server, source)) return 0;
         if (!(source.getEntity() instanceof ServerPlayer player)) {
             source.sendFailure(Component.literal(
-                    "/kvs join работает только для игрока. В консоли используйте админ-токен из "
+                    "/kvs join is player-only. From the console, use the admin token stored in "
                             + config.tokenFile()));
             return 0;
         }
         if (!source.hasPermission(config.joinPermissionLevel())) {
             source.sendFailure(Component.literal(
-                    "Недостаточно прав: нужен уровень команд " + config.joinPermissionLevel()
-                            + ". Обратитесь к администратору сервера."));
+                    "Insufficient permission: command level " + config.joinPermissionLevel()
+                            + " is required. Contact a server administrator."));
             return 0;
         }
 
@@ -179,40 +181,40 @@ final class ConnectorAuthCommands {
                     player.getUUID(),
                     player.getGameProfile().getName(),
                     config.defaultJoinRole());
-            server.disconnectPlayer(player.getUUID(), "Выдан новый токен KubeVS");
+            server.disconnectPlayer(player.getUUID(), "A new KubeVS token was issued");
             source.sendSuccess(
-                    () -> Component.literal("ДОСТУП KUBEVS ГОТОВ")
+                    () -> Component.literal("KUBEVS ACCESS READY")
                             .withStyle(SUCCESS, ChatFormatting.BOLD),
                     false);
             source.sendSuccess(
-                    () -> Component.literal("Аккаунт  ")
+                    () -> Component.literal("Account  ")
                             .withStyle(LABEL)
                             .append(Component.literal(credential.playerName()).withStyle(VALUE))
-                            .append(Component.literal("    Роль  ").withStyle(MUTED))
+                            .append(Component.literal("    Role  ").withStyle(MUTED))
                             .append(Component.literal(credential.role().displayName())
                                     .withStyle(roleColor(credential.role()), ChatFormatting.BOLD)),
                     false);
             source.sendSuccess(
-                    () -> Component.literal("1. Скопируйте код  ")
+                    () -> Component.literal("1. Copy the code  ")
                             .withStyle(LABEL)
                             .append(copyAccessButton(config, credential.token())),
                     false);
             source.sendSuccess(
-                    () -> Component.literal("2. В VS Code откройте  ")
+                    () -> Component.literal("2. In VS Code, run  ")
                             .withStyle(LABEL)
                             .append(Component.literal("KubeVS: Connect with /kvs join code")
                                     .withStyle(BRAND)),
                     false);
             source.sendSuccess(
                     () -> Component.literal(
-                                    "Код приватный и показывается один раз. Новый /kvs join отключит старую сессию.")
+                                    "This private code is shown once. Running /kvs join again disconnects the previous session.")
                             .withStyle(MUTED),
                     false);
             return 1;
         } catch (IOException exception) {
             source.sendFailure(Component.literal(
-                    "Не удалось создать код KubeVS: " + exception.getMessage()
-                            + ". Повторите /kvs join или сообщите администратору."));
+                    "Could not create a KubeVS code: " + exception.getMessage()
+                            + ". Run /kvs join again or contact an administrator."));
             return 0;
         }
     }
@@ -223,16 +225,16 @@ final class ConnectorAuthCommands {
         var accounts = config.playerTokens().list();
         if (accounts.isEmpty()) {
             source.sendSuccess(
-                    () -> Component.literal("Аккаунтов пока нет. Игрок создаёт доступ командой ")
+                    () -> Component.literal("No player accounts yet. A player can create one with ")
                             .withStyle(LABEL)
-                            .append(commandHint("/kvs join", "Создать личный код подключения")),
+                            .append(commandHint("/kvs join", "Create a personal connection code")),
                     false);
             return 1;
         }
         source.sendSuccess(
                 () -> Component.literal("KubeVS")
                         .withStyle(BRAND, ChatFormatting.BOLD)
-                        .append(Component.literal("  ДОСТУПЫ  ").withStyle(VALUE, ChatFormatting.BOLD))
+                        .append(Component.literal("  ACCESS  ").withStyle(VALUE, ChatFormatting.BOLD))
                         .append(Component.literal(Integer.toString(accounts.size())).withStyle(SUCCESS)),
                 false);
         for (PlayerTokenStore.Account account : accounts) {
@@ -244,18 +246,18 @@ final class ConnectorAuthCommands {
                                     .withStyle(roleColor(account.role()), ChatFormatting.BOLD))
                             .append(Component.literal("    "))
                             .append(actionButton(
-                                    "[Изменить роль]",
+                                    "[Change role]",
                                     BRAND,
                                     ClickEvent.Action.SUGGEST_COMMAND,
                                     "/kvs role " + account.playerName() + " ",
-                                    "Выбрать viewer, editor, operator или admin"))
+                                    "Choose viewer, editor, operator, or admin"))
                             .append(Component.literal("  "))
                             .append(actionButton(
-                                    "[Отозвать]",
+                                    "[Revoke]",
                                     DANGER,
                                     ClickEvent.Action.SUGGEST_COMMAND,
                                     "/kvs revoke " + account.playerName(),
-                                    "Отключить сессию и удалить токен")),
+                                    "Disconnect the session and delete its token")),
                     false);
         }
         return 1;
@@ -274,18 +276,18 @@ final class ConnectorAuthCommands {
                     config.playerTokens().setRole(playerName, role).orElse(null);
             if (account == null) {
                 source.sendFailure(Component.literal(
-                        "Аккаунт " + playerName + " не найден. Проверьте имя через /kvs users; игрок может создать доступ командой /kvs join."));
+                        "Account " + playerName + " was not found. Check /kvs users; the player can create access with /kvs join."));
                 return 0;
             }
-            server.disconnectPlayer(account.playerId(), "Роль KubeVS изменена");
+            server.disconnectPlayer(account.playerId(), "KubeVS role changed");
             source.sendSuccess(
-                    () -> Component.literal("Роль обновлена: " + account.playerName() + "  ")
+                    () -> Component.literal("Role updated: " + account.playerName() + "  ")
                             .withStyle(SUCCESS, ChatFormatting.BOLD)
                             .append(Component.literal(role.displayName()).withStyle(roleColor(role))),
                     true);
             return 1;
         } catch (IllegalArgumentException | IOException exception) {
-            source.sendFailure(Component.literal("Не удалось изменить роль: " + exception.getMessage() + ". Проверьте имя и роль через /kvs users."));
+            source.sendFailure(Component.literal("Could not change the role: " + exception.getMessage() + ". Check the player name and role with /kvs users."));
             return 0;
         }
     }
@@ -301,19 +303,19 @@ final class ConnectorAuthCommands {
                 .findFirst()
                 .orElse(null);
         if (account == null) {
-            source.sendFailure(Component.literal("Аккаунт " + playerName + " не найден. Проверьте имя через /kvs users."));
+            source.sendFailure(Component.literal("Account " + playerName + " was not found. Check the player name with /kvs users."));
             return 0;
         }
         try {
             config.playerTokens().revoke(account.playerId());
-            server.disconnectPlayer(account.playerId(), "Доступ KubeVS отозван");
+            server.disconnectPlayer(account.playerId(), "KubeVS access revoked");
             source.sendSuccess(
-                    () -> Component.literal("Доступ отозван: " + account.playerName())
+                    () -> Component.literal("Access revoked: " + account.playerName())
                             .withStyle(SUCCESS, ChatFormatting.BOLD),
                     true);
             return 1;
         } catch (IOException exception) {
-            source.sendFailure(Component.literal("Не удалось отозвать доступ: " + exception.getMessage() + ". Повторите команду или проверьте файл аккаунтов."));
+            source.sendFailure(Component.literal("Could not revoke access: " + exception.getMessage() + ". Run the command again or check the account file."));
             return 0;
         }
     }
@@ -323,11 +325,11 @@ final class ConnectorAuthCommands {
         if (!isRunning(config, server, source)) return 0;
         if (!(source.getEntity() instanceof ServerPlayer)) {
             source.sendFailure(Component.literal(
-                    "Секрет не выводится в консоль. Скопируйте админ-токен из файла " + config.tokenFile()));
+                    "Secrets are not printed to the console. Copy the admin token from " + config.tokenFile()));
             return 0;
         }
         source.sendSuccess(
-                () -> Component.literal("Админ-доступ  ")
+                () -> Component.literal("Admin access  ")
                         .withStyle(LABEL)
                         .append(copyAccessButton(config, server.authenticationToken())),
                 false);
@@ -336,9 +338,9 @@ final class ConnectorAuthCommands {
 
     private static int requestRotation(CommandSourceStack source, String root) {
         source.sendSuccess(
-                () -> Component.literal("Смена токена отключит все админ-сессии. ")
+                () -> Component.literal("Rotating the token disconnects every admin session. ")
                         .withStyle(WARNING)
-                        .append(Component.literal("[Подтвердить смену]").withStyle(style -> style
+                        .append(Component.literal("[Confirm rotation]").withStyle(style -> style
                                 .withColor(DANGER)
                                 .withBold(true)
                                 .withClickEvent(new ClickEvent(
@@ -346,7 +348,7 @@ final class ConnectorAuthCommands {
                                         "/" + root + " auth rotate confirm"))
                                 .withHoverEvent(new HoverEvent(
                                         HoverEvent.Action.SHOW_TEXT,
-                                        Component.literal("Отключить текущие админ-сессии и создать новый токен"))))),
+                                        Component.literal("Disconnect current admin sessions and create a new token"))))),
                 false);
         return 1;
     }
@@ -358,17 +360,17 @@ final class ConnectorAuthCommands {
             String token = TokenStore.rotate(config.tokenFile());
             server.replaceAuthenticationToken(token);
             source.sendSuccess(
-                    () -> Component.literal("Админ-токен обновлён  ")
+                    () -> Component.literal("Admin token rotated  ")
                             .withStyle(SUCCESS, ChatFormatting.BOLD)
                             .append(source.getEntity() instanceof ServerPlayer
                                     ? copyAccessButton(config, token)
-                                    : Component.literal("Файл: " + config.tokenFile())
+                                    : Component.literal("File: " + config.tokenFile())
                                             .withStyle(VALUE)),
                     false);
             return 1;
         } catch (IOException exception) {
             source.sendFailure(Component.literal(
-                    "Не удалось обновить админ-токен: " + exception.getMessage() + ". Проверьте права записи для " + config.tokenFile()));
+                    "Could not rotate the admin token: " + exception.getMessage() + ". Check write access to " + config.tokenFile()));
             return 0;
         }
     }
@@ -380,23 +382,23 @@ final class ConnectorAuthCommands {
         String code = "kubevs://" + host + ":" + config.publicPort()
                 + "?token=" + token
                 + (config.advertisedSecure() ? "&secure=true" : "");
-        return Component.literal("[Скопировать код]").withStyle(style -> style
+        return Component.literal("[Copy code]").withStyle(style -> style
                 .withColor(BRAND)
                 .withBold(true)
                 .withUnderlined(true)
                 .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, code))
                 .withHoverEvent(new HoverEvent(
                         HoverEvent.Action.SHOW_TEXT,
-                        Component.literal("Скопировать приватный код для команды VS Code: KubeVS: Connect with /kvs join code"))));
+                        Component.literal("Copy the private code for VS Code: KubeVS: Connect with /kvs join code"))));
     }
 
     private static MutableComponent rotateButton() {
-        return Component.literal("[Сменить токен]").withStyle(style -> style
+        return Component.literal("[Rotate token]").withStyle(style -> style
                 .withColor(WARNING)
                 .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/kvs auth rotate"))
                 .withHoverEvent(new HoverEvent(
                         HoverEvent.Action.SHOW_TEXT,
-                        Component.literal("Создать новый токен после отдельного подтверждения"))));
+                        Component.literal("Create a new token after confirmation"))));
     }
 
     private static MutableComponent commandHint(String command, String hoverText) {
@@ -434,7 +436,7 @@ final class ConnectorAuthCommands {
     private static boolean isRunning(
             ConnectorConfig config, KubeVSSocketServer server, CommandSourceStack source) {
         if (Objects.nonNull(config) && Objects.nonNull(server)) return true;
-        source.sendFailure(Component.literal("KubeVS Connector недоступен. Проверьте запуск сервера и config/kubevs-connector.toml."));
+        source.sendFailure(Component.literal("KubeVS Connector is unavailable. Check the server and config/kubevs-connector.toml."));
         return false;
     }
 }

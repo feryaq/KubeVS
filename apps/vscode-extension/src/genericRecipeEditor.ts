@@ -341,7 +341,7 @@ function genericRecipeEditorHtml(
           <div class="muted" id="schemaDescription"></div>
           <div class="origin" id="schemaOrigin"></div>
         </div>
-        <label class="field"><span class="field-label">ID рецепта</span><span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false" placeholder="namespace:recipe_id"><button id="editRecipeId" type="button">Изменить</button></span><span class="field-help">Создаётся автоматически; короткий отпечаток отличает альтернативные рецепты.</span></label>
+        <label class="field"><span class="field-label">ID рецепта</span><span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false" placeholder="namespace:recipe_id"><button id="editRecipeId" type="button">Изменить</button></span><span class="field-help">Формируется из результата, процесса и основного ингредиента.</span></label>
         <div>
           <h2>Schema library</h2>
           <div class="toolbar">
@@ -425,27 +425,26 @@ function genericRecipeEditorHtml(
       }
       return values;
     }
+    function canonicalPart(value, fallback) {
+      const match = typeof value === 'string' ? /^#?([a-z0-9_.-]+):([a-z0-9_./-]+)/.exec(value.trim()) : undefined;
+      if (!match) return fallback;
+      const path = match[2].replaceAll('/', '_');
+      return match[1] === 'minecraft' ? path : match[1] + '_' + path;
+    }
+    function firstValue(value) {
+      return Array.isArray(value) ? value.find(Boolean) : value;
+    }
     function updateRecipeId() {
       if (!recipeIdAutomatic) return;
       const entry = selectedEntry();
       if (!entry) return;
       const values = currentValues();
       const outputField = entry.schema.fields.find(field => /(^|\\.)(result|results|output|outputs)(\\.|$)/i.test(field.path));
-      const raw = outputField ? values[outputField.path] : '';
-      const candidate = Array.isArray(raw) ? raw.find(Boolean) : raw;
-      const match = typeof candidate === 'string' ? /^([a-z0-9_.-]+):([a-z0-9_./-]+)/.exec(candidate.trim()) : undefined;
+      const inputField = entry.schema.fields.find(field => /(^|\\.)(ingredient|ingredients|input|inputs)(\\.|$)/i.test(field.path));
       const schemaPart = entry.schema.id.replace(/^[^:]+:/, '').replace(/[^a-z0-9_.-]+/g, '_');
-      const outputPart = match ? (match[1] + '_' + match[2]).replaceAll('/', '_') : schemaPart;
-      const signature = JSON.stringify({schema: entry.schema.id, values});
-      recipeId.value = 'kubevs:' + outputPart + '_' + schemaPart + '_' + shortHash(signature);
-    }
-    function shortHash(value) {
-      let hash = 2166136261;
-      for (let index = 0; index < value.length; index++) {
-        hash ^= value.charCodeAt(index);
-        hash = Math.imul(hash, 16777619);
-      }
-      return (hash >>> 0).toString(36).padStart(6, '0').slice(-6);
+      const outputPart = canonicalPart(firstValue(outputField ? values[outputField.path] : ''), 'new_recipe');
+      const inputPart = canonicalPart(firstValue(inputField ? values[inputField.path] : ''), 'material');
+      recipeId.value = 'kubevs:' + outputPart + '_from_' + schemaPart + '_' + inputPart;
     }
     function saveState() {
       const entry = selectedEntry();
