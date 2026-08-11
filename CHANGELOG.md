@@ -6,6 +6,19 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ---
 
+## [1.1.11 / Connector 1.1.11] — 2026-08-12
+
+### Stable tag previews and easier graph nodes
+
+- **What:** Craft Graph tag nodes now keep their current member texture while the next one loads and show a clear tag fallback when Minecraft reports no members. Nodes have larger headers and item targets, bidirectional recipe controls, full-ID tooltips, keyboard movement, and a dynamically sized canvas for very large recipes.
+- **Where:** The VS Code Craft Graph webview, resource ledger, and generated-webview regression test.
+- **Why:** Clearing an image before its replacement arrived made valid tags appear broken, while requesting a tag ID as an item could never produce a texture. The compact nodes also hid useful interaction affordances.
+- **Was:** Tag previews flashed or stayed empty, base-resource tags had no visual identity, recipe alternatives only advanced forward, and keyboard users could not move nodes.
+
+The Connector version remains synchronized with the extension even though this release changes only the VS Code UI.
+
+---
+
 ## [1.1.10 / Connector 1.1.10] — 2026-08-11
 
 ### Clear free-product positioning
