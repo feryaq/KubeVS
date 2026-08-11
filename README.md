@@ -4,12 +4,14 @@
 
 KubeVS combines a Visual Studio Code extension with a secure NeoForge server bridge. Build recipes visually, browse the live Minecraft registry, understand production chains, and edit the server's KubeJS workspace without leaving your editor.
 
+**KubeVS is free to download and use. There are no subscriptions, paid features, license keys, or usage fees.**
+
 ## Release matrix
 
 | Component          | Version | Platform                                 |
 | ------------------ | ------: | ---------------------------------------- |
-| KubeVS Extension   |   1.1.9 | Visual Studio Code 1.105+                |
-| KubeVS Connector   |   1.1.9 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
+| KubeVS Extension   |  1.1.10 | Visual Studio Code 1.105+                |
+| KubeVS Connector   |  1.1.10 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
 | WebSocket protocol |       2 | Localhost-only by default                |
 
 ## What KubeVS gives you
@@ -27,8 +29,8 @@ KubeVS combines a Visual Studio Code extension with a secure NeoForge server bri
 
 ## Two-part installation
 
-1. Install `kubevs-1.1.9.vsix` in Visual Studio Code.
-2. Place `kubevs-connector-1.1.9.jar` in the NeoForge server's `mods` directory.
+1. Install `kubevs-1.1.10.vsix` in Visual Studio Code.
+2. Place `kubevs-connector-1.1.10.jar` in the NeoForge server's `mods` directory.
 3. Start Minecraft, run `/kvs join`, and paste the copied code into **KubeVS: Connect with /kvs join code**.
 
 The Modrinth download contains the Minecraft Connector JAR. The required VS Code extension is distributed through the [latest GitHub Release](https://github.com/Feryaq/KubeVS/releases/latest).
@@ -51,10 +53,10 @@ pnpm --filter kubevs-extension package:vsix
 
 Expected artifacts:
 
-- `apps/vscode-extension/kubevs-extension-1.1.9.vsix`
-- `mods/kubevs-connector/build/libs/kubevs-1.1.9.jar`
+- `apps/vscode-extension/kubevs-extension-1.1.10.vsix`
+- `mods/kubevs-connector/build/libs/kubevs-1.1.10.jar`
 
-Tagging a verified commit as `v1.1.9` runs the production release workflow and publishes only the VS Code extension VSIX to GitHub Releases. The Connector JAR remains distributed through Modrinth. Follow [the release checklist](docs/release-checklist.md).
+Tagging a verified commit as `v1.1.10` runs the production release workflow and publishes only the VS Code extension VSIX to GitHub Releases. The Connector JAR remains distributed through Modrinth. Follow [the release checklist](docs/release-checklist.md).
 
 ## Documentation
 
@@ -67,4 +69,4 @@ Tagging a verified commit as `v1.1.9` runs the production release workflow and p
 
 ## License
 
-KubeVS uses the friendly [KubeVS Community Source License 1.0](LICENSE). You may study, build, modify, commit, and submit pull requests. Contribution forks are allowed; independent forks, redistribution, and commercial products require written permission. Your generated KubeJS files remain yours. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+KubeVS is distributed under the [KubeVS Community Source License 1.0](LICENSE). Your generated KubeJS files remain yours. See the license for source-use and distribution terms, and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled components.

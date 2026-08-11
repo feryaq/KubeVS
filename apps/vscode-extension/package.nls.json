@@ -1,5 +1,5 @@
 {
-  "extension.description": "A professional KubeJS development environment inside Visual Studio Code.",
+  "extension.description": "A free KubeJS development environment inside Visual Studio Code.",
   "command.openDashboard": "Open Dashboard",
   "command.connect": "Connect to Minecraft",
   "command.connectWithCode": "Connect with /kvs join code",

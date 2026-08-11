@@ -50,8 +50,8 @@ professional production tool, not a demonstration prototype.
 
 The repository contains Extension Host tests, a NeoForge dedicated-server path, an authenticated
 WebSocket protocol, Vanilla and Generic Recipe Editors, custom schemas, and safe writes through
-native diffs. Commercial testimonials, pricing claims, and marketing proof are not available and
-must not be invented.
+native diffs. KubeVS is free to download and use. Product copy must never imply subscriptions, paid tiers,
+license keys, usage fees, or features locked behind payment.
 
 ## Product Principles
 

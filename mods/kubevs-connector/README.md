@@ -1,6 +1,8 @@
-# KubeVS Connector 1.1.9
+# KubeVS Connector 1.1.10
 
 KubeVS Connector is the secure NeoForge bridge between a Minecraft 1.21.1 server and the KubeVS Visual Studio Code extension.
+
+KubeVS is free to download and use. There are no subscriptions, paid features, license keys, or usage fees.
 
 It exposes live registries, recipes, tags, mods, and logs, then mounts the server's `kubejs` directory in VS Code with player roles, team locks, revision protection, and binary-safe file operations. The connected player's Minecraft language is sent to KubeVS so each editor session uses the matching English or Russian UI.
 

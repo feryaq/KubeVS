@@ -9,6 +9,8 @@ KubeVS is a two-part development environment for modpack authors and server deve
 
 The file downloaded from Modrinth is the **Connector JAR**. The VS Code extension is also required and is available from the [latest GitHub Release](https://github.com/Feryaq/KubeVS/releases/latest).
 
+**KubeVS is free to download and use. There are no subscriptions, paid features, license keys, or usage fees.**
+
 <!-- SCREENSHOT 01 — HERO
 Recommended: a wide 16:9 screenshot of the KubeVS Dashboard next to Minecraft.
 Replace this comment with: ![KubeVS Dashboard connected to Minecraft](YOUR_IMAGE_URL)
@@ -177,7 +179,7 @@ Custom recipe schemas make it possible to support additional modded recipe forma
 
 ## License
 
-KubeVS uses the [KubeVS Community Source License 1.0](https://github.com/Feryaq/KubeVS/blob/main/LICENSE). You may study, build, modify, commit, and contribute through pull requests. Contribution forks are allowed; independent redistribution and commercial products require written permission. Files generated for your own KubeJS projects remain yours.
+KubeVS is distributed under the [KubeVS Community Source License 1.0](https://github.com/Feryaq/KubeVS/blob/main/LICENSE). Files generated for your own KubeJS projects remain yours; see the license for source-use and distribution terms.
 
 ---
 

@@ -6,6 +6,19 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ---
 
+## [1.1.10 / Connector 1.1.10] — 2026-08-11
+
+### Clear free-product positioning
+
+- **What:** Every storefront and packaged extension description now states that KubeVS is free to download and use, with no subscriptions, paid features, license keys, usage fees, or payment-locked functionality.
+- **Where:** VS Code manifest localization and packaged README, root and Connector metadata, Modrinth listing, and product-copy guidance.
+- **Why:** Older copy focused on legal restrictions and retained language from an abandoned paid-product direction, which could make the current free release look like a limited tier.
+- **Was:** The VS Code listing called KubeVS a professional product and ended with distribution restrictions instead of clearly explaining that all shipped features are available without payment.
+
+The Community Source license itself remains unchanged. Public descriptions link to its terms without presenting legal restrictions as product pricing.
+
+---
+
 ## [1.1.9 / Connector 1.1.9] — 2026-08-11
 
 ### Repeatable release handoff
