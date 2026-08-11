@@ -34,23 +34,16 @@ export function openRecipeEditor(
       if (await handleRegistryIconMessage(value, panel.webview, registryCatalog)) return;
       if (!isRecipeEditorMessage(value)) return;
       try {
-        const recipe = importRecipeJson(value.recipeId.trim() || undefined, recipeJson(value));
-        const errors = recipe.issues.filter((issue) => issue.severity === 'error');
-        if (errors.length > 0) {
-          throw new Error(errors.map((issue) => issue.message).join(' '));
-        }
-        const code = wrapRecipe(generateKubeJs(recipe.recipe));
         if (value.type === 'preview') {
-          await panel.webview.postMessage({ type: 'preview', revision: value.revision, code });
+          await panel.webview.postMessage({
+            type: 'preview',
+            revision: value.revision,
+            code: vanillaRecipeCode(value),
+          });
           return;
         }
-        const target = await generatedCraftTarget(value.recipeId, 'minecraft:crafting', 'recipe');
-        if (
-          await writeFileWithDiff(context, target, code, {
-            diffTitle: 'KubeVS recipe: current ↔ proposed',
-            confirmation: `Replace ${vscode.workspace.asRelativePath(target)}? Review the open diff first.`,
-          })
-        ) {
+        const target = await saveVanillaRecipeDraft(context, value);
+        if (target) {
           await panel.webview.postMessage({
             type: 'saved',
             path: vscode.workspace.asRelativePath(target),
@@ -71,6 +64,30 @@ export function openRecipeEditor(
     context.subscriptions,
   );
   panel.webview.html = recipeEditorHtml(panel.webview, nonce);
+}
+
+export async function saveVanillaRecipeDraft(
+  context: vscode.ExtensionContext,
+  value: unknown,
+): Promise<vscode.Uri | undefined> {
+  if (!isRecipeEditorMessage(value) || value.type !== 'save') {
+    throw new Error('Invalid Vanilla recipe draft.');
+  }
+  const target = await generatedCraftTarget(value.recipeId, 'minecraft:crafting', 'recipe');
+  const written = await writeFileWithDiff(context, target, vanillaRecipeCode(value), {
+    diffTitle: 'KubeVS recipe: current ↔ proposed',
+    confirmation: `Replace ${vscode.workspace.asRelativePath(target)}? Review the open diff first.`,
+  });
+  return written ? target : undefined;
+}
+
+function vanillaRecipeCode(value: RecipeEditorMessage): string {
+  const recipe = importRecipeJson(value.recipeId.trim() || undefined, recipeJson(value));
+  const errors = recipe.issues.filter((issue) => issue.severity === 'error');
+  if (errors.length > 0) {
+    throw new Error(errors.map((issue) => issue.message).join(' '));
+  }
+  return wrapRecipe(generateKubeJs(recipe.recipe));
 }
 
 function recipeJson(message: RecipeEditorMessage): Readonly<Record<string, unknown>> {

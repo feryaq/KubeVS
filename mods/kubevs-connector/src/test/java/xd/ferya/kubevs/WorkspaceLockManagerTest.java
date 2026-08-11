@@ -35,4 +35,15 @@ final class WorkspaceLockManagerTest {
         assertEquals(1, locks.list().size());
         assertEquals(BOB, locks.list().getFirst().owner());
     }
+
+    @Test
+    void detectsAndReleasesConflictsInsideDirectoryTrees() {
+        WorkspaceLockManager locks = new WorkspaceLockManager();
+        locks.acquire("server_scripts/team/main.js", ALICE);
+
+        assertEquals(ALICE, locks.conflict("server_scripts/team", BOB).owner());
+        assertEquals(null, locks.conflict("server_scripts/team", ALICE));
+        assertEquals(1, locks.releaseTree("server_scripts/team"));
+        assertTrue(locks.list().isEmpty());
+    }
 }

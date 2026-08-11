@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   connectorCredentialKey,
   isConnectorAuthenticationError,
+  parseConnectorConnectionCode,
   parseConnectorToken,
 } from '../dist/connectorAuthCore.mjs';
 
@@ -29,4 +30,24 @@ test('recognizes authentication failures without swallowing network failures', (
   assert.equal(isConnectorAuthenticationError(new Error('Unexpected server response: 401')), true);
   assert.equal(isConnectorAuthenticationError(new Error('Authentication failed')), true);
   assert.equal(isConnectorAuthenticationError(new Error('ECONNREFUSED')), false);
+});
+
+test('parses one-click KubeVS connection codes', () => {
+  const token = 'A'.repeat(43);
+  assert.deepEqual(parseConnectorConnectionCode('kubevs://play.example.net:32199?token=' + token), {
+    host: 'play.example.net',
+    port: 32199,
+    token,
+    secure: false,
+  });
+  assert.equal(
+    parseConnectorConnectionCode('kubevs://play.example.net:443?token=' + token + '&secure=true')
+      .secure,
+    true,
+  );
+  assert.throws(() => parseConnectorConnectionCode('https://example.net'), /не код подключения/u);
+  assert.throws(
+    () => parseConnectorConnectionCode('kubevs://example.net?token=short'),
+    /32 to 256/u,
+  );
 });

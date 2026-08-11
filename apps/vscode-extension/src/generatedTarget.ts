@@ -7,7 +7,7 @@ import {
 } from './generatedTargetCore.js';
 
 export async function generatedDirectoryUri(): Promise<vscode.Uri> {
-  const folder = vscode.workspace.workspaceFolders?.[0];
+  const folder = await generatedWorkspaceFolder();
   if (!folder) throw new Error('Сначала откройте папку проекта.');
 
   const configured = vscode.workspace
@@ -20,7 +20,7 @@ export async function generatedDirectoryUri(): Promise<vscode.Uri> {
 }
 
 export async function generatedStartupDirectoryUri(): Promise<vscode.Uri> {
-  const folder = vscode.workspace.workspaceFolders?.[0];
+  const folder = await generatedWorkspaceFolder();
   if (!folder) throw new Error('Сначала откройте папку проекта.');
   const configured = vscode.workspace
     .getConfiguration('kubevs.generatedFiles')
@@ -83,4 +83,21 @@ export async function generatedLootRuleTarget(target: string): Promise<vscode.Ur
 
 function generatedFilename(recipeId: string, fallbackName: string): string {
   return `${generatedArtifactStem(recipeId, fallbackName)}.js`;
+}
+async function generatedWorkspaceFolder(): Promise<vscode.WorkspaceFolder | undefined> {
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  const remote = folders.find((folder) => folder.uri.scheme === 'kubevs-remote');
+  if (remote) {
+    try {
+      await vscode.workspace.fs.stat(remote.uri);
+      return remote;
+    } catch {
+      // A disconnected remote folder must not block Offline Mode generation.
+    }
+  }
+
+  const active = vscode.window.activeTextEditor
+    ? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
+    : undefined;
+  return active ?? folders.find((folder) => folder.uri.scheme === 'file') ?? folders[0];
 }

@@ -21,3 +21,37 @@ export function isConnectorAuthenticationError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /(?:\b401\b|unauthori[sz]ed|authentication|invalid token|forbidden)/iu.test(message);
 }
+
+export interface ConnectorConnectionCode {
+  readonly host: string;
+  readonly port: number;
+  readonly token: string;
+  readonly secure: boolean;
+}
+
+export function parseConnectorConnectionCode(value: string): ConnectorConnectionCode {
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    throw new Error('Код подключения повреждён. Скопируйте его повторно из /kvs join.');
+  }
+  if (url.protocol !== 'kubevs:' || !url.hostname || url.username || url.password || url.hash) {
+    throw new Error('Это не код подключения KubeVS.');
+  }
+  const port = url.port ? Number.parseInt(url.port, 10) : 32145;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('В коде подключения указан недопустимый порт.');
+  }
+  const token = parseConnectorToken(url.searchParams.get('token') ?? '');
+  const secureValue = url.searchParams.get('secure');
+  if (secureValue !== null && secureValue !== 'true' && secureValue !== 'false') {
+    throw new Error('В коде подключения неверно указано использование TLS.');
+  }
+  return {
+    host: url.hostname.replace(/^\[(.*)\]$/u, '$1'),
+    port,
+    token,
+    secure: secureValue === 'true',
+  };
+}

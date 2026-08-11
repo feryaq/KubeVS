@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible KubeVS or Connector problem
+title: '[Bug]: '
+labels: [bug]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [VS Code extension, Connector, Craft Graph, Recipe editor, Remote workspace]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: KubeVS, Connector, Minecraft, NeoForge, Java, and VS Code versions.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: Tell us exactly what you did and what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove tokens and secrets before pasting logs.
+      render: text
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Security check
+      options:
+        - label: I removed connection codes, tokens, public addresses, and other secrets.
+          required: true

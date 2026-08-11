@@ -11,3 +11,4 @@ dist/lootRuleCore.*
 dist/connectorClient.*
 dist/connectorAuthCore.*
 artifacts/**
+media/pixel/**

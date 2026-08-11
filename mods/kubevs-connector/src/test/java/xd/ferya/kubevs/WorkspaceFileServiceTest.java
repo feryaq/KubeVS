@@ -1,5 +1,6 @@
 package xd.ferya.kubevs;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -19,24 +20,65 @@ final class WorkspaceFileServiceTest {
     void writesAtomicallyAndRequiresTheCurrentRevision() throws Exception {
         WorkspaceFileService service =
                 new WorkspaceFileService(temporaryDirectory.resolve("kubejs"), 128, 20);
+        service.createDirectory("server_scripts");
 
-        WorkspaceFileService.FileContent created =
+        WorkspaceFileService.FileEntry created =
                 service.write("server_scripts/main.js", "first", "");
-        assertEquals("first", service.read("server_scripts/main.js").content());
+        assertEquals("first", text(service.read("server_scripts/main.js")));
 
         WorkspaceFileService.RevisionConflictException conflict = assertThrows(
                 WorkspaceFileService.RevisionConflictException.class,
                 () -> service.write("server_scripts/main.js", "lost update", ""));
         assertEquals(created.revision(), conflict.actualRevision());
 
-        WorkspaceFileService.FileContent updated =
+        WorkspaceFileService.FileEntry updated =
                 service.write("server_scripts/main.js", "second", created.revision());
-        assertEquals("second", service.read("server_scripts/main.js").content());
-        assertEquals(updated.revision(), service.list().getFirst().revision());
+        assertEquals("second", text(service.read("server_scripts/main.js")));
+        assertEquals(
+                updated.revision(),
+                service.list().stream()
+                        .filter(entry -> entry.path().equals("server_scripts/main.js"))
+                        .findFirst()
+                        .orElseThrow()
+                        .revision());
     }
 
     @Test
-    void rejectsTraversalAbsolutePathsAndOversizedContent() throws Exception {
+    void supportsDirectoryCreateCopyRenameAndRecursiveDelete() throws Exception {
+        WorkspaceFileService service =
+                new WorkspaceFileService(temporaryDirectory.resolve("kubejs"), 128, 50);
+        service.createDirectory("server_scripts");
+        service.createDirectory("server_scripts/team");
+        service.write("server_scripts/team/main.js", "hello", "");
+
+        service.copy("server_scripts/team", "server_scripts/copy", false);
+        assertEquals("hello", text(service.read("server_scripts/copy/main.js")));
+
+        service.write("server_scripts/target.js", "old", "");
+        service.copy("server_scripts/team/main.js", "server_scripts/target.js", true);
+        assertEquals("hello", text(service.read("server_scripts/target.js")));
+
+        service.rename("server_scripts/copy", "server_scripts/renamed", false, "");
+        assertEquals("hello", text(service.read("server_scripts/renamed/main.js")));
+
+        service.delete("server_scripts/renamed", true, "");
+        assertThrows(IOException.class, () -> service.stat("server_scripts/renamed"));
+    }
+
+    @Test
+    void preservesBinaryAssetsWithoutUtf8Conversion() throws Exception {
+        WorkspaceFileService service =
+                new WorkspaceFileService(temporaryDirectory.resolve("kubejs"), 128, 20);
+        service.createDirectory("assets");
+        byte[] image = new byte[] {0, 1, 2, (byte) 0xff, 10};
+
+        service.write("assets/icon.png", image, "");
+
+        assertArrayEquals(image, service.read("assets/icon.png").bytes());
+    }
+
+    @Test
+    void rejectsTraversalAbsolutePathsMissingParentsAndOversizedContent() throws Exception {
         WorkspaceFileService service =
                 new WorkspaceFileService(temporaryDirectory.resolve("kubejs"), 8, 20);
 
@@ -44,12 +86,14 @@ final class WorkspaceFileServiceTest {
         assertThrows(
                 IOException.class,
                 () -> service.write(temporaryDirectory.resolve("outside.js").toString(), "x", ""));
+        assertThrows(IOException.class, () -> service.write("missing/a.js", "x", ""));
+        service.createDirectory("server_scripts");
         assertThrows(IOException.class, () -> service.write("server_scripts/a.js", "123456789", ""));
         assertTrue(Files.notExists(temporaryDirectory.resolve("outside.js")));
     }
 
     @Test
-    void doesNotReadOrWriteThroughSymbolicLinks() throws Exception {
+    void doesNotReadWriteOrCopyThroughSymbolicLinks() throws Exception {
         Path workspace = temporaryDirectory.resolve("kubejs");
         Path outside = temporaryDirectory.resolve("outside");
         Files.createDirectories(workspace);
@@ -65,5 +109,9 @@ final class WorkspaceFileServiceTest {
         WorkspaceFileService service = new WorkspaceFileService(workspace, 128, 20);
         assertThrows(IOException.class, () -> service.read("linked/secret.js"));
         assertThrows(IOException.class, () -> service.write("linked/new.js", "x", ""));
+        assertThrows(IOException.class, () -> service.copy("linked", "copied", false));
+    }
+    private static String text(WorkspaceFileService.FileContent file) {
+        return new String(file.bytes(), StandardCharsets.UTF_8);
     }
 }

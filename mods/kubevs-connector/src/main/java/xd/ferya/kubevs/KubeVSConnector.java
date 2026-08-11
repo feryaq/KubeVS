@@ -37,6 +37,8 @@ public final class KubeVSConnector {
         }
         try {
             connectorConfig = ConnectorConfig.load();
+            ConnectorConfig.requireDedicatedPort(
+                    connectorConfig.address().getPort(), event.getServer().getPort());
             socketServer = new KubeVSSocketServer(event.getServer(), connectorConfig);
             socketServer.start();
             LOGGER.info(

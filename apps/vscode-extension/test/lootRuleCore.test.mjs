@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateLootRule, isLootRuleDraft } from '../dist/lootRuleCore.mjs';
+import { generateLootRule, isLootRuleDraft, LOOT_RULE_PRESETS } from '../dist/lootRuleCore.mjs';
 
 const leaf = (id, kind, value) => ({ id, kind, value, children: [] });
 const base = {
@@ -126,4 +126,12 @@ test('ограничивает глубину и проверяет уникал
     }),
     false,
   );
+});
+
+test('все готовые пресеты генерируют валидные LootJS-модификаторы', () => {
+  const generated = Object.values(LOOT_RULE_PRESETS).map(generateLootRule);
+  assert.equal(generated.length, 6);
+  assert.ok(generated.some((code) => code.includes('addTableModifier')));
+  assert.ok(generated.some((code) => code.includes('addBlockModifier')));
+  assert.ok(generated.some((code) => code.includes('addEntityModifier')));
 });

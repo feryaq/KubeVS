@@ -1,9 +1,117 @@
 # Changelog
 
-## 0.10.1 / Connector 0.7.2
+Заметные изменения KubeVS. Файл фиксирует продуктовые решения, а не повторяет историю коммитов.
 
-- Craft Graph lazily requests item icons only for nodes entering the visible viewport.
-- Added fail-fast protection for non-advancing recipe snapshot pagination.
+## [Unreleased]
+
+---
+
+## [1.1.0 / Connector 1.1.0] — 2026-08-11
+
+### Stable Modrinth and GitHub release
+
+- **What:** unified the VS Code extension and Connector under stable version 1.1.0, added English release copy, Modrinth metadata, GitHub issue/PR templates, and reproducible artifact naming.
+- **Where:** package manifests, NeoForge metadata, public READMEs, release workflow inputs, and publishing documentation.
+- **Why:** the first Modrinth release needs one product version and a clear two-part installation path for the Connector JAR and companion VSIX.
+- **Before:** the extension and Connector used unrelated pre-release version numbers and the main public descriptions were Russian-only.
+
+### Minecraft-driven localization
+
+- The Connector handshake now includes the language reported by the player authenticated through `/kvs join`.
+- KubeVS runtime views, number formatting, Dashboard, and Craft Graph select English or Russian from that player session and return to the VS Code locale after disconnecting.
+- Static VS Code manifest labels keep English as the release baseline because VS Code resolves `package.nls` before a Minecraft connection exists.
+
+### Craft Graph
+
+- Node dragging now uses compositor transforms and schedules wire updates once per animation frame, removing the stepped movement caused by synchronous SVG rebuilds on every pointer event.
+- Tag ingredients request their real item members from Minecraft and rotate randomly through cached item textures, JEI-style, while calculations continue to preserve the tag itself.
+- Remote recipe creation and live recipe snapshots use the connected server workspace reliably.
+
+### LootJS presets
+
+- Added editable starter presets for dungeon chests, fishing, leaves, stone, zombies, and skeletons.
+- Every preset is validated by the same generator as manually authored rules and remains fully editable before saving.
+
+---
+
+## [0.11.3 / Connector 0.8.1] — 2026-08-11
+
+### Исправление бесконечной активации remote workspace
+
+- Индекс проекта больше не вызывает `workspace.findFiles` для `kubevs-remote`: VS Code ожидает SearchProvider для пользовательской схемы и раньше мог оставаться на `Activating Extensions…` бесконечно.
+- Локальная индексация запускается в фоне и не зависит от Minecraft; удалённые JS/TS-файлы обходятся через FileSystemProvider только после успешного подключения.
+- Для `kubevs-remote` добавлено раннее событие `onFileSystem`, поэтому провайдер регистрируется при восстановлении серверной папки.
+- Современный Connector с `workspaceFiles` больше не попадает в legacy-ветку `vscode.openFolder`, которая могла неожиданно перезапустить окно после соединения.
+- Добавлен live-тест настоящего VS Code Extension Host: открытый remote workspace, WebSocket-авторизация и полный write/read/delete серверного файла.
+- Connector теперь явно отклоняет конфигурацию, где
+  etwork.port совпадает с игровым Minecraft TCP-портом, и объясняет необходимость отдельного hosting allocation.
+
+---
+
+## [0.11.2 / Connector 0.8.0] — 2026-08-11
+
+### Неблокирующее подключение и production-интерфейс
+
+- **Что:** активация VS Code завершается до сетевой синхронизации; автоподключение и монтирование серверной папки продолжаются в фоне с отдельными состояниями loading, success и error.
+- **Где:** основной extension host, Connection View, Recipes View, Dashboard и remote workspace provider.
+- **Почему:** успешный WebSocket уже мог работать, пока VS Code оставался на `Activating Extensions…`; ожидание сети внутри `activate()` делало весь продукт визуально зависшим.
+- **Было:** `activate()` ожидал Connector, registry bootstrap и workspace mount; открытый WebSocket без `hello` также не имел общего таймаута.
+
+### Localization and brand
+
+- Manifest-команды, views и настройки, а также основной runtime-интерфейс теперь имеют английскую базу и русский `package.nls` / `vscode.l10n` bundle.
+- Новый официальный логотип используется как иконка расширения и центральный элемент Dashboard; нативные Activity Bar icons остаются theme-aware.
+- Recipes View сгруппирован по задачам «Создание / Инструменты / Управление», чтобы частые действия не терялись в плоском списке.
+
+### Connector distribution
+
+- ProGuard удалён из production toolchain. Стандартный ModDevGradle JAR выбран ради прозрачной диагностики и совместимости с NeoForge; прежняя отдельная obfuscated-сборка больше не создаётся и не публикуется.
+- Release-gate проверяет отсутствие обфускации, наличие RU/EN-локализации и официального logo asset.
+
+---
+
+## [0.11.0 / Connector 0.8.0] — 2026-08-09
+
+### Remote KubeJS workspace
+
+- Серверная папка `kubejs` монтируется в Explorer VS Code как обычная рабочая папка.
+- Реализованы бинарно-безопасные read/write, создание папок, copy, rename и recursive delete.
+- Изменения других клиентов и внешних редакторов обнаруживаются событиями и polling без перезапуска.
+- SHA-256-ревизии, атомарная запись и блокировки дерева предотвращают молчаливую потерю изменений.
+- Доступ ограничен sandbox-папкой `<server>/kubejs`; traversal и symlink запрещены.
+
+### Roles and authentication
+
+- Безымянные уровни заменены ролями `viewer`, `editor`, `operator`, `admin` с явными permissions.
+- `/kvs join` выдаёт единый код подключения, который вставляется в команду VS Code «Подключиться по коду».
+- Токен игрока показывается один раз; на сервере сохраняется только SHA-256 digest.
+- Добавлены `/kvs users`, `/kvs role <player> <role>` и `/kvs revoke <player>`.
+- Смена роли, повторная выдача или отзыв немедленно закрывают прежние сессии.
+- Dedicated server поддерживает отдельные `publicHost`, `publicPort` и `publicSecure` для VPN/TLS proxy.
+
+---
+
+## [0.10.1 / Connector 0.7.2] — 2026-08-09
+
+### Production-ready distribution
+
+- **Что:** стабильная `main` получила воспроизводимые CI/release workflows, коммерческую лицензию,
+  SECURITY policy, release checklist и проверку согласованности версий.
+- **Где:** `.github`, `scripts/verify-release.mjs`, релизные манифесты и документация.
+- **Почему:** ручная локальная сборка не доказывала воспроизводимость и могла упаковать лишние assets.
+- **Было:** README описывал реализованные функции как planned, MIT разрешала свободную перепродажу,
+  а PNG без подтверждённой лицензии попадали в исходное дерево и VSIX.
+
+### Changed
+
+- Craft Graph лениво запрашивает иконки только для нод около видимой области.
+- UI использует собственный SVG KubeVS и нативные Codicons вместо assets с неизвестной лицензией.
+- GitHub Release по тегу собирает minified VSIX и обфусцированный Connector JAR.
+
+### Fixed
+
+- Пагинация recipe snapshot аварийно останавливается, если Connector перестал двигать offset.
+- Исправлен ESLint-блокер в Unicode-регулярном выражении Craft Graph.
 
 ## 0.10.0 / Connector 0.7.0
 
@@ -21,6 +129,7 @@
   поиск по реестру жидкостей, автоматические иконки и строгую проверку формата NeoForge.
 - Порт, адрес, удалённый доступ, reload и уровень прав `/kvs join` перенесены из JVM-флагов в
   автоматически создаваемый `config/kubevs-connector.toml`.
+
 ## 0.8.0
 
 - Удаление и восстановление рецептов выполняются строго по recipe ID через managed-файл без

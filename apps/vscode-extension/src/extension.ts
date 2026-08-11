@@ -13,21 +13,26 @@ import {
   storeConnectorCredentials,
   type ConnectorCredentials,
 } from './connectorAuth.js';
-import { isConnectorAuthenticationError } from './connectorAuthCore.js';
+import {
+  connectorCredentialKey,
+  isConnectorAuthenticationError,
+  parseConnectorConnectionCode,
+} from './connectorAuthCore.js';
 import { ConnectorClient } from './connectorClient.js';
 import { openContentBuilder } from './contentBuilder.js';
-import { openCraftGraph } from './craftGraph.js';
+import { loadRecipes, openCraftGraph } from './craftGraph.js';
 import { registerDataTools } from './dataTools.js';
 import { createRecipeSchema, openGenericRecipeEditor } from './genericRecipeEditor.js';
 import { registerLanguageSupport } from './languageSupport.js';
 import { openLootRuleEditor } from './lootRuleEditor.js';
-import { openRecipeEditor } from './recipeEditor.js';
+import { openRecipeEditor, saveVanillaRecipeDraft } from './recipeEditor.js';
 import { registerRecipeManagement } from './recipeManagement.js';
 import { registerRecipeReplacement } from './recipeReplacement.js';
 import { registerRemoteWorkspace } from './remoteWorkspace.js';
 import { RegistryCatalog } from './registryCatalog.js';
 import { registerRegistryCompletion } from './registryCompletion.js';
 import { bootstrapConnectorWorkspace } from './workspaceBootstrap.js';
+import { fileCount, localeNumber, runtimeLanguage, setRuntimeLocale, t } from './localization.js';
 
 type ConnectionState = 'offline' | 'connecting' | 'connected' | 'error';
 
@@ -86,14 +91,32 @@ class ProjectProvider implements vscode.TreeDataProvider<ProjectItem> {
   readonly onDidChangeTreeData = this.changed.event;
   private scripts = new Map<ScriptKind, readonly vscode.Uri[]>();
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
-
-  async refresh(): Promise<void> {
-    const files = await vscode.workspace.findFiles(
-      '**/{server_scripts,client_scripts,startup_scripts}/**/*.{js,ts}',
-      '**/{node_modules,.git,build}/**',
-      5000,
-    );
+  async refresh(includeRemote = false): Promise<void> {
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    const localFolders = folders.filter((folder) => folder.uri.scheme !== 'kubevs-remote');
+    const remoteFolders = includeRemote
+      ? folders.filter((folder) => folder.uri.scheme === 'kubevs-remote')
+      : [];
+    const [localBatches, remoteBatches] = await Promise.all([
+      Promise.all(
+        localFolders.map((folder) =>
+          vscode.workspace.findFiles(
+            new vscode.RelativePattern(
+              folder,
+              '**/{server_scripts,client_scripts,startup_scripts}/**/*.{js,ts}',
+            ),
+            '**/{node_modules,.git,build}/**',
+            5000,
+          ),
+        ),
+      ),
+      Promise.all(remoteFolders.map((folder) => collectRemoteScripts(folder.uri, 5000))),
+    ]);
+    const files = [
+      ...new Map(
+        [...localBatches, ...remoteBatches].flat().map((uri) => [uri.toString(), uri]),
+      ).values(),
+    ];
     const grouped = new Map<ScriptKind, vscode.Uri[]>([
       ['server_scripts', []],
       ['client_scripts', []],
@@ -122,12 +145,9 @@ class ProjectProvider implements vscode.TreeDataProvider<ProjectItem> {
             undefined,
             kind,
           );
-          item.description = `${files.length} ${plural(files.length, 'файл', 'файла', 'файлов')}`;
+          item.description = fileCount(files.length);
           item.tooltip = scriptKindTooltip(kind);
-          item.iconPath = {
-            light: vscode.Uri.joinPath(this.extensionUri, 'media', 'pixel', 'light', 'project.png'),
-            dark: vscode.Uri.joinPath(this.extensionUri, 'media', 'pixel', 'dark', 'project.png'),
-          };
+          item.iconPath = new vscode.ThemeIcon('files');
           return item;
         });
     }
@@ -148,6 +168,38 @@ class ProjectProvider implements vscode.TreeDataProvider<ProjectItem> {
   }
 }
 
+async function collectRemoteScripts(root: vscode.Uri, limit: number): Promise<vscode.Uri[]> {
+  const files: vscode.Uri[] = [];
+  const pending = [root];
+  const excluded = new Set(['.git', '.vscode', 'build', 'node_modules']);
+  while (pending.length > 0 && files.length < limit) {
+    const directory = pending.pop();
+    if (!directory) break;
+    for (const [name, type] of await vscode.workspace.fs.readDirectory(directory)) {
+      if (excluded.has(name)) continue;
+      const uri = vscode.Uri.joinPath(directory, name);
+      if ((type & vscode.FileType.Directory) !== 0) {
+        pending.push(uri);
+      } else if (/\.(?:js|ts)$/iu.test(name) && classifyScriptPath(uri.path)) {
+        files.push(uri);
+        if (files.length >= limit) break;
+      }
+    }
+  }
+  return files;
+}
+
+class GroupItem extends vscode.TreeItem {
+  constructor(
+    label: string,
+    readonly children: readonly vscode.TreeItem[],
+    state = vscode.TreeItemCollapsibleState.Collapsed,
+  ) {
+    super(label, state);
+    this.contextValue = 'kubevsGroup';
+  }
+}
+
 class StaticProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private readonly changed = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.changed.event;
@@ -156,8 +208,9 @@ class StaticProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
     return element;
   }
-  getChildren(): vscode.TreeItem[] {
-    return this.items();
+  getChildren(element?: vscode.TreeItem): vscode.TreeItem[] {
+    if (element instanceof GroupItem) return [...element.children];
+    return element ? [] : this.items();
   }
   refresh(): void {
     this.changed.fire();
@@ -244,7 +297,7 @@ class DiagnosticsController implements vscode.Disposable {
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const logs = new LogChannels();
-  const project = new ProjectProvider(context.extensionUri);
+  const project = new ProjectProvider();
   const diagnostics = new DiagnosticsController();
   const connectorClient = new ConnectorClient();
   const registryCatalog = new RegistryCatalog(connectorClient);
@@ -263,10 +316,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   let connectorHello: ConnectorHello | undefined;
   let liveStats: LiveStats | undefined;
   let liveMods: readonly ModSnapshot['entries'][number][] | undefined;
-  const pixelIcon = (name: string): { light: vscode.Uri; dark: vscode.Uri } => ({
-    light: vscode.Uri.joinPath(context.extensionUri, 'media', 'pixel', 'light', `${name}.png`),
-    dark: vscode.Uri.joinPath(context.extensionUri, 'media', 'pixel', 'dark', `${name}.png`),
-  });
 
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 20);
   status.name = 'KubeVS Connector';
@@ -276,78 +325,95 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const connection = new StaticProvider(() => {
     const label =
       connectionState === 'connected'
-        ? 'Minecraft подключён'
+        ? t('Minecraft connected')
         : connectionState === 'connecting'
-          ? 'Подключение…'
+          ? t('Connecting…')
           : connectionState === 'error'
-            ? 'Ошибка подключения'
-            : 'Офлайн-режим';
+            ? t('Connection failed')
+            : t('Offline mode');
     const item = new vscode.TreeItem(label);
     item.iconPath = new vscode.ThemeIcon(
       connectionState === 'connected'
         ? 'pass-filled'
-        : connectionState === 'error'
-          ? 'error'
-          : 'debug-disconnect',
+        : connectionState === 'connecting'
+          ? 'sync~spin'
+          : connectionState === 'error'
+            ? 'error'
+            : 'debug-disconnect',
     );
     item.description =
       connectionState === 'connected'
         ? `${connectorHello?.minecraftVersion ?? 'Minecraft'} · ${connectorHello?.session?.displayName ?? `Connector ${connectorHello?.connectorVersion ?? ''}`}`
-        : (connectionError ?? 'Редакторы и анализ проекта доступны локально');
+        : (connectionError ?? t('Editors and project analysis are available locally'));
     item.tooltip =
       connectionState === 'connected'
-        ? 'Живые реестры, рецепты и перезагрузка доступны через Connector.'
-        : 'KubeVS продолжает работать без запущенного Minecraft.';
+        ? t('Live registries, recipes and reload are available through Connector.')
+        : t('KubeVS remains fully usable without a running Minecraft instance.');
     const items = [item];
+
+    if (connectionState !== 'connected' && connectionState !== 'connecting') {
+      const connectCode = new vscode.TreeItem(t('Connect with code'));
+      connectCode.description = t('copy it from /kvs join');
+      connectCode.iconPath = new vscode.ThemeIcon('key');
+      connectCode.command = {
+        command: 'kubevs.connectWithCode',
+        title: t('Connect with code'),
+      };
+      items.push(connectCode);
+    }
+
     if (connectionState === 'connected') {
       if (connectorHello?.session) {
         const identity = new vscode.TreeItem(
           connectorHello.session.kind === 'admin'
-            ? 'Сессия администратора'
-            : `Игрок: ${connectorHello.session.displayName}`,
+            ? t('Administrator session')
+            : t('Player: {0}', connectorHello.session.displayName),
         );
-        identity.description =
-          connectorHello.session.kind === 'admin'
-            ? 'полный токен сервера'
-            : `личный токен · уровень ${connectorHello.session.permissionLevel ?? '?'}`;
+        identity.description = t(
+          'role: {0}',
+          connectorHello.session.role ??
+            (connectorHello.session.kind === 'admin' ? 'admin' : 'viewer'),
+        );
         identity.iconPath = new vscode.ThemeIcon(
           connectorHello.session.kind === 'admin' ? 'shield' : 'account',
         );
         items.push(identity);
       }
       if (connectorHello?.capabilities.workspaceFiles) {
-        const serverFiles = new vscode.TreeItem('Открыть серверный файл');
-        serverFiles.description = 'блокировка от конфликтов';
+        const serverFiles = new vscode.TreeItem(t('Server KubeJS workspace'));
+        serverFiles.description = connectorHello.capabilities.workspaceWrite
+          ? t('read and write')
+          : t('read only');
         serverFiles.iconPath = new vscode.ThemeIcon('remote');
         serverFiles.command = {
           command: 'kubevs.openServerWorkspace',
-          title: 'Открыть серверный файл',
+          title: t('Open server KubeJS workspace'),
         };
         items.push(serverFiles);
         if (connectorHello.capabilities.workspaceLocks) {
-          const locks = new vscode.TreeItem('Занятые файлы');
-          locks.description = 'участники команды';
+          const locks = new vscode.TreeItem(t('Locked files'));
+          locks.description = t('team members');
           locks.iconPath = new vscode.ThemeIcon('lock');
           locks.command = {
             command: 'kubevs.showServerFileLocks',
-            title: 'Показать занятые серверные файлы',
+            title: t('Show locked server files'),
           };
           items.push(locks);
         }
       }
-      const reload = new vscode.TreeItem('Сохранить и перезагрузить');
-      reload.description = 'применить server_scripts';
-      reload.iconPath = pixelIcon('refresh');
+      const reload = new vscode.TreeItem(t('Save and reload'));
+      reload.description = t('apply server_scripts');
+      reload.iconPath = new vscode.ThemeIcon('refresh');
       reload.command = {
         command: 'kubevs.saveAndReload',
-        title: 'Сохранить и перезагрузить',
+        title: t('Save and reload'),
       };
       items.push(reload);
-    } else {
-      const connect = new vscode.TreeItem('Подключить Minecraft');
-      connect.description = 'localhost по умолчанию';
-      connect.iconPath = pixelIcon('connection');
-      connect.command = { command: 'kubevs.connect', title: 'Подключить Minecraft' };
+    } else if (connectionState !== 'connecting') {
+      const connect = new vscode.TreeItem(t('Connect Minecraft'));
+      connect.description = t('localhost by default');
+      connect.iconPath = new vscode.ThemeIcon('plug');
+      connect.command = { command: 'kubevs.connect', title: t('Connect Minecraft') };
       items.push(connect);
     }
     return items;
@@ -359,77 +425,82 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         recipeIntegrations.includes(id as (typeof recipeIntegrations)[number]),
       ) ?? [],
     );
-    const addon = new vscode.TreeItem('Новый рецепт мода');
+
+    const addon = new vscode.TreeItem(t('Create mod recipe'));
     addon.description =
       connectionState === 'connected'
-        ? `${availableRecipeIntegrations.size}/3 интеграций`
-        : '3 интеграции · офлайн';
+        ? t('{0}/3 integrations', availableRecipeIntegrations.size)
+        : t('3 integrations · offline');
     addon.tooltip =
       connectionState === 'connected'
         ? recipeIntegrations
             .map((id) => {
               const mod = liveMods?.find((entry) => entry.id === id);
-              return `${id}: ${mod ? `установлен ${mod.version}` : 'не установлен'}`;
+              return mod ? t('{0}: installed {1}', id, mod.version) : t('{0}: not installed', id);
             })
             .join('\n')
-        : 'В Offline Mode редакторы доступны без проверки состава будущей сборки.';
-    addon.iconPath = pixelIcon('recipes');
-    addon.command = {
-      command: 'kubevs.createAddonRecipe',
-      title: 'Создать рецепт мода',
-    };
-    const vanilla = new vscode.TreeItem('Новый Vanilla-рецепт');
-    vanilla.description = '6 типов';
+        : t('Offline mode allows editing without validating the target modpack.');
+    addon.iconPath = new vscode.ThemeIcon('beaker');
+    addon.command = { command: 'kubevs.createAddonRecipe', title: t('Create mod recipe') };
+
+    const vanilla = new vscode.TreeItem(t('Create Vanilla recipe'));
+    vanilla.description = t('6 recipe types');
     vanilla.iconPath = new vscode.ThemeIcon('beaker');
-    vanilla.command = { command: 'kubevs.createRecipe', title: 'Создать Vanilla-рецепт' };
-    const generic = new vscode.TreeItem('Рецепт по схеме');
+    vanilla.command = { command: 'kubevs.createRecipe', title: t('Create Vanilla recipe') };
+
+    const generic = new vscode.TreeItem(t('Recipe from schema'));
     generic.description = 'JSON';
     generic.iconPath = new vscode.ThemeIcon('symbol-structure');
-    generic.command = {
-      command: 'kubevs.createGenericRecipe',
-      title: 'Создать рецепт по схеме',
-    };
-    const graph = new vscode.TreeItem('Дерево рецептов и ресурсы');
-    graph.description = 'цепочки · альтернативы';
-    graph.iconPath = pixelIcon('project');
-    graph.command = { command: 'kubevs.openCraftGraph', title: 'Открыть дерево рецептов' };
-    const remove = new vscode.TreeItem('Удалить рецепт');
-    remove.description = 'без изменения исходного JSON';
-    remove.iconPath = new vscode.ThemeIcon('trash');
-    remove.command = { command: 'kubevs.deleteRecipe', title: 'Удалить рецепт' };
-    const replace = new vscode.TreeItem('Заменить рецепт');
-    replace.description = 'сразу по ID';
-    replace.iconPath = new vscode.ThemeIcon('replace-all');
-    replace.command = { command: 'kubevs.replaceRecipe', title: 'Заменить рецепт другим' };
-    const restore = new vscode.TreeItem('Восстановить рецепт');
-    restore.description = 'убрать правило удаления';
-    restore.iconPath = new vscode.ThemeIcon('discard');
-    restore.command = { command: 'kubevs.restoreRecipe', title: 'Восстановить рецепт' };
-    const itemBuilder = new vscode.TreeItem('Создать предмет');
-    itemBuilder.description = 'ID автоматически';
+    generic.command = { command: 'kubevs.createGenericRecipe', title: t('Recipe from schema') };
+
+    const itemBuilder = new vscode.TreeItem(t('Create item'));
+    itemBuilder.description = t('automatic ID');
     itemBuilder.iconPath = new vscode.ThemeIcon('symbol-enum-member');
-    itemBuilder.command = { command: 'kubevs.createItem', title: 'Создать предмет' };
-    const blockBuilder = new vscode.TreeItem('Создать блок');
+    itemBuilder.command = { command: 'kubevs.createItem', title: t('Create item') };
+
+    const blockBuilder = new vscode.TreeItem(t('Create block'));
     blockBuilder.description = 'startup_scripts';
     blockBuilder.iconPath = new vscode.ThemeIcon('symbol-field');
-    blockBuilder.command = { command: 'kubevs.createBlock', title: 'Создать блок' };
-    const result = [
-      itemBuilder,
-      blockBuilder,
-      addon,
-      vanilla,
-      generic,
-      graph,
-      replace,
-      remove,
-      restore,
-    ];
+    blockBuilder.command = { command: 'kubevs.createBlock', title: t('Create block') };
+
+    const graph = new vscode.TreeItem(t('Craft Graph and resources'));
+    graph.description = t('chains · alternatives');
+    graph.iconPath = new vscode.ThemeIcon('type-hierarchy');
+    graph.command = { command: 'kubevs.openCraftGraph', title: t('Craft Graph and resources') };
+
+    const replace = new vscode.TreeItem(t('Replace recipe'));
+    replace.description = t('directly by ID');
+    replace.iconPath = new vscode.ThemeIcon('replace-all');
+    replace.command = { command: 'kubevs.replaceRecipe', title: t('Replace recipe') };
+
+    const remove = new vscode.TreeItem(t('Delete recipe'));
+    remove.description = t('keeps source JSON unchanged');
+    remove.iconPath = new vscode.ThemeIcon('trash');
+    remove.command = { command: 'kubevs.deleteRecipe', title: t('Delete recipe') };
+
+    const restore = new vscode.TreeItem(t('Restore recipe'));
+    restore.description = t('remove deletion rule');
+    restore.iconPath = new vscode.ThemeIcon('discard');
+    restore.command = { command: 'kubevs.restoreRecipe', title: t('Restore recipe') };
+
+    const createGroup = new GroupItem(
+      t('Create content'),
+      [itemBuilder, blockBuilder, addon, vanilla, generic],
+      vscode.TreeItemCollapsibleState.Expanded,
+    );
+    createGroup.iconPath = new vscode.ThemeIcon('add');
+    const toolsGroup = new GroupItem(t('Tools'), [graph]);
+    toolsGroup.iconPath = new vscode.ThemeIcon('tools');
+    const manageGroup = new GroupItem(t('Manage recipes'), [replace, remove, restore]);
+    manageGroup.iconPath = new vscode.ThemeIcon('list-selection');
+
+    const result: vscode.TreeItem[] = [createGroup, toolsGroup, manageGroup];
     if (liveStats) {
       const stats = new vscode.TreeItem(
-        `${liveStats.recipes.toLocaleString('ru-RU')} рецептов в Minecraft`,
+        t('{0} recipes in Minecraft', localeNumber(liveStats.recipes)),
       );
-      stats.description = 'живые данные';
-      stats.iconPath = pixelIcon('server');
+      stats.description = t('live data');
+      stats.iconPath = new vscode.ThemeIcon('server');
       result.push(stats);
     }
     return result;
@@ -439,67 +510,69 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const kubeJsAvailable = !connected || connectorHello?.kubejsVersion !== null;
     const lootJsAvailable =
       !connected || connectorHello?.capabilities.integrations.includes('lootjs') === true;
-    const create = new vscode.TreeItem('Новое правило добычи');
+    const create = new vscode.TreeItem(t('New loot rule'));
     create.description = !kubeJsAvailable
-      ? 'нужен KubeJS'
+      ? t('KubeJS required')
       : !lootJsAvailable
-        ? 'LootJS не установлен'
-        : 'условия → добыча';
+        ? t('LootJS is not installed')
+        : t('conditions → loot');
     create.tooltip = !kubeJsAvailable
-      ? 'На подключённом сервере не обнаружен KubeJS.'
+      ? t('KubeJS was not detected on the connected server.')
       : !lootJsAvailable
-        ? 'Установите LootJS на сервер, чтобы создавать и применять правила добычи.'
-        : 'Выберите цель, условия и результат. Сложные AND / OR / NOT доступны дополнительно.';
-    create.iconPath = pixelIcon('loot');
+        ? t('Install LootJS on the server to create and apply loot rules.')
+        : t('Choose a target, conditions and loot. Advanced AND / OR / NOT groups are available.');
+    create.iconPath = new vscode.ThemeIcon(
+      kubeJsAvailable && lootJsAvailable ? 'symbol-event' : 'lock',
+    );
     if (kubeJsAvailable && lootJsAvailable) {
-      create.command = {
-        command: 'kubevs.createLootRule',
-        title: 'Создать правило LootJS',
-      };
-    }
-    if (!kubeJsAvailable || !lootJsAvailable) {
-      create.iconPath = new vscode.ThemeIcon('lock');
+      create.command = { command: 'kubevs.createLootRule', title: t('New loot rule') };
     }
     return [create];
   });
   const registriesProvider = new StaticProvider(() => {
-    const search = new vscode.TreeItem('Найти игровой ID');
-    search.description = 'имя или ID';
-    search.tooltip = 'Предметы, блоки, жидкости, сущности, структуры и биомы.';
-    search.iconPath = pixelIcon('search');
-    search.command = { command: 'kubevs.searchRegistry', title: 'Найти игровой ID' };
+    const search = new vscode.TreeItem(t('Find game ID'));
+    search.description = t('name or ID');
+    search.tooltip = t('Items, blocks, fluids, entities, structures and biomes.');
+    search.iconPath = new vscode.ThemeIcon('search');
+    search.command = { command: 'kubevs.searchRegistry', title: t('Find game ID') };
     const result = [search];
     if (liveStats) {
-      const items = new vscode.TreeItem(`${liveStats.items.toLocaleString('ru-RU')} предметов`);
-      items.description = `${liveStats.tags.toLocaleString('ru-RU')} тегов`;
-      items.iconPath = pixelIcon('registries');
-      const mods = new vscode.TreeItem(`${liveStats.mods.toLocaleString('ru-RU')} модов загружено`);
-      mods.description = 'текущая сборка';
-      mods.iconPath = pixelIcon('server');
+      const items = new vscode.TreeItem(t('{0} items', localeNumber(liveStats.items)));
+      items.description = t('{0} tags', localeNumber(liveStats.tags));
+      items.iconPath = new vscode.ThemeIcon('database');
+      const mods = new vscode.TreeItem(t('{0} mods loaded', localeNumber(liveStats.mods)));
+      mods.description = t('current modpack');
+      mods.iconPath = new vscode.ThemeIcon('server');
       result.push(items, mods);
     } else {
-      const offline = new vscode.TreeItem('Офлайн-каталог проекта');
+      const offline = new vscode.TreeItem(t('Offline project catalog'));
       offline.description = 'JS · JSON';
-      offline.iconPath = pixelIcon('project');
+      offline.iconPath = new vscode.ThemeIcon('type-hierarchy');
       result.push(offline);
     }
     return result;
   });
-
   const updateConnectionUi = async (): Promise<void> => {
     const connected = connectionState === 'connected';
     status.text = connected
-      ? '$(plug) Minecraft подключён'
+      ? `$(plug) ${t('Minecraft connected')}`
       : connectionState === 'error'
-        ? '$(error) Ошибка KubeVS'
+        ? `$(error) ${t('Connection failed')}`
         : connectionState === 'connecting'
-          ? '$(sync~spin) Подключение'
-          : '$(debug-disconnect) KubeVS офлайн';
+          ? `$(sync~spin) ${t('Connecting…')}`
+          : `$(debug-disconnect) ${t('KubeVS offline')}`;
+    const sessionSuffix = connectorHello?.session
+      ? t(' as {0}', connectorHello.session.displayName)
+      : '';
     status.tooltip = connected
-      ? `KubeVS Connector ${connectorHello?.connectorVersion ?? ''} подключён${connectorHello?.session ? ` как ${connectorHello.session.displayName}` : ''}.`
-      : (connectionError ?? 'KubeVS работает офлайн. Нажмите, чтобы открыть диагностику.');
+      ? t(
+          'KubeVS Connector {0} is connected{1}.',
+          connectorHello?.connectorVersion ?? '',
+          sessionSuffix,
+        )
+      : (connectionError ?? t('KubeVS works offline. Select this status to open diagnostics.'));
     status.accessibilityInformation = {
-      label: connected ? 'KubeVS Connector подключён' : 'KubeVS работает офлайн',
+      label: connected ? t('KubeVS Connector connected') : t('KubeVS works offline'),
     };
     await vscode.commands.executeCommand('setContext', 'kubevs.connected', connected);
     await vscode.commands.executeCommand(
@@ -515,6 +588,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     connection.refresh();
     lootProvider.refresh();
   };
+  context.subscriptions.push({
+    dispose: connectorClient.onDisconnect((error) => {
+      connectorHello = undefined;
+      setRuntimeLocale();
+      liveStats = undefined;
+      liveMods = undefined;
+      connectionState = 'error';
+      connectionError = t('Server ended the session: {0}', error.message);
+      registryCatalog.clearLiveCache();
+      logs.connector.warn(connectionError);
+      void updateConnectionUi();
+      void vscode.window
+        .showWarningMessage(
+          t(
+            'KubeVS: the server ended the session. If the token or role changed, get a new code with /kvs join.',
+          ),
+          t('Connect with a new code'),
+        )
+        .then((choice) => {
+          if (choice === t('Connect with a new code')) {
+            void vscode.commands.executeCommand('kubevs.connectWithCode');
+          }
+        });
+    }),
+  });
 
   const register = (command: string, callback: (...args: unknown[]) => unknown): void => {
     context.subscriptions.push(vscode.commands.registerCommand(command, callback));
@@ -522,12 +620,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const ensureKubeJsAvailable = (): boolean => {
     if (connectionState !== 'connected' || connectorHello?.kubejsVersion !== null) return true;
     void vscode.window.showErrorMessage(
-      'KubeVS: на подключённом сервере не обнаружен KubeJS. Создание и изменение серверных скриптов отключено.',
+      t(
+        'KubeVS: KubeJS was not detected on the connected server. Server script creation and editing are disabled.',
+      ),
     );
     return false;
   };
 
   if (context.extensionMode === vscode.ExtensionMode.Test) {
+    register('kubevs.__test.connectWithCode', async (value) => {
+      if (typeof value !== 'string') throw new Error('Test connection code is required');
+      await connectToMinecraft(false, false, parseConnectorConnectionCode(value), false, false);
+    });
     register('kubevs.__test.resolveConnectorCredentials', async () => {
       const configuration = vscode.workspace.getConfiguration('kubevs.connector');
       const host = configuration.get('host', '127.0.0.1');
@@ -540,6 +644,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         legacyProfile,
         interactive: false,
       });
+    });
+    register('kubevs.__test.saveVanillaRecipe', async (value) => {
+      const target = await saveVanillaRecipeDraft(context, value);
+      return target?.toString();
+    });
+    register('kubevs.__test.loadCraftRecipes', async () => {
+      const loaded = await loadRecipes(context, connectorClient);
+      return { total: loaded.entries.length, source: loaded.source };
     });
   }
 
@@ -571,36 +683,55 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const connectToMinecraft = async (
     allowPrompt: boolean,
     forceTokenSelection = false,
+    direct?: {
+      readonly host: string;
+      readonly port: number;
+      readonly token: string;
+      readonly secure: boolean;
+    },
+    allowStoredRemote = false,
+    mountRemoteWorkspace = true,
   ): Promise<void> => {
-    connectionState = 'connecting';
-    connectionError = undefined;
-    await updateConnectionUi();
     const configuration = vscode.workspace.getConfiguration('kubevs.connector');
-    const host = configuration.get('host', '127.0.0.1');
-    const port = configuration.get('port', 32145);
+    const host = direct?.host ?? configuration.get('host', '127.0.0.1');
+    const port = direct?.port ?? configuration.get('port', 32145);
     const profile = configuration.get('profile', 'default');
+    const secure = direct?.secure ?? configuration.get('secure', false);
     if (!isLoopbackHost(host)) {
-      if (!allowPrompt) {
+      if (!allowPrompt && !allowStoredRemote) {
         connectionState = 'error';
         connectionError = 'Automatic remote connections are disabled.';
         await updateConnectionUi();
         return;
       }
       const choice = await vscode.window.showWarningMessage(
-        `Connect to non-loopback host ${host}? Tokens are sent in the WebSocket handshake.`,
+        secure
+          ? t('Connect to secure server {0}:{1}?', host, port)
+          : t(
+              'Connect to {0}:{1} without TLS? Use a VPN or enable publicSecure behind a TLS proxy.',
+              host,
+              port,
+            ),
         { modal: true },
-        'Connect',
+        t('Connect'),
       );
-      if (choice !== 'Connect') {
+      if (choice !== t('Connect')) {
         connectionState = 'offline';
         await updateConnectionUi();
         return;
       }
     }
 
-    let credentials: ConnectorCredentials | undefined;
+    let credentials: ConnectorCredentials | undefined = direct
+      ? {
+          token: direct.token,
+          secretKey: connectorCredentialKey(host, port),
+          legacySecretKey: `kubevs.connector.token.${profile}`,
+          source: 'pasted',
+        }
+      : undefined;
     try {
-      credentials = await resolveConnectorCredentials(context, {
+      credentials ??= await resolveConnectorCredentials(context, {
         host,
         port,
         legacyProfile: profile,
@@ -618,15 +749,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (!credentials) {
       connectionState = 'offline';
       await updateConnectionUi();
-      if (allowPrompt) void vscode.window.showInformationMessage('KubeVS connection cancelled.');
+      if (allowPrompt) void vscode.window.showInformationMessage(t('KubeVS connection cancelled.'));
       return;
     }
 
+    connectionState = 'connecting';
+    connectionError = undefined;
+    await updateConnectionUi();
     try {
       connectorHello = await connectorClient.connect(
-        `ws://${formatHost(host)}:${port}`,
+        `${secure ? 'wss' : 'ws'}://${formatHost(host)}:${port}`,
         credentials.token,
       );
+      setRuntimeLocale(connectorHello.session?.locale);
       await storeConnectorCredentials(context, credentials);
       const [items, tags, recipes, mods] = await Promise.all([
         connectorClient.request<PagedIds>('registry.items', { limit: 1 }),
@@ -652,6 +787,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       recipesProvider.refresh();
       registriesProvider.refresh();
       await updateConnectionUi();
+      void project.refresh(true).catch((error) => {
+        logs.main.warn(
+          `Could not refresh the project index after connecting: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+      if (connectorHello.capabilities.workspaceFiles) {
+        if (mountRemoteWorkspace) {
+          await vscode.commands.executeCommand('kubevs.openServerWorkspace');
+        } else {
+          void vscode.window.showInformationMessage(t('KubeVS Connector connected.'));
+        }
+        return;
+      }
       try {
         const workspace = await bootstrapConnectorWorkspace(connectorHello, logs.connector);
         if (workspace.opened) return;
@@ -659,13 +807,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const message = error instanceof Error ? error.message : String(error);
         logs.connector.warn(`Could not prepare Connector workspace: ${message}`);
         void vscode.window.showWarningMessage(
-          `KubeVS подключён, но не смог подготовить папку проекта: ${message}`,
+          t('KubeVS connected, but could not prepare the project folder: {0}', message),
         );
       }
-      void vscode.window.showInformationMessage('KubeVS Connector connected.');
+      void vscode.window.showInformationMessage(t('KubeVS Connector connected.'));
     } catch (error) {
       connectorClient.disconnect();
       connectorHello = undefined;
+      setRuntimeLocale();
       liveStats = undefined;
       liveMods = undefined;
       const authenticationFailed = isConnectorAuthenticationError(error);
@@ -694,6 +843,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   register('kubevs.connect', () => connectToMinecraft(true));
+  register('kubevs.connectWithCode', async () => {
+    const raw = await vscode.window.showInputBox({
+      title: t('KubeVS — connect to server'),
+      prompt: t('Run /kvs join in Minecraft and paste the copied code'),
+      placeHolder: 'kubevs://server:32145?token=…',
+      password: true,
+      ignoreFocusOut: true,
+    });
+    if (!raw) return;
+    try {
+      const connection = parseConnectorConnectionCode(raw);
+      const settings = vscode.workspace.getConfiguration('kubevs.connector');
+      await Promise.all([
+        settings.update('host', connection.host, vscode.ConfigurationTarget.Global),
+        settings.update('port', connection.port, vscode.ConfigurationTarget.Global),
+        settings.update('secure', connection.secure, vscode.ConfigurationTarget.Global),
+      ]);
+      await connectToMinecraft(true, false, connection);
+    } catch (error) {
+      void vscode.window.showErrorMessage(
+        `KubeVS: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  });
   register('kubevs.changeConnectorToken', () => connectToMinecraft(true, true));
   register('kubevs.disconnect', async () => {
     connectorClient.disconnect();
@@ -707,6 +880,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     recipesProvider.refresh();
     registriesProvider.refresh();
     await updateConnectionUi();
+    const remoteIndex =
+      vscode.workspace.workspaceFolders?.findIndex(
+        (folder) => folder.uri.scheme === 'kubevs-remote',
+      ) ?? -1;
+    if (remoteIndex >= 0) {
+      vscode.workspace.updateWorkspaceFolders(remoteIndex, 1);
+    }
   });
   register('kubevs.showConnectionDiagnostics', () => {
     logs.connector.show(true);
@@ -796,7 +976,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   register('kubevs.createLootRule', () => {
     if (connectionState === 'connected' && connectorHello?.kubejsVersion === null) {
       void vscode.window.showErrorMessage(
-        'KubeVS: на подключённом сервере не обнаружен KubeJS. Создание серверных скриптов отключено.',
+        t(
+          'KubeVS: KubeJS was not detected on the connected server. Server script creation is disabled.',
+        ),
       );
       return;
     }
@@ -805,7 +987,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       connectorHello?.capabilities.integrations.includes('lootjs') !== true
     ) {
       void vscode.window.showErrorMessage(
-        'KubeVS: LootJS не установлен на подключённом сервере. Установите LootJS и переподключитесь.',
+        t('KubeVS: LootJS is not installed on the connected server. Install LootJS and reconnect.'),
       );
       return;
     }
@@ -844,18 +1026,39 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   ]) {
     register(command, () =>
       vscode.window.showInformationMessage(
-        `Функция ${command.replace('kubevs.', '')} ещё находится в разработке. Текущий статус указан в документации KubeVS.`,
+        t(
+          'Feature {0} is still in development. See KubeVS documentation for its current status.',
+          command.replace('kubevs.', ''),
+        ),
       ),
     );
   }
 
-  await project.refresh();
+  void project
+    .refresh(false)
+    .then(() => logs.main.info(`Project index ready: ${project.count} local scripts.`))
+    .catch((error) => {
+      logs.main.warn(
+        `Could not build the local project index: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
   await updateConnectionUi();
   vscode.workspace.textDocuments.forEach((document) => diagnostics.schedule(document));
-  logs.main.info(`KubeVS activated in Offline Mode with ${project.count} indexed scripts.`);
+  logs.main.info('KubeVS activation completed; network startup continues in the background.');
 
-  if (vscode.workspace.getConfiguration('kubevs.connector').get('autoConnect', false)) {
-    await connectToMinecraft(false);
+  const remoteWorkspaceOpen =
+    vscode.workspace.workspaceFolders?.some((folder) => folder.uri.scheme === 'kubevs-remote') ===
+    true;
+  const connectorSettings = vscode.workspace.getConfiguration('kubevs.connector');
+  const configuredHost = connectorSettings.get('host', '127.0.0.1');
+  const configuredPort = connectorSettings.get('port', 32145);
+  const storedEndpointToken = remoteWorkspaceOpen
+    ? await context.secrets.get(connectorCredentialKey(configuredHost, configuredPort))
+    : undefined;
+  if (remoteWorkspaceOpen && storedEndpointToken) {
+    void connectToMinecraft(false, false, undefined, true);
+  } else if (connectorSettings.get('autoConnect', false)) {
+    void connectToMinecraft(false);
   }
 }
 
@@ -866,12 +1069,15 @@ function openDashboard(
 ): void {
   const panel = vscode.window.createWebviewPanel(
     'kubevs.dashboard',
-    'KubeVS Dashboard',
+    t('KubeVS Dashboard'),
     vscode.ViewColumn.One,
     { enableScripts: true, retainContextWhenHidden: true },
   );
   const nonce = createNonce();
-  panel.webview.html = dashboardHtml(panel.webview, nonce, scriptCount, state);
+  const logoUri = panel.webview.asWebviewUri(
+    vscode.Uri.joinPath(context.extensionUri, 'media', 'kubevs-logo.png'),
+  );
+  panel.webview.html = dashboardHtml(panel.webview, nonce, scriptCount, state, logoUri);
   panel.webview.onDidReceiveMessage(
     (message: unknown) => {
       if (!isDashboardMessage(message)) return;
@@ -892,6 +1098,7 @@ function dashboardHtml(
   nonce: string,
   scriptCount: number,
   state: ConnectionState,
+  logoUri: vscode.Uri,
 ): string {
   const csp = [
     `default-src 'none'`,
@@ -899,49 +1106,77 @@ function dashboardHtml(
     `script-src 'nonce-${nonce}'`,
     `img-src ${webview.cspSource} data:`,
   ].join('; ');
+  const language = runtimeLanguage();
+  const statusLabel =
+    state === 'connected'
+      ? t('Live')
+      : state === 'connecting'
+        ? t('Connecting…')
+        : state === 'error'
+          ? t('Connection failed')
+          : t('Offline');
+  const statusMessage =
+    state === 'connected'
+      ? t('Minecraft data and server files are available.')
+      : t('Local editors and diagnostics remain available.');
+  const connectAction =
+    state === 'connected'
+      ? ''
+      : `<button class="secondary" data-command="kubevs.connect">${escapeHtml(t('Connect Minecraft'))}</button>`;
   return `<!doctype html>
-<html lang="en">
+<html lang="${language}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="${csp}">
-  <title>KubeVS Dashboard</title>
+  <title>${escapeHtml(t('KubeVS Dashboard'))}</title>
   <style nonce="${nonce}">
-    :root { color-scheme: light dark; }
+    :root { color-scheme: light dark; --brand: #8b5cf6; --brand-soft: color-mix(in srgb, var(--vscode-editor-background) 82%, var(--brand) 18%); }
     * { box-sizing: border-box; }
-    body { margin: 0; color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.45 var(--vscode-font-family); }
-    main { max-width: 1040px; margin: 0 auto; padding: clamp(20px, 5vw, 64px); }
-    header { display: flex; gap: 18px; align-items: center; margin-bottom: 32px; }
-    .mark { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 12px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); font-size: 26px; }
-    h1 { margin: 0; font-size: clamp(24px, 5vw, 38px); letter-spacing: -.02em; }
-    .tagline { margin: 4px 0 0; color: var(--vscode-descriptionForeground); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: 12px; }
-    article { min-height: 150px; padding: 18px; border: 1px solid var(--vscode-panel-border); border-radius: 8px; background: var(--vscode-sideBar-background); }
-    h2 { margin: 0 0 8px; font-size: 15px; }
-    .metric { margin: 16px 0 4px; font-size: 30px; font-weight: 600; }
-    .muted { color: var(--vscode-descriptionForeground); }
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
-    button { min-height: 32px; padding: 5px 12px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); border: 1px solid transparent; border-radius: 2px; font: inherit; cursor: pointer; }
+    body { margin: 0; color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.5 var(--vscode-font-family); }
+    main { width: min(920px, 100%); margin: 0 auto; padding: clamp(24px, 5vw, 64px); }
+    .hero { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 20px; align-items: center; padding-bottom: 28px; }
+    .logo { width: 76px; height: 76px; border-radius: 18px; display: block; }
+    h1 { margin: 0; font-size: clamp(28px, 5vw, 42px); line-height: 1.05; letter-spacing: -.025em; }
+    .tagline { max-width: 68ch; margin: 8px 0 0; color: var(--vscode-descriptionForeground); }
+    .status { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 16px; border-block: 1px solid var(--vscode-panel-border); background: var(--brand-soft); }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: ${state === 'connected' ? 'var(--vscode-testing-iconPassed, #3fb950)' : state === 'error' ? 'var(--vscode-testing-iconFailed, #f85149)' : 'var(--vscode-descriptionForeground)'}; }
+    .status strong { display: block; font-weight: 650; }
+    .status span { color: var(--vscode-descriptionForeground); }
+    .index { text-align: right; font-variant-numeric: tabular-nums; }
+    .index b { display: block; font-size: 24px; line-height: 1; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: end; padding-top: 32px; }
+    h2 { margin: 0 0 8px; font-size: 17px; }
+    p { margin: 0; }
+    .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    button { min-height: 34px; padding: 6px 13px; border: 1px solid transparent; border-radius: 4px; color: var(--vscode-button-foreground); background: var(--vscode-button-background); font: inherit; cursor: pointer; }
     button.secondary { color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground); }
     button:hover { background: var(--vscode-button-hoverBackground); }
-    button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
-    @media (max-width: 480px) { header { align-items: flex-start; } .mark { width: 42px; height: 42px; } }
-    @media (forced-colors: active) { article, button { border-color: CanvasText; } }
+    button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+    button:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
+    @media (max-width: 640px) { .hero { grid-template-columns: 58px minmax(0, 1fr); } .logo { width: 58px; height: 58px; border-radius: 14px; } .status, .workspace { grid-template-columns: auto minmax(0, 1fr); } .index { grid-column: 2; text-align: left; } .workspace .actions { grid-column: 1 / -1; justify-content: flex-start; } }
+    @media (forced-colors: active) { .status, button { border-color: CanvasText; } }
   </style>
 </head>
 <body>
   <main>
-    <header><div class="mark" aria-hidden="true">◇</div><div><h1>KubeVS</h1><p class="tagline">KubeJS development, visually integrated into VS Code.</p></div></header>
-    <section class="grid" aria-label="Workspace overview">
-      <article><h2>Project</h2><div class="metric">${scriptCount}</div><div class="muted">KubeJS scripts indexed</div></article>
-      <article><h2>Connection</h2><div class="metric">${state === 'connected' ? 'Live' : state === 'connecting' ? 'Connecting' : 'Offline'}</div><div class="muted">${state === 'connected' ? 'Minecraft data is available through KubeVS Connector' : 'Editing and static diagnostics remain available'}</div></article>
-      <article><h2>Foundation</h2><div class="metric">Ready</div><div class="muted">Project index, Problems, views, commands and theme-aware UI</div></article>
+    <header class="hero">
+      <img class="logo" src="${logoUri}" alt="KubeVS">
+      <div><h1>KubeVS</h1><p class="tagline">${escapeHtml(t('KubeJS development with live Minecraft context, directly in VS Code.'))}</p></div>
+    </header>
+    <section class="status" aria-label="${escapeHtml(t('Workspace status'))}">
+      <i class="status-dot" aria-hidden="true"></i>
+      <div><strong>${escapeHtml(statusLabel)}</strong><span>${escapeHtml(statusMessage)}</span></div>
+      <div class="index"><b>${localeNumber(scriptCount)}</b><span>${escapeHtml(t('KubeJS scripts'))}</span></div>
     </section>
-    <div class="actions">
-      <button data-command="kubevs.refreshProject">Refresh project</button>
-      <button class="secondary" data-command="kubevs.validateProject">Validate</button>
-      ${state === 'connected' ? '' : '<button class="secondary" data-command="kubevs.connect">Connect Minecraft</button>'}
-    </div>
+    <section class="workspace">
+      <div><h2>${escapeHtml(t('Start working'))}</h2><p class="tagline">${escapeHtml(t('Project index'))} · ${escapeHtml(t('Connection'))}</p></div>
+      <div class="actions">
+        <button data-command="kubevs.refreshProject">${escapeHtml(t('Refresh project'))}</button>
+        <button class="secondary" data-command="kubevs.validateProject">${escapeHtml(t('Validate open files'))}</button>
+        ${connectAction}
+      </div>
+    </section>
   </main>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
@@ -953,7 +1188,6 @@ function dashboardHtml(
 </body>
 </html>`;
 }
-
 function isDashboardMessage(value: unknown): value is { type: 'command'; command: string } {
   return (
     typeof value === 'object' &&
@@ -965,6 +1199,14 @@ function isDashboardMessage(value: unknown): value is { type: 'command'; command
   );
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
 function createNonce(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from(
@@ -984,24 +1226,15 @@ function formatHost(host: string): string {
 }
 
 function displayKind(kind: ScriptKind): string {
-  if (kind === 'server_scripts') return 'Серверные скрипты';
-  if (kind === 'client_scripts') return 'Клиентские скрипты';
-  return 'Скрипты запуска';
+  if (kind === 'server_scripts') return t('Server scripts');
+  if (kind === 'client_scripts') return t('Client scripts');
+  return t('Startup scripts');
 }
 
 function scriptKindTooltip(kind: ScriptKind): string {
-  if (kind === 'server_scripts') return 'Рецепты, события сервера и LootJS.';
-  if (kind === 'client_scripts') return 'Клиентские события и интерфейс.';
-  return 'Регистрация предметов, блоков и других объектов при запуске.';
-}
-
-function plural(value: number, one: string, few: string, many: string): string {
-  const mod100 = value % 100;
-  const mod10 = value % 10;
-  if (mod100 >= 11 && mod100 <= 14) return many;
-  if (mod10 === 1) return one;
-  if (mod10 >= 2 && mod10 <= 4) return few;
-  return many;
+  if (kind === 'server_scripts') return t('Recipes, server events and LootJS.');
+  if (kind === 'client_scripts') return t('Client events and user interfaces.');
+  return t('Items, blocks and other startup registrations.');
 }
 
 export function deactivate(): void {}

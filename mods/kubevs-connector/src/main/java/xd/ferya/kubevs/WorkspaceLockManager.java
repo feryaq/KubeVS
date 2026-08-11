@@ -41,12 +41,29 @@ final class WorkspaceLockManager {
         return locks.get(path);
     }
 
+    synchronized Lock conflict(String path, Owner owner) {
+        return locks.values().stream()
+                .filter(lock -> !lock.owner().sessionId().equals(owner.sessionId()))
+                .filter(lock -> lock.path().equals(path)
+                        || lock.path().startsWith(path + "/")
+                        || path.startsWith(lock.path() + "/"))
+                .findFirst()
+                .orElse(null);
+    }
+
     synchronized boolean release(String path, Owner owner) {
         if (!isOwnedBy(path, owner)) {
             return false;
         }
         locks.remove(path);
         return true;
+    }
+
+    synchronized int releaseTree(String path) {
+        int before = locks.size();
+        locks.entrySet().removeIf(entry ->
+                entry.getKey().equals(path) || entry.getKey().startsWith(path + "/"));
+        return before - locks.size();
     }
 
     synchronized int releaseAll(Owner owner) {

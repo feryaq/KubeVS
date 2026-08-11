@@ -34,6 +34,80 @@ export interface LootRuleDraft {
   readonly actions: readonly LootAction[];
 }
 
+export const LOOT_RULE_PRESETS = {
+  chest: {
+    targetKind: 'table',
+    target: 'minecraft:chests/simple_dungeon',
+    condition: {
+      id: 'root',
+      kind: 'and',
+      children: [{ id: 'n1', kind: 'chance', value: 0.2, children: [] }],
+    },
+    actions: [{ id: 'a1', kind: 'add', item: 'minecraft:emerald', count: 1, chance: 1 }],
+  },
+  fishing: {
+    targetKind: 'table',
+    target: 'minecraft:gameplay/fishing',
+    condition: {
+      id: 'root',
+      kind: 'and',
+      children: [{ id: 'n1', kind: 'chance', value: 0.03, children: [] }],
+    },
+    actions: [{ id: 'a1', kind: 'add', item: 'minecraft:diamond', count: 1, chance: 1 }],
+  },
+  leaves: {
+    targetKind: 'block',
+    target: '#minecraft:leaves',
+    condition: {
+      id: 'root',
+      kind: 'and',
+      children: [
+        { id: 'n1', kind: 'survivesExplosion', children: [] },
+        { id: 'n2', kind: 'chance', value: 0.05, children: [] },
+      ],
+    },
+    actions: [{ id: 'a1', kind: 'add', item: 'minecraft:apple', count: 1, chance: 1 }],
+  },
+  stone: {
+    targetKind: 'block',
+    target: 'minecraft:stone',
+    condition: {
+      id: 'root',
+      kind: 'and',
+      children: [
+        { id: 'n1', kind: 'survivesExplosion', children: [] },
+        { id: 'n2', kind: 'chance', value: 0.08, children: [] },
+      ],
+    },
+    actions: [{ id: 'a1', kind: 'add', item: 'minecraft:flint', count: 1, chance: 1 }],
+  },
+  zombie: {
+    targetKind: 'entity',
+    target: 'minecraft:zombie',
+    condition: {
+      id: 'root',
+      kind: 'and',
+      children: [
+        { id: 'n1', kind: 'killedByPlayer', children: [] },
+        { id: 'n2', kind: 'chance', value: 0.05, children: [] },
+      ],
+    },
+    actions: [
+      { id: 'a1', kind: 'add', item: 'minecraft:iron_ingot', count: 1, chance: 1 },
+      { id: 'a2', kind: 'experience', amount: 2 },
+    ],
+  },
+  skeleton: {
+    targetKind: 'entity',
+    target: 'minecraft:skeleton',
+    condition: {
+      id: 'root',
+      kind: 'and',
+      children: [{ id: 'n1', kind: 'killedByPlayer', children: [] }],
+    },
+    actions: [{ id: 'a1', kind: 'add', item: 'minecraft:arrow', count: 2, chance: 0.5 }],
+  },
+} satisfies Readonly<Record<string, LootRuleDraft>>;
 const RESOURCE_LOCATION = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/;
 const NODE_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const MAX_NODES = 100;

@@ -7,22 +7,32 @@ import org.junit.jupiter.api.Test;
 
 final class ConnectorPermissionsTest {
     @Test
-    void levelZeroCannotReadServerFiles() {
-        assertFalse(ConnectorPermissions.allows(0, ConnectorPermissions.READ_WORKSPACE));
-        assertFalse(ConnectorPermissions.allows(0, ConnectorPermissions.EDIT_WORKSPACE));
+    void viewerIsStrictlyReadOnly() {
+        assertTrue(ConnectorPermissions.allows(
+                ConnectorRole.VIEWER, ConnectorPermissions.WORKSPACE_READ));
+        assertFalse(ConnectorPermissions.allows(
+                ConnectorRole.VIEWER, ConnectorPermissions.WORKSPACE_WRITE));
+        assertFalse(ConnectorPermissions.allows(
+                ConnectorRole.VIEWER, ConnectorPermissions.LOGS_READ));
     }
 
     @Test
-    void levelOneIsReadOnly() {
-        assertTrue(ConnectorPermissions.allows(1, ConnectorPermissions.READ_WORKSPACE));
-        assertFalse(ConnectorPermissions.allows(1, ConnectorPermissions.EDIT_WORKSPACE));
-        assertFalse(ConnectorPermissions.allows(1, ConnectorPermissions.READ_LOGS));
+    void editorCanManageFilesButCannotOperateServer() {
+        assertTrue(ConnectorPermissions.allows(
+                ConnectorRole.EDITOR, ConnectorPermissions.WORKSPACE_WRITE));
+        assertTrue(ConnectorPermissions.allows(
+                ConnectorRole.EDITOR, ConnectorPermissions.WORKSPACE_MANAGE));
+        assertFalse(ConnectorPermissions.allows(
+                ConnectorRole.EDITOR, ConnectorPermissions.RELOAD_SERVER));
     }
 
     @Test
-    void levelTwoCanEditReadLogsAndReload() {
-        assertTrue(ConnectorPermissions.allows(2, ConnectorPermissions.EDIT_WORKSPACE));
-        assertTrue(ConnectorPermissions.allows(2, ConnectorPermissions.READ_LOGS));
-        assertTrue(ConnectorPermissions.allows(2, ConnectorPermissions.RELOAD_SERVER));
+    void operatorAndAdminHaveExplicitElevatedPermissions() {
+        assertTrue(ConnectorPermissions.allows(
+                ConnectorRole.OPERATOR, ConnectorPermissions.RELOAD_SERVER));
+        assertFalse(ConnectorPermissions.allows(
+                ConnectorRole.OPERATOR, ConnectorPermissions.ACCOUNTS_MANAGE));
+        assertTrue(ConnectorPermissions.allows(
+                ConnectorRole.ADMIN, ConnectorPermissions.ACCOUNTS_MANAGE));
     }
 }

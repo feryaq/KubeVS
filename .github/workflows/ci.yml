@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, JEI-integration]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extension:
+    name: Extension quality and VSIX
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit production dependencies
+        run: pnpm audit --prod
+      - name: Verify and test extension
+        run: pnpm check:release
+      - name: Package production VSIX
+        run: |
+          $version = node -p "require('./apps/vscode-extension/package.json').version"
+          pnpm --filter kubevs-extension exec vsce package --no-dependencies --out "../../artifacts/kubevs-$version.vsix"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kubevs-vsix
+          path: artifacts/*.vsix
+          if-no-files-found: error
+          retention-days: 14
+
+  connector:
+    name: Connector tests and production JAR
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test and build production Connector
+        run: .\gradlew.bat :mods:kubevs-connector:test :mods:kubevs-connector:build --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kubevs-connector
+          path: mods/kubevs-connector/build/libs/kubevs-*.jar
+          if-no-files-found: error
+          retention-days: 14

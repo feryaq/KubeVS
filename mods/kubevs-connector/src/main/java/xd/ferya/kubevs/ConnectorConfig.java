@@ -2,7 +2,6 @@ package xd.ferya.kubevs;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.file.Path;
 import net.neoforged.fml.loading.FMLPaths;
 
@@ -15,6 +14,10 @@ record ConnectorConfig(
         boolean allowReload,
         boolean allowRemote,
         int joinPermissionLevel,
+        ConnectorRole defaultJoinRole,
+        String advertisedHost,
+        int advertisedPort,
+        boolean advertisedSecure,
         int maxMessageChars,
         int requestsPerWindow,
         long rateWindowMillis) {
@@ -29,7 +32,17 @@ record ConnectorConfig(
         }
 
         int port = ConnectorConfigSpec.PORT.get();
-        int joinPermissionLevel = ConnectorConfigSpec.JOIN_PERMISSION_LEVEL.get();
+        int advertisedPort = ConnectorConfigSpec.PUBLIC_PORT.get() == 0
+                ? port
+                : ConnectorConfigSpec.PUBLIC_PORT.get();
+        String advertisedHost = ConnectorConfigSpec.PUBLIC_HOST.get().trim();
+        if (advertisedHost.isEmpty() && address.isAnyLocalAddress()) {
+            throw new IllegalStateException(
+                    "network.publicHost is required when network.host binds to all interfaces");
+        }
+        if (advertisedHost.isEmpty()) {
+            advertisedHost = address.getHostAddress();
+        }
 
         Path tokenFile = FMLPaths.CONFIGDIR.get().resolve("kubevs-connector-token.txt");
         Path playerTokenFile = FMLPaths.CONFIGDIR.get().resolve("kubevs-player-tokens.tsv");
@@ -41,13 +54,30 @@ record ConnectorConfig(
                 playerTokenFile,
                 ConnectorConfigSpec.ALLOW_RELOAD.get(),
                 allowRemote,
-                joinPermissionLevel,
-                1_048_576,
+                ConnectorConfigSpec.JOIN_PERMISSION_LEVEL.get(),
+                ConnectorConfigSpec.DEFAULT_JOIN_ROLE.get(),
+                advertisedHost,
+                advertisedPort,
+                ConnectorConfigSpec.PUBLIC_SECURE.get(),
+                8_388_608,
                 30,
                 10_000);
     }
 
+    static void requireDedicatedPort(int connectorPort, int minecraftPort) {
+        if (connectorPort == minecraftPort) {
+            throw new IllegalStateException(
+                    "KubeVS Connector cannot share Minecraft TCP port "
+                            + minecraftPort
+                            + ". Allocate a separate TCP port in the hosting panel and set network.port to it.");
+        }
+    }
+
     String publicHost() {
-        return address.getAddress().getHostAddress();
+        return advertisedHost;
+    }
+
+    int publicPort() {
+        return advertisedPort;
     }
 }

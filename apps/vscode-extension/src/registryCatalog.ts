@@ -113,6 +113,7 @@ export class RegistryCatalog {
   private readonly suggestionCache = new Map<string, readonly RegistrySuggestion[]>();
   private readonly suggestionRequests = new Map<string, Promise<readonly RegistrySuggestion[]>>();
   private readonly iconCache = new Map<string, string | null>();
+  private readonly tagEntryCache = new Map<string, readonly string[]>();
   private readonly iconRequests = new Map<string, Promise<string | undefined>>();
   private projectCache: readonly CatalogEntry[] | undefined;
   private projectCachePromise: Promise<readonly CatalogEntry[]> | undefined;
@@ -125,6 +126,7 @@ export class RegistryCatalog {
     this.suggestionCache.clear();
     this.suggestionRequests.clear();
     this.iconCache.clear();
+    this.tagEntryCache.clear();
     this.iconRequests.clear();
   }
 
@@ -153,6 +155,19 @@ export class RegistryCatalog {
     }
   }
 
+  async tagEntries(tag: string, registry = 'minecraft:item'): Promise<readonly string[]> {
+    const normalized = tag.replace(/^#/u, '');
+    const cacheKey = `${registry}:${normalized}`;
+    const cached = this.tagEntryCache.get(cacheKey);
+    if (cached) return cached;
+    try {
+      const entries = await this.fetchIds('registry.tagEntries', { registry, tag: normalized });
+      this.tagEntryCache.set(cacheKey, entries);
+      return entries;
+    } catch {
+      return [];
+    }
+  }
   async iconDataUri(id: string): Promise<string | undefined> {
     if (id.startsWith('#')) return undefined;
     if (this.iconCache.has(id)) return this.iconCache.get(id) ?? undefined;

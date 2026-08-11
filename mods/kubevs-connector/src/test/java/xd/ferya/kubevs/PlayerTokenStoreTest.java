@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -15,75 +18,69 @@ final class PlayerTokenStoreTest {
     Path temporaryDirectory;
 
     @Test
-    void issuesStableCredentialBoundToPlayerAndReloadsIt() throws Exception {
-        Path path = temporaryDirectory.resolve("player-tokens.tsv");
+    void rotatesTokenAndStoresOnlyItsDigest() throws Exception {
+        Path path = temporaryDirectory.resolve("accounts.tsv");
         UUID playerId = UUID.randomUUID();
         PlayerTokenStore store = PlayerTokenStore.load(path);
 
-        PlayerTokenStore.Credential first = store.issue(playerId, "Builder", 2);
-        PlayerTokenStore.Credential second = store.issue(playerId, "Builder", 2);
+        PlayerTokenStore.Credential first =
+                store.issue(playerId, "Builder", ConnectorRole.EDITOR);
+        PlayerTokenStore.Credential second =
+                store.issue(playerId, "Builder", ConnectorRole.EDITOR);
 
-        assertEquals(first.token(), second.token());
-        assertTrue(TokenStore.isValid(first.token()));
-        PlayerTokenStore reloaded = PlayerTokenStore.load(path);
-        assertEquals("Builder", reloaded.authenticate(first.token()).orElseThrow().playerName());
-        assertEquals(playerId, reloaded.authenticate(first.token()).orElseThrow().playerId());
-        assertEquals(2, reloaded.authenticate(first.token()).orElseThrow().permissionLevel());
+        assertNotEquals(first.token(), second.token());
+        assertFalse(store.authenticate(first.token()).isPresent());
+        assertEquals(
+                ConnectorRole.EDITOR,
+                store.authenticate(second.token()).orElseThrow().role());
+        assertFalse(Files.readString(path).contains(second.token()));
     }
 
     @Test
-    void rotatesCredentialWhenPlayerNameChangesAndCanRevokeIt() throws Exception {
-        Path path = temporaryDirectory.resolve("player-tokens.tsv");
-        UUID playerId = UUID.randomUUID();
-        PlayerTokenStore store = PlayerTokenStore.load(path);
-        String oldToken = store.issue(playerId, "OldName", 2).token();
-        String newToken = store.issue(playerId, "NewName", 2).token();
-
-        assertNotEquals(oldToken, newToken);
-        assertFalse(store.authenticate(oldToken).isPresent());
-        assertTrue(store.authenticate(newToken).isPresent());
-        assertTrue(store.revoke(playerId));
-        assertFalse(store.authenticate(newToken).isPresent());
-        assertFalse(store.revoke(playerId));
-    }
-
-    @Test
-    void rejectsMalformedTokensWithoutMatching() throws Exception {
+    void roleChangesTakeEffectWithoutRotatingTheToken() throws Exception {
         PlayerTokenStore store =
-                PlayerTokenStore.load(temporaryDirectory.resolve("player-tokens.tsv"));
-        store.issue(UUID.randomUUID(), "Builder", 2);
+                PlayerTokenStore.load(temporaryDirectory.resolve("roles.tsv"));
+        PlayerTokenStore.Credential issued =
+                store.issue(UUID.randomUUID(), "Builder", ConnectorRole.EDITOR);
 
+        PlayerTokenStore.Account changed =
+                store.setRole("builder", ConnectorRole.OPERATOR).orElseThrow();
+
+        assertEquals(ConnectorRole.OPERATOR, changed.role());
+        assertEquals(
+                ConnectorRole.OPERATOR,
+                store.authenticate(issued.token()).orElseThrow().role());
+    }
+
+    @Test
+    void revokesAccountAndRejectsMalformedTokens() throws Exception {
+        PlayerTokenStore store =
+                PlayerTokenStore.load(temporaryDirectory.resolve("revoke.tsv"));
+        PlayerTokenStore.Credential credential =
+                store.issue(UUID.randomUUID(), "Builder", ConnectorRole.VIEWER);
+
+        assertTrue(store.revoke("builder"));
+        assertFalse(store.authenticate(credential.token()).isPresent());
         assertFalse(store.authenticate(null).isPresent());
         assertFalse(store.authenticate("short").isPresent());
-        assertFalse(store.authenticate("!".repeat(43)).isPresent());
     }
 
     @Test
-    void loadsLegacyCredentialWithMinimumPermission() throws Exception {
+    void migratesLegacyPlaintextCredentialToDigest() throws Exception {
         Path path = temporaryDirectory.resolve("legacy.tsv");
         UUID playerId = UUID.randomUUID();
         String token = "A".repeat(43);
-        String encodedName = java.util.Base64.getUrlEncoder()
+        String encodedName = Base64.getUrlEncoder()
                 .withoutPadding()
-                .encodeToString("Legacy".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        java.nio.file.Files.writeString(
-                path, playerId + "\t" + encodedName + "\t" + token + System.lineSeparator());
+                .encodeToString("Legacy".getBytes(StandardCharsets.UTF_8));
+        Files.writeString(path, playerId + "\t" + encodedName + "\t2\t" + token);
 
-        PlayerTokenStore.Credential credential =
-                PlayerTokenStore.load(path).authenticate(token).orElseThrow();
-        assertEquals(0, credential.permissionLevel());
-    }
+        PlayerTokenStore store = PlayerTokenStore.load(path);
 
-    @Test
-    void rotatesTokenWhenPermissionChanges() throws Exception {
-        PlayerTokenStore store =
-                PlayerTokenStore.load(temporaryDirectory.resolve("permissions.tsv"));
-        UUID playerId = UUID.randomUUID();
-        String oldToken = store.issue(playerId, "Builder", 2).token();
-        PlayerTokenStore.Credential elevated = store.issue(playerId, "Builder", 3);
-
-        assertNotEquals(oldToken, elevated.token());
-        assertEquals(3, elevated.permissionLevel());
-        assertFalse(store.authenticate(oldToken).isPresent());
+        assertEquals(
+                ConnectorRole.EDITOR,
+                store.authenticate(token).orElseThrow().role());
+        assertFalse(Files.readString(path).contains(token));
+        assertTrue(Files.readString(path).contains("\teditor\t"));
     }
 }

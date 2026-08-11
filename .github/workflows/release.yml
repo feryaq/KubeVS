@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build signed release inputs
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify release metadata
+        run: pnpm verify:release
+      - name: Require tag to match extension version
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/vscode-extension/package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$version") {
+            throw "Tag $env:GITHUB_REF_NAME does not match extension version v$version"
+          }
+          "EXTENSION_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $connector = (Select-String -Path gradle.properties -Pattern '^mod_version=(.+)$').Matches[0].Groups[1].Value
+          "CONNECTOR_VERSION=$connector" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Test production sources
+        run: pnpm check
+      - name: Build production Connector
+        run: .\gradlew.bat :mods:kubevs-connector:test :mods:kubevs-connector:build --no-daemon
+      - name: Assemble release artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          pnpm --filter kubevs-extension exec vsce package --no-dependencies --out "../../artifacts/kubevs-$env:EXTENSION_VERSION.vsix"
+          Copy-Item "mods/kubevs-connector/build/libs/kubevs-$env:CONNECTOR_VERSION.jar" "artifacts/kubevs-connector-$env:CONNECTOR_VERSION.jar"
+          Get-FileHash artifacts/* -Algorithm SHA256 | Format-Table
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = (Get-ChildItem artifacts -File).FullName
+          gh release create $env:GITHUB_REF_NAME $assets --verify-tag --generate-notes --title "KubeVS $env:GITHUB_REF_NAME"

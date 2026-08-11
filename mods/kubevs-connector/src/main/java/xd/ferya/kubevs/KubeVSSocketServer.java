@@ -10,7 +10,11 @@ import java.net.InetSocketAddress;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.DirectoryNotEmptyException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -48,7 +52,7 @@ import org.slf4j.Logger;
 
 final class KubeVSSocketServer extends WebSocketServer {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final int PROTOCOL_VERSION = 1;
+    private static final int PROTOCOL_VERSION = 2;
     private static final int MAX_PAGE_SIZE = 500;
 
     private final MinecraftServer minecraftServer;
@@ -84,10 +88,10 @@ final class KubeVSSocketServer extends WebSocketServer {
 
     @Override
     public void onStart() {
-        appendLog("info", "transport", "Connector listening on " + config.publicHost() + ":" + getPort());
+        appendLog("info", "transport", "Connector listening on " + config.address().getHostString() + ":" + getPort());
         LOGGER.info(
                 "KubeVS Connector listening on {}:{} (reload={})",
-                config.publicHost(),
+                config.address().getHostString(),
                 getPort(),
                 config.allowReload());
     }
@@ -144,16 +148,6 @@ final class KubeVSSocketServer extends WebSocketServer {
             return;
         }
 
-        RateLimiter limiter = rateLimiters.get(connection);
-        if (limiter == null) {
-            connection.close(1008, "Authentication required");
-            return;
-        }
-        if (!limiter.tryAcquire(System.currentTimeMillis())) {
-            connection.send(error(null, "RATE_LIMITED", "Too many requests").toString());
-            return;
-        }
-
         JsonObject request;
         try {
             request = JsonParser.parseString(message).getAsJsonObject();
@@ -163,6 +157,15 @@ final class KubeVSSocketServer extends WebSocketServer {
         }
 
         String requestId = string(request, "requestId");
+        RateLimiter limiter = rateLimiters.get(connection);
+        if (limiter == null) {
+            connection.close(1008, "Authentication required");
+            return;
+        }
+        if (!limiter.tryAcquire(System.currentTimeMillis())) {
+            connection.send(error(requestId, "RATE_LIMITED", "Too many requests").toString());
+            return;
+        }
         try {
             if (!"request".equals(string(request, "type")) || string(request, "requestId") == null) {
                 connection.send(error(null, "INVALID_MESSAGE", "Expected a request envelope").toString());
@@ -216,6 +219,12 @@ final class KubeVSSocketServer extends WebSocketServer {
         return getConnections().size();
     }
 
+    void disconnectPlayer(UUID playerId, String reason) {
+        identities.entrySet().stream()
+                .filter(entry -> playerId.equals(entry.getValue().playerId()))
+                .forEach(entry -> entry.getKey().close(1008, reason));
+    }
+
     private void handleRequest(WebSocket connection, JsonObject request) {
         String requestId = string(request, "requestId");
         String method = string(request, "method");
@@ -261,6 +270,10 @@ final class KubeVSSocketServer extends WebSocketServer {
             case "workspace.files.list" -> workspaceFilesList(connection, requestId);
             case "workspace.files.read" -> workspaceFileRead(connection, requestId, params);
             case "workspace.files.write" -> workspaceFileWrite(connection, requestId, params);
+            case "workspace.directories.create" -> workspaceDirectoryCreate(connection, requestId, params);
+            case "workspace.entries.delete" -> workspaceEntryDelete(connection, requestId, params);
+            case "workspace.entries.rename" -> workspaceEntryRename(connection, requestId, params);
+            case "workspace.entries.copy" -> workspaceEntryCopy(connection, requestId, params);
             case "workspace.locks.acquire" -> workspaceLockAcquire(connection, requestId, params);
             case "workspace.locks.release" -> workspaceLockRelease(connection, requestId, params);
             case "workspace.locks.status" -> workspaceLockStatus(connection, requestId, params);
@@ -282,9 +295,17 @@ final class KubeVSSocketServer extends WebSocketServer {
         session.addProperty("sessionId", identity.sessionId().toString());
         session.addProperty("kind", identity.admin() ? "admin" : "player");
         session.addProperty("displayName", identity.displayName());
-        session.addProperty("permissionLevel", identity.permissionLevel());
+        session.addProperty("permissionLevel", identity.role().legacyLevel());
+        session.addProperty("role", identity.role().id());
+        JsonArray permissions = new JsonArray();
+        ConnectorPermissions.forRole(identity.role()).forEach(permissions::add);
+        session.add("permissions", permissions);
         if (identity.playerId() != null) {
             session.addProperty("playerId", identity.playerId().toString());
+            var player = minecraftServer.getPlayerList().getPlayer(identity.playerId());
+            if (player != null) {
+                session.addProperty("locale", player.getLanguage());
+            }
         }
         hello.add("session", session);
         Path instancePath = minecraftServer.getServerDirectory().toAbsolutePath().normalize();
@@ -298,23 +319,27 @@ final class KubeVSSocketServer extends WebSocketServer {
         capabilities.addProperty("recipes", true);
         capabilities.addProperty(
                 "logs",
-                ConnectorPermissions.allows(
-                        identity.permissionLevel(), ConnectorPermissions.READ_LOGS));
+                ConnectorPermissions.allows(identity.role(), ConnectorPermissions.LOGS_READ));
         capabilities.addProperty(
                 "reload",
                 config.allowReload()
                         && ConnectorPermissions.allows(
-                                identity.permissionLevel(),
-                                ConnectorPermissions.RELOAD_SERVER));
-        capabilities.addProperty("inspect", false);
+                                identity.role(), ConnectorPermissions.RELOAD_SERVER));
+        capabilities.addProperty(
+                "inspect",
+                ConnectorPermissions.allows(identity.role(), ConnectorPermissions.INSPECT));
         capabilities.addProperty(
                 "workspaceFiles",
-                ConnectorPermissions.allows(
-                        identity.permissionLevel(), ConnectorPermissions.READ_WORKSPACE));
+                ConnectorPermissions.allows(identity.role(), ConnectorPermissions.WORKSPACE_READ));
         capabilities.addProperty(
                 "workspaceLocks",
-                ConnectorPermissions.allows(
-                        identity.permissionLevel(), ConnectorPermissions.EDIT_WORKSPACE));
+                ConnectorPermissions.allows(identity.role(), ConnectorPermissions.WORKSPACE_WRITE));
+        capabilities.addProperty(
+                "workspaceWrite",
+                ConnectorPermissions.allows(identity.role(), ConnectorPermissions.WORKSPACE_WRITE));
+        capabilities.addProperty(
+                "workspaceManage",
+                ConnectorPermissions.allows(identity.role(), ConnectorPermissions.WORKSPACE_MANAGE));
         capabilities.addProperty("workspaceMaxFileBytes", WorkspaceFileService.DEFAULT_MAX_FILE_BYTES);
         JsonArray integrations = new JsonArray();
         for (String modId : List.of("create", "oritech", "farmersdelight", "lootjs")) {
@@ -328,89 +353,161 @@ final class KubeVSSocketServer extends WebSocketServer {
     }
 
     private void workspaceFilesList(WebSocket connection, String requestId) {
-        if (!requirePermission(
-                connection, requestId, ConnectorPermissions.READ_WORKSPACE)) {
-            return;
-        }
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_READ)) return;
         try {
             JsonArray entries = new JsonArray();
-            for (WorkspaceFileService.FileEntry file : workspaceFiles.list()) {
-                JsonObject entry = new JsonObject();
-                entry.addProperty("path", file.path());
-                entry.addProperty("size", file.size());
-                entry.addProperty("revision", file.revision());
-                entries.add(entry);
+            for (WorkspaceFileService.FileEntry entry : workspaceFiles.list()) {
+                entries.add(fileEntryJson(entry));
             }
             JsonObject result = new JsonObject();
             result.add("entries", entries);
             result.addProperty("total", entries.size());
             connection.send(response(requestId, result).toString());
         } catch (IOException exception) {
-            sendWorkspaceError(connection, requestId, "FILE_ERROR", exception);
+            sendWorkspaceError(connection, requestId, exception);
         }
     }
 
     private void workspaceFileRead(WebSocket connection, String requestId, JsonObject params) {
-        if (!requirePermission(
-                connection, requestId, ConnectorPermissions.READ_WORKSPACE)) {
-            return;
-        }
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_READ)) return;
         try {
             WorkspaceFileService.FileContent file =
                     workspaceFiles.read(requiredString(params, "path"));
-            JsonObject result = new JsonObject();
-            result.addProperty("path", file.path());
-            result.addProperty("content", file.content());
-            result.addProperty("revision", file.revision());
+            JsonObject result = fileEntryJson(new WorkspaceFileService.FileEntry(
+                    file.path(), file.type(), file.size(), file.mtime(), file.revision()));
+            result.addProperty("encoding", "base64");
+            result.addProperty("data", Base64.getEncoder().encodeToString(file.bytes()));
             connection.send(response(requestId, result).toString());
         } catch (IOException exception) {
-            sendWorkspaceError(connection, requestId, "FILE_ERROR", exception);
+            sendWorkspaceError(connection, requestId, exception);
         }
     }
 
     private void workspaceFileWrite(WebSocket connection, String requestId, JsonObject params) {
-        if (!requirePermission(
-                connection, requestId, ConnectorPermissions.EDIT_WORKSPACE)) {
-            return;
-        }
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_WRITE)) return;
         try {
             String path = requiredString(params, "path");
             String key = workspaceFiles.canonicalKey(path);
             WorkspaceLockManager.Owner owner = identity(connection).lockOwner();
             if (!workspaceLocks.isOwnedBy(key, owner)) {
-                connection.send(error(
-                                requestId,
-                                "LOCK_REQUIRED",
-                                "Acquire the file lock before writing")
-                        .toString());
+                sendLockRequired(connection, requestId, workspaceLocks.status(key));
                 return;
             }
-            WorkspaceFileService.FileContent file = workspaceFiles.write(
+            WorkspaceFileService.FileEntry file = workspaceFiles.write(
                     path,
-                    requiredText(params, "content"),
+                    decodeWorkspaceBytes(params),
                     requiredText(params, "expectedRevision"));
-            JsonObject result = new JsonObject();
-            result.addProperty("path", file.path());
-            result.addProperty("revision", file.revision());
-            connection.send(response(requestId, result).toString());
-            appendLog(
-                    "info",
-                    "workspace",
-                    identity(connection).displayName() + " wrote " + file.path());
+            connection.send(response(requestId, fileEntryJson(file)).toString());
+            broadcastWorkspaceChange("changed", file.path(), null, identity(connection));
+            appendLog("info", "workspace", identity(connection).displayName() + " изменил " + file.path());
         } catch (WorkspaceFileService.RevisionConflictException conflict) {
-            JsonObject error = error(requestId, "REVISION_CONFLICT", conflict.getMessage());
-            error.addProperty("actualRevision", conflict.actualRevision());
-            connection.send(error.toString());
+            sendRevisionConflict(connection, requestId, conflict);
         } catch (IOException exception) {
-            sendWorkspaceError(connection, requestId, "FILE_ERROR", exception);
+            sendWorkspaceError(connection, requestId, exception);
+        }
+    }
+
+    private void workspaceDirectoryCreate(
+            WebSocket connection, String requestId, JsonObject params) {
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_WRITE)) return;
+        try {
+            WorkspaceFileService.FileEntry entry =
+                    workspaceFiles.createDirectory(requiredString(params, "path"));
+            connection.send(response(requestId, fileEntryJson(entry)).toString());
+            broadcastWorkspaceChange("created", entry.path(), null, identity(connection));
+            appendLog("info", "workspace", identity(connection).displayName() + " создал папку " + entry.path());
+        } catch (IOException exception) {
+            sendWorkspaceError(connection, requestId, exception);
+        }
+    }
+
+    private void workspaceEntryDelete(
+            WebSocket connection, String requestId, JsonObject params) {
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_MANAGE)) return;
+        try {
+            String path = requiredString(params, "path");
+            String key = workspaceFiles.canonicalKey(path);
+            WorkspaceLockManager.Lock conflict =
+                    workspaceLocks.conflict(key, identity(connection).lockOwner());
+            if (conflict != null) {
+                sendLockRequired(connection, requestId, conflict);
+                return;
+            }
+            workspaceFiles.delete(
+                    path,
+                    booleanValue(params, "recursive", false),
+                    requiredText(params, "expectedRevision"));
+            workspaceLocks.releaseTree(key);
+            connection.send(response(requestId, new JsonObject()).toString());
+            broadcastWorkspaceChange("deleted", key, null, identity(connection));
+            appendLog("warning", "workspace", identity(connection).displayName() + " удалил " + key);
+        } catch (WorkspaceFileService.RevisionConflictException conflict) {
+            sendRevisionConflict(connection, requestId, conflict);
+        } catch (IOException exception) {
+            sendWorkspaceError(connection, requestId, exception);
+        }
+    }
+
+    private void workspaceEntryRename(
+            WebSocket connection, String requestId, JsonObject params) {
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_MANAGE)) return;
+        try {
+            String source = requiredString(params, "source");
+            String destination = requiredString(params, "destination");
+            String sourceKey = workspaceFiles.canonicalKey(source);
+            String destinationKey = workspaceFiles.canonicalKey(destination);
+            WorkspaceLockManager.Owner owner = identity(connection).lockOwner();
+            WorkspaceLockManager.Lock conflict = workspaceLocks.conflict(sourceKey, owner);
+            if (conflict == null) conflict = workspaceLocks.conflict(destinationKey, owner);
+            if (conflict != null) {
+                sendLockRequired(connection, requestId, conflict);
+                return;
+            }
+            workspaceFiles.rename(
+                    source,
+                    destination,
+                    booleanValue(params, "overwrite", false),
+                    requiredText(params, "expectedRevision"));
+            workspaceLocks.releaseTree(sourceKey);
+            connection.send(response(requestId, new JsonObject()).toString());
+            broadcastWorkspaceChange("renamed", sourceKey, destinationKey, identity(connection));
+            appendLog("info", "workspace", identity(connection).displayName()
+                    + " переместил " + sourceKey + " -> " + destinationKey);
+        } catch (WorkspaceFileService.RevisionConflictException conflict) {
+            sendRevisionConflict(connection, requestId, conflict);
+        } catch (IOException exception) {
+            sendWorkspaceError(connection, requestId, exception);
+        }
+    }
+
+    private void workspaceEntryCopy(
+            WebSocket connection, String requestId, JsonObject params) {
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_MANAGE)) return;
+        try {
+            String source = requiredString(params, "source");
+            String destination = requiredString(params, "destination");
+            String sourceKey = workspaceFiles.canonicalKey(source);
+            String destinationKey = workspaceFiles.canonicalKey(destination);
+            WorkspaceLockManager.Owner owner = identity(connection).lockOwner();
+            WorkspaceLockManager.Lock conflict = workspaceLocks.conflict(sourceKey, owner);
+            if (conflict == null) conflict = workspaceLocks.conflict(destinationKey, owner);
+            if (conflict != null) {
+                sendLockRequired(connection, requestId, conflict);
+                return;
+            }
+            workspaceFiles.copy(
+                    source, destination, booleanValue(params, "overwrite", false));
+            connection.send(response(requestId, new JsonObject()).toString());
+            broadcastWorkspaceChange("created", destinationKey, null, identity(connection));
+            appendLog("info", "workspace", identity(connection).displayName()
+                    + " скопировал " + sourceKey + " -> " + destinationKey);
+        } catch (IOException exception) {
+            sendWorkspaceError(connection, requestId, exception);
         }
     }
 
     private void workspaceLockAcquire(WebSocket connection, String requestId, JsonObject params) {
-        if (!requirePermission(
-                connection, requestId, ConnectorPermissions.EDIT_WORKSPACE)) {
-            return;
-        }
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_WRITE)) return;
         try {
             String key = workspaceFiles.canonicalKey(requiredString(params, "path"));
             WorkspaceLockManager.Owner owner = identity(connection).lockOwner();
@@ -419,15 +516,12 @@ final class KubeVSSocketServer extends WebSocketServer {
             result.addProperty("acquired", lock.owner().sessionId().equals(owner.sessionId()));
             connection.send(response(requestId, result).toString());
         } catch (IOException exception) {
-            sendWorkspaceError(connection, requestId, "FILE_ERROR", exception);
+            sendWorkspaceError(connection, requestId, exception);
         }
     }
 
     private void workspaceLockRelease(WebSocket connection, String requestId, JsonObject params) {
-        if (!requirePermission(
-                connection, requestId, ConnectorPermissions.EDIT_WORKSPACE)) {
-            return;
-        }
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_WRITE)) return;
         try {
             String key = workspaceFiles.canonicalKey(requiredString(params, "path"));
             boolean released = workspaceLocks.release(key, identity(connection).lockOwner());
@@ -436,15 +530,12 @@ final class KubeVSSocketServer extends WebSocketServer {
             result.addProperty("released", released);
             connection.send(response(requestId, result).toString());
         } catch (IOException exception) {
-            sendWorkspaceError(connection, requestId, "FILE_ERROR", exception);
+            sendWorkspaceError(connection, requestId, exception);
         }
     }
 
     private void workspaceLockStatus(WebSocket connection, String requestId, JsonObject params) {
-        if (!requirePermission(
-                connection, requestId, ConnectorPermissions.EDIT_WORKSPACE)) {
-            return;
-        }
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_READ)) return;
         try {
             String key = workspaceFiles.canonicalKey(requiredString(params, "path"));
             WorkspaceLockManager.Lock lock = workspaceLocks.status(key);
@@ -453,15 +544,12 @@ final class KubeVSSocketServer extends WebSocketServer {
             result.addProperty("locked", lock != null);
             connection.send(response(requestId, result).toString());
         } catch (IOException exception) {
-            sendWorkspaceError(connection, requestId, "FILE_ERROR", exception);
+            sendWorkspaceError(connection, requestId, exception);
         }
     }
 
     private void workspaceLocksList(WebSocket connection, String requestId) {
-        if (!requirePermission(
-                connection, requestId, ConnectorPermissions.EDIT_WORKSPACE)) {
-            return;
-        }
+        if (!requirePermission(connection, requestId, ConnectorPermissions.WORKSPACE_READ)) return;
         JsonArray entries = new JsonArray();
         workspaceLocks.list().stream().map(KubeVSSocketServer::lockJson).forEach(entries::add);
         JsonObject result = new JsonObject();
@@ -472,29 +560,24 @@ final class KubeVSSocketServer extends WebSocketServer {
 
     private SessionIdentity identity(WebSocket connection) {
         SessionIdentity identity = identities.get(connection);
-        if (identity == null) {
-            throw new IllegalStateException("Authenticated session is missing");
-        }
+        if (identity == null) throw new IllegalStateException("Authenticated session is missing");
         return identity;
     }
 
     private boolean requirePermission(
-            WebSocket connection, String requestId, int minimumLevel) {
+            WebSocket connection, String requestId, String permission) {
         SessionIdentity identity = identity(connection);
-        if (ConnectorPermissions.allows(identity.permissionLevel(), minimumLevel)) {
-            return true;
-        }
+        if (ConnectorPermissions.allows(identity.role(), permission)) return true;
         connection.send(error(
                         requestId,
                         "PERMISSION_DENIED",
-                        "This operation requires Minecraft permission level "
-                                + minimumLevel)
+                        "Роль " + identity.role().id() + " не разрешает " + permission)
                 .toString());
         return false;
     }
 
     private void logsList(WebSocket connection, String requestId) {
-        if (requirePermission(connection, requestId, ConnectorPermissions.READ_LOGS)) {
+        if (requirePermission(connection, requestId, ConnectorPermissions.LOGS_READ)) {
             connection.send(response(requestId, logSnapshot()).toString());
         }
     }
@@ -505,6 +588,16 @@ final class KubeVSSocketServer extends WebSocketServer {
         }
     }
 
+    private static JsonObject fileEntryJson(WorkspaceFileService.FileEntry entry) {
+        JsonObject result = new JsonObject();
+        result.addProperty("path", entry.path());
+        result.addProperty("type", entry.type().id());
+        result.addProperty("size", entry.size());
+        result.addProperty("mtime", entry.mtime());
+        result.addProperty("revision", entry.revision());
+        return result;
+    }
+
     private static JsonObject lockJson(WorkspaceLockManager.Lock lock) {
         JsonObject result = new JsonObject();
         result.addProperty("path", lock.path());
@@ -513,9 +606,51 @@ final class KubeVSSocketServer extends WebSocketServer {
         return result;
     }
 
+    private static void sendLockRequired(
+            WebSocket connection, String requestId, WorkspaceLockManager.Lock lock) {
+        String owner = lock == null ? "другим участником" : lock.owner().displayName();
+        connection.send(error(requestId, "LOCK_REQUIRED", "Файл занят: " + owner).toString());
+    }
+
+    private static void sendRevisionConflict(
+            WebSocket connection,
+            String requestId,
+            WorkspaceFileService.RevisionConflictException conflict) {
+        JsonObject result = error(requestId, "REVISION_CONFLICT", conflict.getMessage());
+        result.addProperty("actualRevision", conflict.actualRevision());
+        connection.send(result.toString());
+    }
+
     private static void sendWorkspaceError(
-            WebSocket connection, String requestId, String code, IOException exception) {
+            WebSocket connection, String requestId, IOException exception) {
+        String code;
+        if (exception instanceof NoSuchFileException) {
+            code = "FILE_NOT_FOUND";
+        } else if (exception instanceof FileAlreadyExistsException) {
+            code = "FILE_EXISTS";
+        } else if (exception instanceof DirectoryNotEmptyException) {
+            code = "DIRECTORY_NOT_EMPTY";
+        } else if (exception instanceof AccessDeniedException) {
+            code = "PERMISSION_DENIED";
+        } else {
+            code = "FILE_ERROR";
+        }
         connection.send(error(requestId, code, exception.getMessage()).toString());
+    }
+
+    private void broadcastWorkspaceChange(
+            String change, String path, String destination, SessionIdentity actor) {
+        JsonObject data = new JsonObject();
+        data.addProperty("change", change);
+        data.addProperty("path", path);
+        if (destination != null) data.addProperty("destination", destination);
+        data.addProperty("actor", actor.displayName());
+        JsonObject event = new JsonObject();
+        event.addProperty("type", "event");
+        event.addProperty("event", "workspace.changed");
+        event.add("data", data);
+        String payload = event.toString();
+        identities.keySet().stream().filter(WebSocket::isOpen).forEach(peer -> peer.send(payload));
     }
 
     private JsonObject pagedItems(JsonObject params) {
@@ -1067,7 +1202,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                 authenticationToken.getBytes(StandardCharsets.UTF_8),
                 token.getBytes(StandardCharsets.UTF_8))) {
             return Optional.of(new SessionIdentity(
-                    UUID.randomUUID(), true, null, "server-admin", 4));
+                    UUID.randomUUID(), true, null, "server-admin", ConnectorRole.ADMIN));
         }
         return config.playerTokens()
                 .authenticate(token)
@@ -1076,7 +1211,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                         false,
                         credential.playerId(),
                         credential.playerName(),
-                        credential.permissionLevel()));
+                        credential.role()));
     }
 
     private record SessionIdentity(
@@ -1084,7 +1219,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             boolean admin,
             UUID playerId,
             String displayName,
-            int permissionLevel) {
+            ConnectorRole role) {
         WorkspaceLockManager.Owner lockOwner() {
             return new WorkspaceLockManager.Owner(sessionId.toString(), displayName);
         }
@@ -1114,6 +1249,12 @@ final class KubeVSSocketServer extends WebSocketServer {
         return object.has(key) && object.get(key).isJsonPrimitive()
                 ? object.get(key).getAsString()
                 : null;
+    }
+
+    private static boolean booleanValue(
+            JsonObject object, String key, boolean fallback) {
+        if (!object.has(key) || !object.get(key).isJsonPrimitive()) return fallback;
+        return object.get(key).getAsBoolean();
     }
 
     private static int integer(
@@ -1149,6 +1290,17 @@ final class KubeVSSocketServer extends WebSocketServer {
             throw new IllegalArgumentException("Missing parameter: " + key);
         }
         return value;
+    }
+
+    private static byte[] decodeWorkspaceBytes(JsonObject object) {
+        if (!"base64".equals(requiredString(object, "encoding"))) {
+            throw new IllegalArgumentException("Поддерживается только binary-safe base64 encoding");
+        }
+        try {
+            return Base64.getDecoder().decode(requiredText(object, "data"));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Некорректные base64-данные файла", exception);
+        }
     }
 
     private static String requiredText(JsonObject object, String key) {

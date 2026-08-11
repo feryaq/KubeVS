@@ -15,6 +15,8 @@ suite('KubeVS Extension', () => {
   test('connector commands are registered and disconnect is safe offline', async () => {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('kubevs.connect'));
+    assert.ok(commands.includes('kubevs.connectWithCode'));
+    assert.ok(commands.includes('kubevs.openServerWorkspace'));
     assert.ok(commands.includes('kubevs.disconnect'));
     assert.ok(commands.includes('kubevs.changeConnectorToken'));
     assert.ok(commands.includes('kubevs.saveAndReload'));
@@ -165,5 +167,39 @@ suite('KubeVS Extension', () => {
     await vscode.commands.executeCommand('kubevs.openCraftGraph');
     await new Promise((resolve) => setTimeout(resolve, 150));
     await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+  });
+
+  test('provides full binary-safe CRUD through the remote filesystem provider', async () => {
+    const port = Number.parseInt(process.env.KUBEVS_TEST_CONNECTOR_PORT ?? '', 10);
+    const token = process.env.KUBEVS_TEST_CONNECTOR_TOKEN;
+    assert.ok(Number.isInteger(port));
+    assert.ok(token);
+
+    await vscode.commands.executeCommand(
+      'kubevs.__test.connectWithCode',
+      `kubevs://127.0.0.1:${port}?token=${token}`,
+    );
+
+    const root = vscode.Uri.parse('kubevs-remote://server/');
+    const names = (await vscode.workspace.fs.readDirectory(root)).map(([name]) => name);
+    assert.ok(names.includes('server_scripts'));
+
+    const directory = vscode.Uri.joinPath(root, 'server_scripts', 'team');
+    const source = vscode.Uri.joinPath(directory, 'binary.png');
+    const renamed = vscode.Uri.joinPath(directory, 'renamed.png');
+    const copied = vscode.Uri.joinPath(directory, 'copied.png');
+    const bytes = Uint8Array.from([0, 1, 2, 255, 10]);
+
+    await vscode.workspace.fs.createDirectory(directory);
+    await vscode.workspace.fs.writeFile(source, bytes);
+    assert.deepEqual(await vscode.workspace.fs.readFile(source), bytes);
+
+    await vscode.workspace.fs.rename(source, renamed);
+    await vscode.workspace.fs.copy(renamed, copied);
+    assert.deepEqual(await vscode.workspace.fs.readFile(copied), bytes);
+
+    await vscode.workspace.fs.delete(directory, { recursive: true });
+    await assert.rejects(() => vscode.workspace.fs.stat(directory));
+    await vscode.commands.executeCommand('kubevs.disconnect');
   });
 });

@@ -6,18 +6,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Persistent per-player credentials. Tokens are never derived from a player name or UUID and are
- * compared in constant time.
+ * Persistent per-player accounts. Only SHA-256 token digests are stored on disk; a raw token is
+ * shown once when /kvs join rotates it.
  */
 final class PlayerTokenStore {
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -25,10 +29,23 @@ final class PlayerTokenStore {
     private static final Base64.Encoder TEXT_ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder TEXT_DECODER = Base64.getUrlDecoder();
 
-    record Credential(UUID playerId, String playerName, int permissionLevel, String token) {}
+    record Credential(UUID playerId, String playerName, ConnectorRole role, String token) {}
+
+    record Account(UUID playerId, String playerName, ConnectorRole role) {}
+
+    private record StoredAccount(
+            UUID playerId, String playerName, ConnectorRole role, byte[] tokenDigest) {
+        StoredAccount {
+            tokenDigest = tokenDigest.clone();
+        }
+
+        Account publicView() {
+            return new Account(playerId, playerName, role);
+        }
+    }
 
     private final Path path;
-    private final Map<UUID, Credential> credentials = new LinkedHashMap<>();
+    private final Map<UUID, StoredAccount> accounts = new LinkedHashMap<>();
 
     private PlayerTokenStore(Path path) {
         this.path = path;
@@ -40,6 +57,7 @@ final class PlayerTokenStore {
             return store;
         }
 
+        boolean migrated = false;
         int lineNumber = 0;
         for (String line : Files.readAllLines(path, StandardCharsets.UTF_8)) {
             lineNumber++;
@@ -49,79 +67,131 @@ final class PlayerTokenStore {
             String[] fields = line.split("\t", -1);
             try {
                 if (fields.length != 3 && fields.length != 4) {
-                    throw new IllegalArgumentException("invalid credential");
-                }
-                int permissionLevel = fields.length == 4 ? Integer.parseInt(fields[2]) : 0;
-                String token = fields.length == 4 ? fields[3] : fields[2];
-                validatePermissionLevel(permissionLevel);
-                if (!TokenStore.isValid(token)) {
-                    throw new IllegalArgumentException("invalid token");
+                    throw new IllegalArgumentException("invalid account");
                 }
                 UUID playerId = UUID.fromString(fields[0]);
                 String playerName =
                         new String(TEXT_DECODER.decode(fields[1]), StandardCharsets.UTF_8);
-                if (playerName.isBlank() || playerName.length() > 64) {
-                    throw new IllegalArgumentException("invalid player name");
+                validatePlayerName(playerName);
+
+                ConnectorRole role;
+                String secret;
+                boolean digestStored = false;
+                if (fields.length == 3) {
+                    role = ConnectorRole.VIEWER;
+                    secret = fields[2];
+                    migrated = true;
+                } else if (fields[2].matches("[0-4]")) {
+                    role = ConnectorRole.fromLegacyLevel(Integer.parseInt(fields[2]));
+                    secret = fields[3];
+                    migrated = true;
+                } else {
+                    role = ConnectorRole.parse(fields[2]);
+                    secret = fields[3];
+                    digestStored = secret.matches("[0-9a-fA-F]{64}");
                 }
-                store.credentials.put(
-                        playerId,
-                        new Credential(playerId, playerName, permissionLevel, token));
+
+                byte[] digest;
+                if (digestStored) {
+                    digest = HexFormat.of().parseHex(secret);
+                } else {
+                    if (!TokenStore.isValid(secret)) {
+                        throw new IllegalArgumentException("invalid token");
+                    }
+                    digest = digest(secret);
+                    migrated = true;
+                }
+                store.accounts.put(
+                        playerId, new StoredAccount(playerId, playerName, role, digest));
             } catch (RuntimeException exception) {
                 throw new IOException(
-                        "Invalid KubeVS player token entry at " + path + ":" + lineNumber,
+                        "Invalid KubeVS account entry at " + path + ":" + lineNumber,
                         exception);
             }
+        }
+        if (migrated) {
+            store.write();
         }
         return store;
     }
 
-    synchronized Credential issue(UUID playerId, String playerName, int permissionLevel)
-            throws IOException {
-        validatePermissionLevel(permissionLevel);
-        Credential existing = credentials.get(playerId);
-        if (existing != null
-                && existing.playerName().equals(playerName)
-                && existing.permissionLevel() == permissionLevel) {
-            return existing;
-        }
+    synchronized Credential issue(
+            UUID playerId, String playerName, ConnectorRole defaultRole) throws IOException {
+        validatePlayerName(playerName);
+        StoredAccount existing = accounts.get(playerId);
+        ConnectorRole role = existing == null ? defaultRole : existing.role();
 
         byte[] random = new byte[32];
         RANDOM.nextBytes(random);
-        Credential credential =
-                new Credential(
-                        playerId,
-                        playerName,
-                        permissionLevel,
-                        TOKEN_ENCODER.encodeToString(random));
-        credentials.put(playerId, credential);
+        String token = TOKEN_ENCODER.encodeToString(random);
+        accounts.put(
+                playerId,
+                new StoredAccount(playerId, playerName, role, digest(token)));
         write();
-        return credential;
+        return new Credential(playerId, playerName, role, token);
     }
 
-    synchronized Optional<Credential> authenticate(String token) {
+    synchronized Optional<Account> authenticate(String token) {
         if (!TokenStore.isValid(token)) {
             return Optional.empty();
         }
-        byte[] candidate = token.getBytes(StandardCharsets.UTF_8);
-        for (Credential credential : credentials.values()) {
-            if (MessageDigest.isEqual(
-                    credential.token().getBytes(StandardCharsets.UTF_8), candidate)) {
-                return Optional.of(credential);
+        byte[] candidate = digest(token);
+        for (StoredAccount account : accounts.values()) {
+            if (MessageDigest.isEqual(account.tokenDigest(), candidate)) {
+                return Optional.of(account.publicView());
             }
         }
         return Optional.empty();
     }
 
+    synchronized Optional<Account> setRole(String playerName, ConnectorRole role)
+            throws IOException {
+        StoredAccount account = findStored(playerName).orElse(null);
+        if (account == null) {
+            return Optional.empty();
+        }
+        StoredAccount updated =
+                new StoredAccount(account.playerId(), account.playerName(), role, account.tokenDigest());
+        accounts.put(updated.playerId(), updated);
+        write();
+        return Optional.of(updated.publicView());
+    }
+
     synchronized boolean revoke(UUID playerId) throws IOException {
-        if (credentials.remove(playerId) == null) {
+        if (accounts.remove(playerId) == null) {
             return false;
         }
         write();
         return true;
     }
 
+    synchronized boolean revoke(String playerName) throws IOException {
+        Optional<StoredAccount> account = findStored(playerName);
+        if (account.isEmpty()) {
+            return false;
+        }
+        accounts.remove(account.orElseThrow().playerId());
+        write();
+        return true;
+    }
+
+    synchronized List<Account> list() {
+        return accounts.values().stream()
+                .map(StoredAccount::publicView)
+                .sorted(Comparator.comparing(
+                        Account::playerName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
     synchronized int size() {
-        return credentials.size();
+        return accounts.size();
+    }
+
+    private Optional<StoredAccount> findStored(String playerName) {
+        String normalized = playerName.toLowerCase(Locale.ROOT);
+        return accounts.values().stream()
+                .filter(account -> account.playerName().toLowerCase(Locale.ROOT).equals(normalized))
+                .findFirst();
     }
 
     private void write() throws IOException {
@@ -130,18 +200,18 @@ final class PlayerTokenStore {
             Files.createDirectories(parent);
         }
         List<String> lines = new ArrayList<>();
-        lines.add("# KubeVS per-player credentials v2. Keep this file secret.");
-        for (Credential credential : credentials.values()) {
+        lines.add("# KubeVS accounts v3: uuid, base64 name, role, SHA-256 token digest.");
+        for (StoredAccount account : accounts.values()) {
             String encodedName = TEXT_ENCODER.encodeToString(
-                    credential.playerName().getBytes(StandardCharsets.UTF_8));
+                    account.playerName().getBytes(StandardCharsets.UTF_8));
             lines.add(
-                    credential.playerId()
+                    account.playerId()
                             + "\t"
                             + encodedName
                             + "\t"
-                            + credential.permissionLevel()
+                            + account.role().id()
                             + "\t"
-                            + credential.token());
+                            + HexFormat.of().formatHex(account.tokenDigest()));
         }
 
         Path temporary = path.resolveSibling(path.getFileName() + ".tmp");
@@ -157,9 +227,18 @@ final class PlayerTokenStore {
         }
     }
 
-    private static void validatePermissionLevel(int permissionLevel) {
-        if (permissionLevel < 0 || permissionLevel > 4) {
-            throw new IllegalArgumentException("Permission level must be between 0 and 4");
+    private static byte[] digest(String token) {
+        try {
+            return MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
+    }
+
+    private static void validatePlayerName(String playerName) {
+        if (playerName == null || playerName.isBlank() || playerName.length() > 64) {
+            throw new IllegalArgumentException("invalid player name");
         }
     }
 }

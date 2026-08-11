@@ -1,15 +1,23 @@
 {
   "name": "kubevs-extension",
   "displayName": "KubeVS",
-  "description": "Профессиональная среда разработки KubeJS внутри Visual Studio Code.",
-  "version": "0.10.1",
+  "description": "%extension.description%",
+  "version": "1.1.0",
   "private": true,
   "publisher": "kubevs",
   "author": {
     "name": "F_ery_a228",
     "url": "https://t.me/F_ery_a"
   },
-  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Feryaq/KubeVS.git"
+  },
+  "homepage": "https://github.com/Feryaq/KubeVS#readme",
+  "bugs": {
+    "url": "https://github.com/Feryaq/KubeVS/issues"
+  },
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {
     "vscode": "^1.105.0"
@@ -25,6 +33,7 @@
     "recipes"
   ],
   "activationEvents": [
+    "onFileSystem:kubevs-remote",
     "onStartupFinished",
     "onCommand:kubevs.openDashboard",
     "onView:kubevs.project"
@@ -45,9 +54,10 @@
     "build:test-replacement": "esbuild src/recipeReplacementCore.ts --bundle --platform=node --format=esm --outfile=dist/recipeReplacementCore.mjs",
     "package:vsix": "vsce package --no-dependencies",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "pnpm build && pnpm build:test-addon && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/addonRecipeCore.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs && node ./test/run.mjs",
-    "test:unit": "pnpm build:test-addon && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/*.test.mjs",
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+    "test": "pnpm build \u0026\u0026 pnpm build:test-addon \u0026\u0026 pnpm build:test-loot \u0026\u0026 pnpm build:test-auth \u0026\u0026 pnpm build:test-client \u0026\u0026 pnpm build:test-removal \u0026\u0026 pnpm build:test-graph \u0026\u0026 pnpm build:test-target \u0026\u0026 pnpm build:test-content \u0026\u0026 pnpm build:test-replacement \u0026\u0026 node --test test/addonRecipeCore.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs \u0026\u0026 node ./test/run.mjs",
+    "test:live-vscode": "pnpm build \u0026\u0026 node ./test/run-live-vscode.mjs",
+    "test:unit": "pnpm build:test-addon \u0026\u0026 pnpm build:test-loot \u0026\u0026 pnpm build:test-auth \u0026\u0026 pnpm build:test-client \u0026\u0026 pnpm build:test-removal \u0026\u0026 pnpm build:test-graph \u0026\u0026 pnpm build:test-target \u0026\u0026 pnpm build:test-content \u0026\u0026 pnpm build:test-replacement \u0026\u0026 node --test test/*.test.mjs",
+    "clean": "node -e \"require(\u0027fs\u0027).rmSync(\u0027dist\u0027,{recursive:true,force:true})\""
   },
   "dependencies": {
     "@kubevs/kubejs-parser": "workspace:*",
@@ -67,169 +77,175 @@
     "commands": [
       {
         "command": "kubevs.openDashboard",
-        "title": "Открыть Dashboard",
+        "title": "%command.openDashboard%",
         "category": "KubeVS",
         "icon": "$(dashboard)"
       },
       {
         "command": "kubevs.connect",
-        "title": "Подключиться к Minecraft",
+        "title": "%command.connect%",
         "category": "KubeVS",
         "icon": "$(plug)"
       },
       {
+        "command": "kubevs.connectWithCode",
+        "title": "%command.connectWithCode%",
+        "category": "KubeVS",
+        "icon": "$(key)"
+      },
+      {
         "command": "kubevs.disconnect",
-        "title": "Отключиться",
+        "title": "%command.disconnect%",
         "category": "KubeVS",
         "icon": "$(debug-disconnect)"
       },
       {
         "command": "kubevs.changeConnectorToken",
-        "title": "Сменить токен Connector",
+        "title": "%command.changeConnectorToken%",
         "category": "KubeVS",
         "icon": "$(key)"
       },
       {
         "command": "kubevs.openServerWorkspace",
-        "title": "Открыть серверный файл",
+        "title": "%command.openServerWorkspace%",
         "category": "KubeVS",
         "icon": "$(remote)"
       },
       {
         "command": "kubevs.showServerFileLocks",
-        "title": "Показать занятые серверные файлы",
+        "title": "%command.showServerFileLocks%",
         "category": "KubeVS",
         "icon": "$(lock)"
       },
       {
         "command": "kubevs.validateProject",
-        "title": "Проверить проект",
+        "title": "%command.validateProject%",
         "category": "KubeVS",
         "icon": "$(check-all)"
       },
       {
         "command": "kubevs.refreshProject",
-        "title": "Обновить индекс проекта",
+        "title": "%command.refreshProject%",
         "category": "KubeVS",
         "icon": "$(refresh)"
       },
       {
         "command": "kubevs.saveAndReload",
-        "title": "Сохранить и перезагрузить",
+        "title": "%command.saveAndReload%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.createRecipe",
-        "title": "Создать Vanilla-рецепт",
+        "title": "%command.createRecipe%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.createAddonRecipe",
-        "title": "Создать рецепт Create / Oritech / Farmer’s Delight",
+        "title": "%command.createAddonRecipe%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.createGenericRecipe",
-        "title": "Создать рецепт по схеме",
+        "title": "%command.createGenericRecipe%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.createRecipeSchema",
-        "title": "Создать схему рецепта",
+        "title": "%command.createRecipeSchema%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.deleteRecipe",
-        "title": "Удалить рецепт",
+        "title": "%command.deleteRecipe%",
         "category": "KubeVS",
         "icon": "$(trash)"
       },
       {
         "command": "kubevs.replaceRecipe",
-        "title": "Заменить рецепт другим",
+        "title": "%command.replaceRecipe%",
         "category": "KubeVS",
         "icon": "$(replace-all)"
       },
       {
         "command": "kubevs.restoreRecipe",
-        "title": "Восстановить удалённый рецепт",
+        "title": "%command.restoreRecipe%",
         "category": "KubeVS",
         "icon": "$(discard)"
       },
       {
         "command": "kubevs.createLootRule",
-        "title": "Создать правило LootJS",
+        "title": "%command.createLootRule%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.createItem",
-        "title": "Создать предмет",
+        "title": "%command.createItem%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.createBlock",
-        "title": "Создать блок",
+        "title": "%command.createBlock%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.openRegistryBrowser",
-        "title": "Открыть Registry Browser",
+        "title": "%command.openRegistryBrowser%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.searchRegistry",
-        "title": "Найти игровой ID по имени или ID",
+        "title": "%command.searchRegistry%",
         "category": "KubeVS",
         "icon": "$(search)"
       },
       {
         "command": "kubevs.openCraftGraph",
-        "title": "Открыть Craft Graph",
+        "title": "%command.openCraftGraph%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.calculateResources",
-        "title": "Рассчитать ресурсы",
+        "title": "%command.calculateResources%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.importProject",
-        "title": "Импортировать проект",
+        "title": "%command.importProject%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.inspectHeldItem",
-        "title": "Исследовать предмет в руке",
+        "title": "%command.inspectHeldItem%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.showConnectionDiagnostics",
-        "title": "Показать диагностику подключения",
+        "title": "%command.showConnectionDiagnostics%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.insertRegistryArray",
-        "title": "Вставить массив из реестра",
+        "title": "%command.insertRegistryArray%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.insertTaggedValues",
-        "title": "Вставить значения из тегов",
+        "title": "%command.insertTaggedValues%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.insertRecipeJson",
-        "title": "Вставить JSON рецепта",
+        "title": "%command.insertRecipeJson%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.insertRecipeAsKubeJs",
-        "title": "Вставить существующий рецепт как KubeJS",
+        "title": "%command.insertRecipeAsKubeJs%",
         "category": "KubeVS"
       },
       {
         "command": "kubevs.generateTypings",
-        "title": "Создать live-типизацию",
+        "title": "%command.generateTypings%",
         "category": "KubeVS"
       }
     ],
@@ -246,27 +262,27 @@
       "kubevs": [
         {
           "id": "kubevs.project",
-          "name": "Проект",
+          "name": "%view.project%",
           "icon": "$(files)"
         },
         {
           "id": "kubevs.recipes",
-          "name": "Рецепты",
+          "name": "%view.recipes%",
           "icon": "$(beaker)"
         },
         {
           "id": "kubevs.lootjs",
-          "name": "LootJS",
+          "name": "%view.lootjs%",
           "icon": "$(symbol-event)"
         },
         {
           "id": "kubevs.registries",
-          "name": "Реестры",
+          "name": "%view.registries%",
           "icon": "$(database)"
         },
         {
           "id": "kubevs.connection",
-          "name": "Подключение",
+          "name": "%view.connection%",
           "icon": "$(plug)"
         }
       ]
@@ -274,7 +290,7 @@
     "viewsWelcome": [
       {
         "view": "kubevs.project",
-        "contents": "Откройте папку с проектом KubeJS.\n[Открыть папку](command:vscode.openFolder)"
+        "contents": "%viewWelcome.project%"
       }
     ],
     "menus": {
@@ -310,13 +326,18 @@
           "group": "navigation@2"
         },
         {
+          "command": "kubevs.connectWithCode",
+          "when": "view == kubevs.connection \u0026\u0026 !kubevs.connected",
+          "group": "navigation@1"
+        },
+        {
           "command": "kubevs.connect",
-          "when": "view == kubevs.connection && !kubevs.connected",
+          "when": "view == kubevs.connection \u0026\u0026 !kubevs.connected",
           "group": "navigation@2"
         },
         {
           "command": "kubevs.disconnect",
-          "when": "view == kubevs.connection && kubevs.connected",
+          "when": "view == kubevs.connection \u0026\u0026 kubevs.connected",
           "group": "navigation@2"
         },
         {
@@ -332,93 +353,110 @@
         "kubevs.connector.autoConnect": {
           "type": "boolean",
           "default": false,
-          "description": "Автоматически подключаться к локальному KubeVS Connector после активации."
+          "description": "%config.connector.autoConnect.description%"
         },
         "kubevs.connector.host": {
           "type": "string",
           "default": "127.0.0.1",
-          "description": "Connector host. Non-loopback hosts require explicit confirmation."
+          "description": "%config.connector.host.description%"
         },
         "kubevs.connector.port": {
           "type": "number",
           "default": 32145,
-          "minimum": 1024,
-          "maximum": 65535
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "%config.connector.port.description%"
+        },
+        "kubevs.connector.secure": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.connector.secure.description%"
         },
         "kubevs.connector.profile": {
           "type": "string",
           "default": "default",
-          "description": "Legacy credential profile used only to migrate tokens saved by KubeVS 0.2.0 and earlier.",
-          "deprecationMessage": "Profiles are no longer needed. KubeVS now stores credentials per host and port."
+          "deprecationMessage": "%config.connector.profile.deprecation%",
+          "description": "%config.connector.profile.description%"
         },
         "kubevs.connector.autoOpenWorkspace": {
           "type": "boolean",
           "default": true,
-          "description": "После локального подключения автоматически открыть папку kubejs, переданную Connector."
+          "description": "%config.connector.autoOpenWorkspace.description%"
         },
         "kubevs.connector.prepareWorkspace": {
           "type": "boolean",
           "default": true,
-          "description": "Создавать недостающие server_scripts, client_scripts, startup_scripts и служебные папки KubeVS."
+          "description": "%config.connector.prepareWorkspace.description%"
         },
         "kubevs.validation.enabled": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "%config.validation.enabled.description%"
         },
         "kubevs.validation.debounce": {
           "type": "number",
           "default": 300,
           "minimum": 50,
-          "maximum": 5000
+          "maximum": 5000,
+          "description": "%config.validation.debounce.description%"
         },
         "kubevs.generatedFiles.directory": {
           "type": "string",
-          "default": "kubejs/server_scripts/kubevs"
+          "default": "kubejs/server_scripts/kubevs",
+          "description": "%config.generatedFiles.directory.description%"
         },
         "kubevs.generatedFiles.confirmOverwrite": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "%config.generatedFiles.confirmOverwrite.description%"
         },
         "kubevs.recipeSchemas.directory": {
           "type": "string",
           "default": ".kubevs/recipe-schemas",
-          "description": "Workspace-relative directory containing *.recipe-schema.json files."
+          "description": "%config.recipeSchemas.directory.description%"
         },
         "kubevs.graph.maxDepth": {
           "type": "number",
           "default": 32,
           "minimum": 1,
-          "maximum": 256
+          "maximum": 256,
+          "description": "%config.graph.maxDepth.description%"
         },
         "kubevs.graph.maxNodes": {
           "type": "number",
           "default": 5000,
           "minimum": 100,
-          "maximum": 50000
+          "maximum": 50000,
+          "description": "%config.graph.maxNodes.description%"
         },
         "kubevs.registry.cacheEnabled": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "%config.registry.cacheEnabled.description%"
         },
         "kubevs.registry.iconCacheSize": {
           "type": "number",
           "default": 500,
           "minimum": 0,
-          "maximum": 5000
+          "maximum": 5000,
+          "description": "%config.registry.iconCacheSize.description%"
         },
         "kubevs.ui.compactMode": {
           "type": "boolean",
-          "default": false
+          "default": false,
+          "description": "%config.ui.compactMode.description%"
         },
         "kubevs.ui.showMinecraftIcons": {
           "type": "boolean",
-          "default": true
+          "default": true,
+          "description": "%config.ui.showMinecraftIcons.description%"
         },
         "kubevs.logs.maxEntries": {
           "type": "number",
           "default": 5000,
           "minimum": 100,
-          "maximum": 50000
+          "maximum": 50000,
+          "description": "%config.logs.maxEntries.description%"
         }
       }
     },
@@ -442,5 +480,7 @@
         "path": "./snippets/kubejs.code-snippets"
       }
     ]
-  }
+  },
+  "l10n": "./l10n",
+  "icon": "media/kubevs-logo.png"
 }

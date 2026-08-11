@@ -1,72 +1,72 @@
 # KubeVS
 
-Автор: **F_ery_a228** · Telegram / Discord: **@F_ery_a**
+**A professional KubeJS development environment inside Visual Studio Code.**
 
-**KubeJS development, visually integrated into VS Code.**
+Created by **F_ery_a228** · Telegram / Discord: **@F_ery_a**
 
-KubeVS is a pnpm/Gradle monorepo for a native-feeling Visual Studio Code extension and a small
-NeoForge 1.21.1 companion mod.
+KubeVS combines a Visual Studio Code extension with a secure NeoForge server bridge. Build recipes visually, browse the live Minecraft registry, understand production chains, and edit the server's KubeJS workspace without leaving your editor.
 
-## Current status
+## Release matrix
 
-Stage 0 (audit), Stage 1 (Extension Foundation), and the experimental Stage 2 Connector vertical are
-implemented:
+| Component          | Version | Platform                                 |
+| ------------------ | ------: | ---------------------------------------- |
+| KubeVS Extension   |   1.1.0 | Visual Studio Code 1.105+                |
+| KubeVS Connector   |   1.1.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
+| WebSocket protocol |       2 | Localhost-only by default                |
 
-- strict TypeScript workspace with ESLint, Prettier, unit tests, and build scripts;
-- KubeVS Activity Bar container with Project, Recipes, LootJS, Registries, and Connection views;
-- theme-aware, keyboard-accessible, responsive Dashboard with a strict CSP;
-- KubeJS project discovery and incremental validation for open scripts;
-- clickable scripts in the Project view and diagnostics in Problems;
-- Offline Mode, status bar, four output channels, settings, commands, and an explicit mock connector;
-- versioned shared protocol package;
-- authenticated localhost WebSocket Connector with bounded messages and rate limiting;
-- live item/tag/recipe/mod counts, bounded Connector logs, capabilities and protocol negotiation;
-- endpoint-scoped SecretStorage, automatic local token discovery, and permission-gated Save and
-  Reload;
-- dedicated-server-safe NeoForge implementation with Java-WebSocket bundled through Jar-in-Jar.
-- KubeJS TextMate accents, snippets, lifecycle-aware completion, hover, document/workspace symbols,
-  Problems diagnostics, and a safe missing-brace Code Action.
-- ProbeJS-inspired, independently implemented registry/tag insertion, existing recipe JSON
-  insertion, and live declaration generation with a native diff before replacement.
-- experimental Vanilla crafting/cooking Recipe Editor, normalized recipe model, readable KubeJS
-  generation, and lossless generic fallback for unknown recipe schemas.
-- schema-driven Generic Recipe Editor with validated workspace schemas, nested fields, repeatable
-  values, raw JSON fallback, canonical preview, and safe diff-before-write.
-- Russian-language addon recipe workspace for Create, Oritech and Farmer’s Delight, including a
-  reorderable Create Sequenced Assembly timeline, weighted outputs and machine parameters.
-- Russian-language LootJS Builder for table, block and entity modifiers with a nested AND / OR /
-  NOT condition tree, typed loot actions, live code preview and safe diff-before-write.
-- searchable live registry catalog by in-game name or ID, editor pickers, source-code completion,
-  Offline Mode project indexing, and a clearer Russian Activity Bar workspace with pixel icons.
+## What KubeVS gives you
 
-Item/block builders, Registry Browser, graph, calculator, advanced fluid/energy recipes and
-round-trip JavaScript import are **planned**, not stable features.
+- A focused Dashboard and dedicated Project, Recipes, LootJS, Registries, and Connection views.
+- KubeJS completion, hover information, diagnostics, Code Actions, project indexing, and live typings.
+- Visual editors for Vanilla, Create, Oritech, Farmer's Delight, Sequenced Assembly, and custom-schema recipes.
+- LootJS, item, and block builders with readable generated scripts.
+- A live Registry Browser with names, IDs, tags, and Minecraft item icons.
+- Craft Graph with movable nodes, recipe alternatives, and totals for items, fluids, time, energy, chances, and by-products.
+- The server's complete `kubejs` directory mounted in VS Code Explorer, including binary files, revisions, external change tracking, and team locks.
+- Per-player `viewer`, `editor`, `operator`, and `admin` roles with one-time `/kvs join` connection codes.
+- English and Russian runtime UI selected from the connected player's Minecraft language.
+- A complete Offline Mode for editing and diagnostics without a running Minecraft instance.
 
-## Requirements
+## Two-part installation
 
-- Node.js 22 or newer
-- pnpm 11
-- Java 21
+1. Install `kubevs-1.1.0.vsix` in Visual Studio Code.
+2. Place `kubevs-connector-1.1.0.jar` in the NeoForge server's `mods` directory.
+3. Start Minecraft, run `/kvs join`, and paste the copied code into **KubeVS: Connect with /kvs join code**.
 
-## Build and test
+The Modrinth download contains the Minecraft Connector JAR. The companion VS Code extension is distributed through [GitHub Releases](https://github.com/Feryaq/KubeVS/releases).
+
+## Security by default
+
+Connector listens on `127.0.0.1:32145`, requires authentication, and rejects remote clients until remote access is explicitly enabled. Use a VPN or a TLS reverse proxy for a remote server. Tokens are stored in VS Code SecretStorage; the server stores only SHA-256 digests for player credentials. See [SECURITY.md](SECURITY.md).
+
+## Build and verify
+
+Requires Node.js 22+, pnpm 11.9.0, and Java 21.
 
 ```powershell
-pnpm install
-pnpm check
-.\gradlew.bat test build --no-daemon
+pnpm install --frozen-lockfile
+pnpm audit --prod
+pnpm check:release
+pnpm --filter kubevs-extension package:vsix
+.\gradlew.bat :mods:kubevs-connector:test :mods:kubevs-connector:build --no-daemon
 ```
 
-Open `examples/basic-kubejs` in an Extension Development Host to exercise the first vertical
-scenario.
+Expected artifacts:
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [docs/getting-started.md](docs/getting-started.md), and
-[docs/development.md](docs/development.md). The independent ProbeJS feature comparison is recorded
-in [docs/probejs-reference.md](docs/probejs-reference.md). Custom mod recipe schemas are documented
-in [docs/custom-recipe-schemas.md](docs/custom-recipe-schemas.md).
-The Russian LootJS Builder guide is available in
-[docs/lootjs-builder-ru.md](docs/lootjs-builder-ru.md).
-Registry search and autocomplete are documented in
-[docs/registry-search-ru.md](docs/registry-search-ru.md).
+- `apps/vscode-extension/kubevs-extension-1.1.0.vsix`
+- `mods/kubevs-connector/build/libs/kubevs-1.1.0.jar`
 
-Русская инструкция по установке и использованию мода:
-[docs/kubevs-connector-guide-ru.md](docs/kubevs-connector-guide-ru.md).
+Tagging a verified commit as `v1.1.0` runs the production release workflow and publishes both artifacts to GitHub Releases. Follow [the release checklist](docs/release-checklist.md).
+
+## Documentation
+
+- [Connector installation and dedicated servers](docs/kubevs-connector-guide-ru.md) — Russian
+- [Team access and player tokens](docs/team-auth-ru.md) — Russian
+- [Craft Graph](docs/craft-graph-ru.md) — Russian
+- [Recipe Editor](docs/recipe-editor.md)
+- [Architecture](ARCHITECTURE.md)
+- [Modrinth listing copy](docs/modrinth-listing.md)
+
+## License
+
+KubeVS is proprietary commercial software. Copying, modifying, reselling, or redistributing the source or binaries requires written permission from the author. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

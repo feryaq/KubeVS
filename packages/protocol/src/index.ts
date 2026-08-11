@@ -1,4 +1,4 @@
-export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION = 2 as const;
 
 export type ConnectorPermission =
   | 'kubevs.connect'
@@ -6,7 +6,11 @@ export type ConnectorPermission =
   | 'kubevs.recipes.read'
   | 'kubevs.logs.read'
   | 'kubevs.reload'
-  | 'kubevs.inspect';
+  | 'kubevs.inspect'
+  | 'kubevs.workspace.read'
+  | 'kubevs.workspace.write'
+  | 'kubevs.workspace.manage'
+  | 'kubevs.accounts.manage';
 
 export interface ConnectorCapabilities {
   readonly registries: boolean;
@@ -17,6 +21,8 @@ export interface ConnectorCapabilities {
   readonly integrations: readonly string[];
   readonly workspaceFiles?: boolean;
   readonly workspaceLocks?: boolean;
+  readonly workspaceWrite?: boolean;
+  readonly workspaceManage?: boolean;
   readonly workspaceMaxFileBytes?: number;
 }
 
@@ -34,9 +40,12 @@ export interface ConnectorHello {
 export interface ConnectorSession {
   readonly kind: 'admin' | 'player';
   readonly displayName: string;
+  readonly locale?: string;
   readonly playerId?: string;
   readonly sessionId?: string;
   readonly permissionLevel?: number;
+  readonly role?: 'viewer' | 'editor' | 'operator' | 'admin';
+  readonly permissions?: readonly ConnectorPermission[];
 }
 
 export interface ConnectorWorkspace {
@@ -54,6 +63,9 @@ export interface ConnectorError {
     | 'INVALID_MESSAGE'
     | 'RATE_LIMITED'
     | 'FILE_ERROR'
+    | 'FILE_NOT_FOUND'
+    | 'FILE_EXISTS'
+    | 'DIRECTORY_NOT_EMPTY'
     | 'LOCK_REQUIRED'
     | 'REVISION_CONFLICT'
     | 'INTERNAL_ERROR';
@@ -74,6 +86,12 @@ export interface ConnectorResponse {
   readonly requestId: string;
   readonly ok: true;
   readonly result: unknown;
+}
+
+export interface ConnectorEvent {
+  readonly type: 'event';
+  readonly event: 'workspace.changed' | 'session.permissionsChanged';
+  readonly data: Readonly<Record<string, unknown>>;
 }
 
 export interface PagedIds {
@@ -124,7 +142,6 @@ export interface PagedRecipeSnapshots {
   readonly hasMore: boolean;
 }
 
-
 export interface ModEntry {
   readonly id: string;
   readonly name: string;
@@ -136,7 +153,7 @@ export interface ModSnapshot {
   readonly total: number;
 }
 
-export type ConnectorMessage = ConnectorHello | ConnectorError | ConnectorResponse;
+export type ConnectorMessage = ConnectorHello | ConnectorError | ConnectorResponse | ConnectorEvent;
 
 export function isConnectorMessage(value: unknown): value is ConnectorMessage {
   if (!isRecord(value) || typeof value.type !== 'string') {
@@ -178,6 +195,12 @@ export function isConnectorMessage(value: unknown): value is ConnectorMessage {
   }
   if (value.type === 'response') {
     return typeof value.requestId === 'string' && value.ok === true && 'result' in value;
+  }
+  if (value.type === 'event') {
+    return (
+      (value.event === 'workspace.changed' || value.event === 'session.permissionsChanged') &&
+      isRecord(value.data)
+    );
   }
   return (
     value.type === 'error' && typeof value.code === 'string' && typeof value.message === 'string'
