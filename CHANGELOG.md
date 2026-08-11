@@ -6,6 +6,17 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ---
 
+## [1.1.9 / Connector 1.1.9] — 2026-08-11
+
+### Repeatable release handoff
+
+- **What:** KubeVS now carries an agent-readable release contract and a complete maintainer runbook covering version synchronization, validation, tag creation, workflow monitoring, and asset verification.
+- **Where:** Root `AGENTS.md`, `RELEASE.md`, synchronized release metadata, and public build instructions.
+- **Why:** The tag-driven workflow is intentionally automatic but not discoverable from the Actions page; omitting the tag left a verified commit without a GitHub Release.
+- **Was:** Release knowledge lived only in chat context, so a new assistant could prepare code and push `main` without triggering publication.
+
+---
+
 ## [1.1.8 / Connector 1.1.8] — 2026-08-11
 
 ### Extension-only GitHub releases
