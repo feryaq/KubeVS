@@ -1,26 +1,26 @@
-# Политика безопасности KubeVS
+# KubeVS Security Policy
 
-## Поддерживаемые версии
+## Supported Versions
 
-| Компонент            | Поддерживаемая линия |
-| -------------------- | -------------------- |
-| KubeVS для VS Code   | 0.10.x               |
-| KubeVS Connector     | 0.7.x                |
-| Minecraft / NeoForge | 1.21.1 / 21.x        |
+| Component            | Supported Version |
+| -------------------- | ----------------- |
+| KubeVS for VS Code   | 0.10.x            |
+| KubeVS Connector     | 0.7.x             |
+| Minecraft / NeoForge | 1.21.1 / 21.x     |
 
-## Как сообщить об уязвимости
+## Reporting a Vulnerability
 
-Не публикуйте токены, логи сервера, адреса или рабочий exploit в обычном Issue.
-Используйте приватный GitHub Security Advisory в репозитории или свяжитесь с автором:
+Do not publish tokens, server logs, addresses, or a working exploit in a regular Issue.
+
+Use a private GitHub Security Advisory in the repository or contact the author directly:
 Telegram / Discord `@F_ery_a`.
 
-В сообщении укажите компонент и версию, условия воспроизведения, влияние и минимальный пример.
-Подтверждение получения ожидается в течение 72 часов. Срок исправления зависит от серьёзности и
-доступности безопасного обновления.
+Please include the affected component and version, reproduction conditions, impact, and a minimal example.
 
-## Базовая модель безопасности
+You can expect an acknowledgment within 72 hours. The time required to release a fix depends on the severity of the vulnerability and the availability of a safe update.
 
-Connector слушает `127.0.0.1` по умолчанию, требует Bearer-токен, ограничивает размер и частоту
-сообщений и разделяет права чтения, записи и reload. Удалённый доступ включается явно. Для сервера
-используйте VPN или TLS-терминирующий reverse proxy; не публикуйте обычный WebSocket-порт напрямую
-в интернет.
+## Baseline Security Model
+
+By default, the Connector listens on `127.0.0.1`, requires a Bearer token, limits message size and request rate, and separates read, write, and reload permissions.
+
+Remote access must be enabled explicitly. For server deployments, use a VPN or a TLS-terminating reverse proxy; do not expose the plain WebSocket port directly to the internet.
