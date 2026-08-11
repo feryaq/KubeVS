@@ -5,27 +5,29 @@ Upload apps/vscode-extension/media/kubevs-logo.png to the Modrinth project galle
 ![KubeVS logo](YOUR_MODRINTH_CDN_URL)
 -->
 
-> **Turn Visual Studio Code into a complete KubeJS workspace — with visual recipe tools, live Minecraft data, Craft Graph, LootJS builders, and secure server editing.**
+> **Minecraft knows the data. VS Code knows the code. KubeVS connects both.**
 
-KubeVS is a two-part development environment for modpack authors and server developers:
+**Build recipes. Trace factories. Tune loot. Edit the live server. Keep the code.**
 
-- **KubeVS Connector** runs with Minecraft and exposes the live registries, recipes, tags, icons, and KubeJS workspace.
-- **KubeVS for Visual Studio Code** provides the editors, project tools, code intelligence, and remote workspace interface.
+KubeVS turns VS Code into the control room for a KubeJS modpack. It is not a throwaway script generator: it works with the project you already maintain and brings verified data from the running game straight into your editor.
 
-The file downloaded from Modrinth is the **Connector JAR**. The VS Code extension is also required and is available from the [latest GitHub Release](https://github.com/Feryaq/KubeVS/releases/latest).
+- **KubeVS Connector** is the bridge inside Minecraft — live registries, recipes, tags, icons, and secure workspace access.
+- **KubeVS for Visual Studio Code** is the workbench — visual editors, code intelligence, Craft Graph, and remote file tools.
 
-**KubeVS is free to download and use. There are no subscriptions, paid features, license keys, or usage fees.**
+The Modrinth download is the **Connector JAR**. Grab the required VS Code extension from the [latest GitHub Release](https://github.com/Feryaq/KubeVS/releases/latest), run **/kvs join**, and you are in.
+
+**Everything ships unlocked. No subscriptions, paid features, license keys, or usage fees.**
 
 <!-- SCREENSHOT 01 — HERO
 Recommended: a wide 16:9 screenshot of the KubeVS Dashboard next to Minecraft.
 Replace this comment with: ![KubeVS Dashboard connected to Minecraft](YOUR_IMAGE_URL)
 -->
 
-## 🧩 Build recipes visually — keep the code readable
+## 🧩 Recipes without the JSON archaeology
 
-Create and manage KubeJS recipes without memorizing every JSON shape or addon-specific field. KubeVS generates clean JavaScript that remains easy to review and edit manually.
+Stop bouncing between JEI, wikis, and half-remembered JSON. Pick real ingredients from the running pack, shape the recipe visually, and let KubeVS write JavaScript you can actually review, commit, and edit later.
 
-Supported visual workflows include:
+What is on the bench:
 
 - Vanilla shaped, shapeless, smelting, blasting, smoking, and campfire cooking recipes
 - Create processing recipes and Sequenced Assembly timelines
@@ -44,9 +46,9 @@ Recommended: a recipe editor showing real item icons, inputs, outputs, and gener
 Replace this comment with: ![Visual recipe editor with live Minecraft items](YOUR_IMAGE_URL)
 -->
 
-## 🕸️ Understand entire production chains with Craft Graph
+## 🕸️ See the whole factory, not one recipe
 
-Craft Graph turns the recipes from the running modpack into an interactive production tree. Choose an output, compare alternative recipes, and inspect what the complete chain actually costs.
+Once a recipe becomes a factory, flat recipe lists stop helping. Craft Graph unfolds the real production chain from your pack, lets you swap routes, and tells you what the build costs before you place a single machine.
 
 - Smooth, freely movable recipe nodes and live connections
 - Alternative crafting paths and collapsible branches
@@ -61,9 +63,9 @@ Upload assets/screenshots/craft-graph.png to the Modrinth project gallery, then 
 ![KubeVS Craft Graph showing connected recipe nodes with Minecraft item textures](YOUR_MODRINTH_CDN_URL)
 -->
 
-## 🎁 Create LootJS rules without fighting the syntax
+## 🎁 LootJS without modifier spaghetti
 
-The LootJS Builder provides a structured target → action → condition workflow and produces readable **LootJS.modifiers(...)** scripts.
+Build loot as **target → action → condition** instead of nesting brackets until something breaks. Start from a preset, tweak every part, and export a readable **LootJS.modifiers(...)** script.
 
 Start from editable presets for:
 
@@ -86,9 +88,9 @@ Recommended: the LootJS Builder with a preset selected and nested conditions exp
 Replace this comment with: ![LootJS visual rule builder](YOUR_IMAGE_URL)
 -->
 
-## 🔎 Browse the live Minecraft registry
+## 🔎 Ask the pack, not the wiki
 
-Search the actual data loaded by the server instead of guessing IDs from documentation.
+If it exists in the running pack, search it by name, ID, or tag. No stale wiki pages, no ID roulette, and no guessing whether an addon renamed something.
 
 - Items, blocks, fluids, entities, recipe types, and other registries
 - Display names, **namespace:id** values, translation keys, and tags
@@ -103,9 +105,9 @@ Recommended: Registry Browser search results with names, IDs, tags, and modded i
 Replace this comment with: ![Live Minecraft Registry Browser](YOUR_IMAGE_URL)
 -->
 
-## 🧰 A real KubeJS development environment
+## 🧰 Your KubeJS project, but with an IDE
 
-KubeVS adds focused tooling to regular VS Code editing:
+Generators are handy until you have to maintain what they generated. KubeVS keeps code primary and adds the tooling a real project needs:
 
 - Project indexing for **server_scripts**, **client_scripts**, and **startup_scripts**
 - KubeJS completion, hover details, snippets, syntax highlighting, diagnostics, and Code Actions
@@ -117,9 +119,9 @@ KubeVS adds focused tooling to regular VS Code editing:
 
 Generated files stay ordinary KubeJS source files. You can inspect, change, move, or version them like the rest of your project.
 
-## 🌐 Edit a server workspace directly from VS Code
+## 🌐 Skip the FTP shuffle
 
-When connected, KubeVS can mount the server's complete **kubejs** directory in VS Code Explorer — not just generated scripts.
+Mount the server's complete **kubejs** directory directly in VS Code Explorer. Edit the real workspace, see outside changes, and stop downloading, renaming, and re-uploading scripts by hand.
 
 - Read, create, edit, rename, and delete server files
 - Binary-safe file transfer
@@ -135,7 +137,7 @@ Recommended: VS Code Explorer showing kubevs-remote files and the Connection vie
 Replace this comment with: ![Remote KubeJS server workspace in VS Code](YOUR_IMAGE_URL)
 -->
 
-## 🚀 Installation
+## 🚀 Two pieces. One workflow.
 
 ### Requirements
 
@@ -156,9 +158,9 @@ Replace this comment with: ![Remote KubeJS server workspace in VS Code](YOUR_IMA
 5. In VS Code, run **KubeVS: Connect with /kvs join code** from the Command Palette.
 6. Open the mounted server workspace or keep working with a local KubeJS project.
 
-## 🛡️ Secure by default
+## 🛡️ Local first, locked down by default
 
-KubeVS Connector listens on **127.0.0.1:32145** by default and rejects remote clients until remote access is explicitly enabled.
+Remote editing should not mean opening a port and hoping for the best. Connector listens on **127.0.0.1:32145** by default and rejects remote clients until you explicitly enable them.
 
 - Authentication is required for every connection
 - Player credentials are stored as SHA-256 digests on the server
@@ -169,9 +171,9 @@ KubeVS Connector listens on **127.0.0.1:32145** by default and rejects remote cl
 
 The Connector's **publicHost**, **publicPort**, and **publicSecure** settings only control the address included in connection codes; they do not add TLS to the Java server.
 
-## 🔌 Compatibility and addon detection
+## 🔌 Built for real modpacks
 
-KubeVS detects installed integrations such as KubeJS, LootJS, Create, Oritech, and Farmer's Delight. Features that depend on a missing addon stay unavailable instead of generating scripts that cannot run in the current instance.
+Real packs are messy. KubeVS detects KubeJS, LootJS, Create, Oritech, Farmer's Delight, and other available integrations, then hides incompatible live actions instead of generating scripts the instance cannot run.
 
 Custom recipe schemas make it possible to support additional modded recipe formats without changing the extension itself.
 
@@ -190,6 +192,6 @@ KubeVS is distributed under the [KubeVS Community Source License 1.0](https://gi
 
 **Modrinth summary field (recommended):**
 
-> Secure Minecraft bridge for the KubeVS visual KubeJS environment: live registries, recipes, Craft Graph, LootJS tools, and remote server editing in VS Code.
+> Minecraft knows the data. VS Code knows the code. KubeVS connects both — visual recipes, Craft Graph, LootJS, and live server editing for KubeJS.
 
 **Suggested gallery order:** Dashboard → Recipe Editor → Craft Graph → LootJS Builder → Registry Browser → Remote Workspace.
