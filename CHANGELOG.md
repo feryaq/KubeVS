@@ -6,6 +6,25 @@
 
 ---
 
+## [1.1.1 / Connector 1.1.1] — 2026-08-11
+
+### Component branches
+
+- Preserved the verified extension release on `codex/vscode-extension-1.1.0`.
+- Added `codex/minecraft-connector-1.1.1` for Connector-specific work while keeping the complete monorepo and shared protocol available to both branches.
+
+### Minecraft command interface
+
+- **What:** rebuilt the `/kvs` status, join, account, role, revoke, and token messages around a consistent semantic chat palette.
+- **Where:** `ConnectorAuthCommands` and Connector release metadata.
+- **Why:** the previous output mixed gold, aqua, gray, and decorative symbols without a stable meaning, while long messages hid the next action.
+- **Before:** users saw implementation-oriented account/token wording; errors often named the failure without explaining recovery.
+- Aqua now identifies KubeVS and interactive actions, green confirms success, gold warns about sensitive changes, red marks destructive actions, and gray/white separate labels from values.
+- `/kvs join` now presents a numbered two-step connection flow, a shorter copy action, and an explicit one-time-code warning.
+- Empty, permission, missing-account, and unavailable-Connector states now tell the player what to do next.
+
+---
+
 ## [1.1.0 / Connector 1.1.0] — 2026-08-11
 
 ### Stable Modrinth and GitHub release

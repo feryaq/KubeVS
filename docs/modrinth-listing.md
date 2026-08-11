@@ -41,8 +41,8 @@ Each player connects with `/kvs join` and receives a role: `viewer`, `editor`, `
 
 ## Installation
 
-1. Download **KubeVS Connector 1.1.0** and place the JAR in the server's `mods` directory.
-2. Install the companion **KubeVS 1.1.0 VSIX** from [GitHub Releases](https://github.com/Feryaq/KubeVS/releases).
+1. Download **KubeVS Connector 1.1.1** and place the JAR in the server's `mods` directory.
+2. Install the companion **KubeVS 1.1.1 VSIX** from [GitHub Releases](https://github.com/Feryaq/KubeVS/releases).
 3. Start the server and run `/kvs join` in Minecraft.
 4. Paste the copied code into **KubeVS: Connect with /kvs join code** in VS Code.
 
@@ -72,7 +72,7 @@ KubeJS is optional for browsing live Minecraft data and required for creating or
 - License: All Rights Reserved
 - Categories: Utility, Management
 - KubeJS dependency: Optional
-- Version number: 1.1.0
+- Version number: 1.1.1
 - Version channel: Release
 - Featured: Yes
 
