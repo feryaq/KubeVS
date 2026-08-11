@@ -6,6 +6,19 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ---
 
+## [1.1.7 / Connector 1.1.7] — 2026-08-11
+
+### Stable formatting checks on Windows CI
+
+- **What:** Prettier now preserves the checkout's existing line-ending style while still validating code formatting.
+- **Where:** Repository Prettier configuration and synchronized release metadata.
+- **Why:** GitHub Actions runs the extension job on Windows, where checkout converts tracked files to CRLF; Prettier's LF-only default incorrectly reported nearly the entire repository as unformatted.
+- **Was:** Lint, typecheck, tests, and builds passed, but the final format check failed on 134 files and prevented VSIX packaging.
+
+Mass-formatting the repository was rejected because it would create a large non-functional diff and obscure real changes.
+
+---
+
 ## [1.1.6 / Connector 1.1.6] — 2026-08-11
 
 ### Community-friendly source license

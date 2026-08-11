@@ -8,8 +8,8 @@ KubeVS combines a Visual Studio Code extension with a secure NeoForge server bri
 
 | Component          | Version | Platform                                 |
 | ------------------ | ------: | ---------------------------------------- |
-| KubeVS Extension   |   1.1.6 | Visual Studio Code 1.105+                |
-| KubeVS Connector   |   1.1.6 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
+| KubeVS Extension   |   1.1.7 | Visual Studio Code 1.105+                |
+| KubeVS Connector   |   1.1.7 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
 | WebSocket protocol |       2 | Localhost-only by default                |
 
 ## What KubeVS gives you
@@ -27,8 +27,8 @@ KubeVS combines a Visual Studio Code extension with a secure NeoForge server bri
 
 ## Two-part installation
 
-1. Install `kubevs-1.1.6.vsix` in Visual Studio Code.
-2. Place `kubevs-connector-1.1.6.jar` in the NeoForge server's `mods` directory.
+1. Install `kubevs-1.1.7.vsix` in Visual Studio Code.
+2. Place `kubevs-connector-1.1.7.jar` in the NeoForge server's `mods` directory.
 3. Start Minecraft, run `/kvs join`, and paste the copied code into **KubeVS: Connect with /kvs join code**.
 
 The Modrinth download contains the Minecraft Connector JAR. The companion VS Code extension is distributed through [GitHub Releases](https://github.com/Feryaq/KubeVS/releases).
@@ -51,10 +51,10 @@ pnpm --filter kubevs-extension package:vsix
 
 Expected artifacts:
 
-- `apps/vscode-extension/kubevs-extension-1.1.6.vsix`
-- `mods/kubevs-connector/build/libs/kubevs-1.1.6.jar`
+- `apps/vscode-extension/kubevs-extension-1.1.7.vsix`
+- `mods/kubevs-connector/build/libs/kubevs-1.1.7.jar`
 
-Tagging a verified commit as `v1.1.6` runs the production release workflow and publishes both artifacts to GitHub Releases. Follow [the release checklist](docs/release-checklist.md).
+Tagging a verified commit as `v1.1.7` runs the production release workflow and publishes both artifacts to GitHub Releases. Follow [the release checklist](docs/release-checklist.md).
 
 ## Documentation
 
