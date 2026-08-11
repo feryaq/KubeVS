@@ -2,16 +2,14 @@
 
 **A professional KubeJS development environment inside Visual Studio Code.**
 
-Created by **F_ery_a228** · Telegram / Discord: **@F_ery_a**
-
 KubeVS combines a Visual Studio Code extension with a secure NeoForge server bridge. Build recipes visually, browse the live Minecraft registry, understand production chains, and edit the server's KubeJS workspace without leaving your editor.
 
 ## Release matrix
 
 | Component          | Version | Platform                                 |
 | ------------------ | ------: | ---------------------------------------- |
-| KubeVS Extension   |   1.1.3 | Visual Studio Code 1.105+                |
-| KubeVS Connector   |   1.1.3 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
+| KubeVS Extension   |   1.1.4 | Visual Studio Code 1.105+                |
+| KubeVS Connector   |   1.1.4 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
 | WebSocket protocol |       2 | Localhost-only by default                |
 
 ## What KubeVS gives you
@@ -24,13 +22,13 @@ KubeVS combines a Visual Studio Code extension with a secure NeoForge server bri
 - Craft Graph with movable nodes, recipe alternatives, and totals for items, fluids, time, energy, chances, and by-products.
 - The server's complete `kubejs` directory mounted in VS Code Explorer, including binary files, revisions, external change tracking, and team locks.
 - Per-player `viewer`, `editor`, `operator`, and `admin` roles with one-time `/kvs join` connection codes.
-- English and Russian runtime UI selected from the connected player's Minecraft language.
+- English-only runtime UI across local and remote workspaces.
 - A complete Offline Mode for editing and diagnostics without a running Minecraft instance.
 
 ## Two-part installation
 
-1. Install `kubevs-1.1.3.vsix` in Visual Studio Code.
-2. Place `kubevs-connector-1.1.3.jar` in the NeoForge server's `mods` directory.
+1. Install `kubevs-1.1.4.vsix` in Visual Studio Code.
+2. Place `kubevs-connector-1.1.4.jar` in the NeoForge server's `mods` directory.
 3. Start Minecraft, run `/kvs join`, and paste the copied code into **KubeVS: Connect with /kvs join code**.
 
 The Modrinth download contains the Minecraft Connector JAR. The companion VS Code extension is distributed through [GitHub Releases](https://github.com/Feryaq/KubeVS/releases).
@@ -53,10 +51,10 @@ pnpm --filter kubevs-extension package:vsix
 
 Expected artifacts:
 
-- `apps/vscode-extension/kubevs-extension-1.1.3.vsix`
-- `mods/kubevs-connector/build/libs/kubevs-1.1.3.jar`
+- `apps/vscode-extension/kubevs-extension-1.1.4.vsix`
+- `mods/kubevs-connector/build/libs/kubevs-1.1.4.jar`
 
-Tagging a verified commit as `v1.1.3` runs the production release workflow and publishes both artifacts to GitHub Releases. Follow [the release checklist](docs/release-checklist.md).
+Tagging a verified commit as `v1.1.4` runs the production release workflow and publishes both artifacts to GitHub Releases. Follow [the release checklist](docs/release-checklist.md).
 
 ## Documentation
 

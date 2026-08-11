@@ -2,23 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateContentScript, suggestedContentId } from '../dist/contentBuilderCore.mjs';
 
-test('создаёт ID из русского названия без ручного ввода', () => {
-  assert.equal(
-    suggestedContentId('Усиленная железная пластина'),
-    'kubejs:usilennaya_zheleznaya_plastina',
-  );
+test('creates an ID from an English name without manual input', () => {
+  assert.equal(suggestedContentId('Reinforced Iron Plate'), 'kubejs:reinforced_iron_plate');
 });
 
-test('генерирует читаемый startup-скрипт предмета', () => {
+test('generates a readable item startup script', () => {
   const code = generateContentScript({
     kind: 'item',
     id: 'kubejs:test_plate',
-    displayName: 'Тестовая пластина',
+    displayName: 'Test Plate',
     textureItem: 'minecraft:iron_ingot',
     maxStackSize: 32,
     rarity: 'uncommon',
     glow: true,
-    tooltip: 'Для отладки рецептов',
+    tooltip: 'For recipe debugging',
     hardness: 2,
     resistance: 6,
     soundType: 'metal',
@@ -30,11 +27,11 @@ test('генерирует читаемый startup-скрипт предмет�
   assert.match(code, /\.maxStackSize\(32\)/u);
 });
 
-test('генерирует базовый блок с инструментом', () => {
+test('generates a basic block with a required tool', () => {
   const code = generateContentScript({
     kind: 'block',
     id: 'kubejs:test_block',
-    displayName: 'Тестовый блок',
+    displayName: 'Test Block',
     textureItem: 'minecraft:iron_block',
     maxStackSize: 64,
     rarity: 'common',
@@ -51,11 +48,11 @@ test('генерирует базовый блок с инструментом',
   assert.match(code, /\.tagBlock\("minecraft:mineable\/pickaxe"\)/u);
 });
 
-test('отклоняет поддельный тип контента и несовместимое требование инструмента', () => {
+test('rejects a forged content type and an incompatible tool requirement', () => {
   const draft = {
     kind: 'block',
     id: 'kubejs:test_block',
-    displayName: 'Тестовый блок',
+    displayName: 'Test Block',
     textureItem: '',
     maxStackSize: 64,
     rarity: 'common',
@@ -67,9 +64,9 @@ test('отклоняет поддельный тип контента и нес�
     requiresTool: true,
     miningTool: 'none',
   };
-  assert.throws(() => generateContentScript(draft), /выберите его тип/u);
+  assert.throws(() => generateContentScript(draft), /Select a mining tool/u);
   assert.throws(
     () => generateContentScript({ ...draft, kind: "item', evil()" }),
-    /Неизвестный тип/u,
+    /Unknown content type/u,
   );
 });

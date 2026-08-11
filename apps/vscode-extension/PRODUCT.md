@@ -8,61 +8,60 @@ web
 
 ## Users
 
-Сборщики Minecraft-сборок и разработчики KubeJS, которые работают в Visual Studio Code и хотят
-редактировать скрипты, рецепты и данные модов без постоянного ручного поиска форматов и ID.
+Minecraft modpack authors and KubeJS developers who work in Visual Studio Code and want to edit
+scripts, recipes, and mod data without repeatedly looking up formats and registry IDs.
 
 ## Product Purpose
 
-KubeVS превращает Visual Studio Code в специализированную среду для KubeJS: сочетает обычный код,
-визуальные редакторы, проектный индекс и реальные данные запущенного Minecraft. Успех продукта —
-когда сложный рецепт или правило можно собрать визуально, проверить и сохранить как читаемый код
-без потери контроля над файлами.
+KubeVS turns Visual Studio Code into a focused KubeJS environment that combines regular code,
+visual editors, project indexing, and verified data from a running Minecraft instance. The product
+succeeds when a complex recipe or rule can be assembled visually, reviewed, and saved as readable
+code without giving up control over project files.
 
 ## Positioning
 
-В отличие от отдельного генератора, KubeVS живёт внутри VS Code, работает офлайн и дополняет
-локальный проект проверенными registry snapshots из Minecraft через защищённый KubeVS Connector.
+Unlike a standalone generator, KubeVS lives inside VS Code, works offline, and enriches the local
+project with verified Minecraft registry snapshots through the authenticated KubeVS Connector.
 
 ## Operating Context
 
-- Visual Studio Code на Windows и других поддерживаемых платформах.
-- KubeJS-проекты с `server_scripts`, `client_scripts` и `startup_scripts`.
-- Minecraft 1.21.1 с NeoForge и опциональным KubeVS Connector.
-- Create, Oritech, Farmer’s Delight, LootJS и другие аддоны со своими форматами рецептов.
+- Visual Studio Code on Windows and other supported platforms.
+- KubeJS projects with server_scripts, client_scripts, and startup_scripts.
+- Minecraft 1.21.1 with NeoForge and the optional KubeVS Connector.
+- Create, Oritech, Farmer's Delight, LootJS, and other addons with custom recipe formats.
 
 ## Capabilities and Constraints
 
-- Интерфейс должен оставаться нативным для VS Code и использовать его темы, фокус, клавиатурную
-  навигацию и стандартные диалоги.
-- Minecraft-акценты допустимы как функциональные детали, но не должны ухудшать читаемость.
-- Любая перезапись пользовательского файла требует безопасного diff и явного подтверждения.
-- Offline Mode остаётся полноценным режимом; live-функции честно обозначают зависимость от
-  Connector.
-- Новые пользовательские тексты и основная документация создаются на русском языке.
-- Сгенерированный KubeJS должен быть читаемым и пригодным для ручного редактирования.
+- The interface stays native to VS Code and respects its themes, focus model, keyboard navigation,
+  and standard dialogs.
+- Minecraft-inspired accents may provide functional context but must not reduce readability.
+- Every overwrite of a user file requires a safe diff and explicit confirmation.
+- Offline Mode remains fully usable; live features clearly state their Connector dependency.
+- All user-facing text and primary documentation are authored in English.
+- Generated KubeJS must remain readable and suitable for manual editing.
 
 ## Brand Commitments
 
-Названия: KubeVS и KubeVS Connector. Команды используют префикс `KubeVS:`, настройки —
-`kubevs.*`, generated-файлы находятся в каталогах KubeVS. Продукт должен восприниматься как
-профессиональный платный инструмент, а не демонстрационный прототип.
+The product names are KubeVS and KubeVS Connector. Commands use the KubeVS: prefix, settings use
+kubevs.*, and generated files live in KubeVS-managed directories. The product should feel like a
+professional production tool, not a demonstration prototype.
 
 ## Evidence on Hand
 
-В репозитории есть работающие Extension Host тесты, NeoForge dedicated-server вертикаль,
-аутентифицированный WebSocket-протокол, Vanilla и Generic Recipe Editors, пользовательские схемы и
-безопасная запись через native diff. Коммерческие отзывы, цены и маркетинговые доказательства не
-предоставлены и не должны выдумываться.
+The repository contains Extension Host tests, a NeoForge dedicated-server path, an authenticated
+WebSocket protocol, Vanilla and Generic Recipe Editors, custom schemas, and safe writes through
+native diffs. Commercial testimonials, pricing claims, and marketing proof are not available and
+must not be invented.
 
 ## Product Principles
 
-1. Код остаётся главным и всегда читаемым.
-2. Сложность раскрывается постепенно, а частые действия выполняются быстро.
-3. Live-данные проверяются Minecraft, офлайн-возможности не маскируются под live.
-4. Перезапись безопасна и обратима до подтверждения.
-5. Интерфейс говорит ясно, по-русски и в терминах пользователя Minecraft.
+1. Code remains primary and readable.
+2. Complexity is disclosed progressively, while frequent actions stay fast.
+3. Minecraft verifies live data; offline capabilities never pretend to be live.
+4. Overwrites are safe and reversible until confirmation.
+5. The interface uses clear English and familiar Minecraft terminology.
 
 ## Accessibility & Inclusion
 
-Интерфейс поддерживает клавиатуру, видимый фокус, темы VS Code, forced colors, масштабирование и
-понятные состояния ошибок без зависимости только от цвета.
+The interface supports keyboard operation, visible focus, VS Code themes, forced colors, zoom, and
+clear error states that do not rely on color alone.

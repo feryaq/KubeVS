@@ -14,7 +14,7 @@ const base = {
   actions: [{ id: 'add', kind: 'add', item: 'minecraft:diamond', count: 1, chance: 1 }],
 };
 
-test('генерирует читаемый модификатор таблицы и действия', () => {
+test('generates a readable table modifier and actions', () => {
   const code = generateLootRule({
     ...base,
     actions: [
@@ -38,7 +38,7 @@ test('генерирует читаемый модификатор таблиц�
   assert.match(code, /modifier\.dropExperience\(8\)/);
 });
 
-test('сохраняет вложенную семантику AND, OR и NOT', () => {
+test('preserves nested AND, OR, and NOT semantics', () => {
   const code = generateLootRule({
     ...base,
     condition: {
@@ -68,7 +68,7 @@ test('сохраняет вложенную семантику AND, OR и NOT', 
   assert.match(code, /"condition": "minecraft:match_tool"/);
 });
 
-test('поддерживает блоки, сущности и пользовательское JSON-условие', () => {
+test('supports blocks, entities, and a custom JSON condition', () => {
   const block = generateLootRule({
     ...base,
     targetKind: 'block',
@@ -86,14 +86,14 @@ test('поддерживает блоки, сущности и пользова�
   assert.match(entity, /addEntityModifier\("minecraft:zombie"\)/);
 });
 
-test('отклоняет пустые группы, неверные шансы и опасный JSON', () => {
+test('rejects empty groups, invalid chances, and unsafe JSON', () => {
   assert.throws(
     () => generateLootRule({ ...base, condition: { id: 'root', kind: 'and', children: [] } }),
-    /хотя бы одно условие/,
+    /at least one condition/,
   );
   assert.throws(
     () => generateLootRule({ ...base, condition: leaf('chance', 'chance', 2) }),
-    /от 0 до 1/,
+    /from 0 to 1/,
   );
   assert.throws(
     () =>
@@ -105,11 +105,11 @@ test('отклоняет пустые группы, неверные шансы 
           '{"condition":"minecraft:killed_by_player","constructor":{"x":1}}',
         ),
       }),
-    /запрещённое имя поля/,
+    /forbidden field name/,
   );
 });
 
-test('ограничивает глубину и проверяет уникальность ID', () => {
+test('limits depth and validates unique IDs', () => {
   let condition = leaf('last', 'chance', 0.5);
   for (let index = 0; index < 13; index += 1) {
     condition = { id: `not${index}`, kind: 'not', children: [condition] };
@@ -128,7 +128,7 @@ test('ограничивает глубину и проверяет уникал
   );
 });
 
-test('все готовые пресеты генерируют валидные LootJS-модификаторы', () => {
+test('all built-in presets generate valid LootJS modifiers', () => {
   const generated = Object.values(LOOT_RULE_PRESETS).map(generateLootRule);
   assert.equal(generated.length, 6);
   assert.ok(generated.some((code) => code.includes('addTableModifier')));

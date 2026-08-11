@@ -8,7 +8,7 @@ import {
 
 export async function generatedDirectoryUri(): Promise<vscode.Uri> {
   const folder = await generatedWorkspaceFolder();
-  if (!folder) throw new Error('Сначала откройте папку проекта.');
+  if (!folder) throw new Error('Open a project folder first.');
 
   const configured = vscode.workspace
     .getConfiguration('kubevs.generatedFiles')
@@ -25,7 +25,7 @@ export async function generatedDirectoryUri(): Promise<vscode.Uri> {
 
 export async function generatedStartupDirectoryUri(): Promise<vscode.Uri> {
   const folder = await generatedWorkspaceFolder();
-  if (!folder) throw new Error('Сначала откройте папку проекта.');
+  if (!folder) throw new Error('Open a project folder first.');
   const configured = vscode.workspace
     .getConfiguration('kubevs.generatedFiles')
     .get('directory', 'kubejs/server_scripts/kubevs');

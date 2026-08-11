@@ -1,8 +1,19 @@
 # Changelog
 
-Заметные изменения KubeVS. Файл фиксирует продуктовые решения, а не повторяет историю коммитов.
+Notable KubeVS changes. This file records product decisions instead of repeating commit history.
 
 ## [Unreleased]
+
+---
+
+## [1.1.4 / Connector 1.1.4] — 2026-08-11
+
+### English-only extension
+
+- Converted all extension UI, accessibility labels, errors, documentation, and tests to native English source text.
+- Removed the Russian locale bundle and disabled runtime locale switching.
+- Removed public creator, Telegram, and Discord promotion from extension-facing metadata and documentation.
+- Added a release guard that rejects Cyrillic extension sources and Russian locale files.
 
 ---
 

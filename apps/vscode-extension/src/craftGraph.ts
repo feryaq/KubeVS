@@ -9,7 +9,7 @@ import {
 } from './craftGraphCore.js';
 import type { RegistryCatalog } from './registryCatalog.js';
 import { handleRegistryPickMessage } from './registryWebview.js';
-import { runtimeLanguage, t } from './localization.js';
+import { t } from './localization.js';
 
 type GraphMessage =
   | {
@@ -160,7 +160,7 @@ export async function loadRecipes(
       const entries = await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
-          title: 'KubeVS: получаем дерево рецептов из Minecraft',
+          title: 'KubeVS: Fetching Recipe Tree from Minecraft',
           cancellable: true,
         },
         async (progress, token) => {
@@ -176,7 +176,7 @@ export async function loadRecipes(
             result.push(...page.entries);
             total = page.total;
             progress.report({
-              message: `${result.length.toLocaleString('ru-RU')} / ${total.toLocaleString('ru-RU')}`,
+              message: `${result.length.toLocaleString('en-US')} / ${total.toLocaleString('en-US')}`,
               increment: total > 0 ? (page.entries.length / total) * 100 : 0,
             });
             if (!page.hasMore) break;
@@ -204,7 +204,7 @@ export async function loadRecipes(
   const cached = await readRecipeCache(context);
   if (!cached) {
     throw new Error(
-      'Нет подключения к Minecraft и ещё нет сохранённого snapshot. Подключите Connector и обновите дерево.',
+      'Minecraft is disconnected and no snapshot is available. Connect the Connector and refresh the tree.',
     );
   }
   return { entries: cached, source: 'cache' };
@@ -307,18 +307,13 @@ function legacyCraftGraphHtml(
     `script-src 'nonce-${nonce}'`,
   ].join('; ');
   return `<!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="${csp}">
-  <title>KubeVS — дерево рецептов</title>
+  <title>KubeVS — Recipe Tree</title>
   <style>
-    /* THESIS: Craft Graph — производственная трасса от базового сырья к цели, а не облако случайных узлов.
-       OWN-WORLD: Нативные панели VS Code, медные соединения Create, пиксельные игровые текстуры и строгая ведомость.
-       STORY: Выбрать результат, увидеть зависимости, переключить альтернативы и сразу получить точные затраты.
-       FIRST VIEWPORT: Управление сверху, ведомость слева, широкое разворачиваемое дерево в центре, инспектор справа.
-       FORM: Трёхпанельный операторский экран; дерево доминирует, данные и действия остаются сканируемыми. */
     * { box-sizing: border-box; }
     :root { --copper: #b87333; --copper-soft: color-mix(in srgb, var(--vscode-editor-background) 82%, #b87333 18%); }
     body { margin: 0; color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.45 var(--vscode-font-family); }
@@ -375,7 +370,7 @@ function legacyCraftGraphHtml(
     .station { display: inline-grid; grid-template-columns: 20px minmax(0, auto); align-items: center; gap: 4px; min-height: 24px; padding: 1px 6px 1px 3px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); color: var(--vscode-editorWidget-foreground); font-size: 10px; }
     .station img { width: 20px; height: 20px; object-fit: contain; image-rendering: pixelated; }
     .station img:not([src]) { visibility: hidden; }
-    .station.catalyst::after { content: "катализатор"; color: var(--vscode-descriptionForeground); }
+    .station.catalyst::after { content: "catalyst"; color: var(--vscode-descriptionForeground); }
     .alternative { min-height: 22px; padding: 1px 6px; font-size: 10px; }
     .byproduct { color: var(--vscode-charts-green); }
     .tree.reveal > li { animation: feed-in 180ms cubic-bezier(.2,.8,.2,1); }
@@ -393,29 +388,29 @@ function legacyCraftGraphHtml(
 </head>
 <body>
   <header>
-    <div class="identity"><h1>${calculatorMode ? 'Калькулятор ресурсов' : 'Дерево рецептов'}</h1><div class="muted">Live-рецепты · альтернативы · базовое сырьё</div></div>
+    <div class="identity"><h1>${calculatorMode ? 'Resource Calculator' : 'Recipe Tree'}</h1><div class="muted">Live recipes · alternatives · base resources</div></div>
     <div class="target">
-      <label>Результат<input id="target" value="minecraft:diamond_pickaxe" spellcheck="false"></label>
-      <button id="pick" title="Найти предмет по имени или ID" aria-label="Найти предмет">⌕</button>
-      <label>Количество<input id="amount" type="number" min="1" max="1000000000" value="1"></label>
-      <label class="depth">Глубина<select id="depth">${[4, 6, 8, 12, 16, 24, 32].map((depth) => `<option${depth === 8 ? ' selected' : ''}>${depth}</option>`).join('')}</select></label>
-      <button class="primary" id="build">Рассчитать</button>
+      <label>Result<input id="target" value="minecraft:diamond_pickaxe" spellcheck="false"></label>
+      <button id="pick" title="Find an item by name or ID" aria-label="Find item">⌕</button>
+      <label>Amount<input id="amount" type="number" min="1" max="1000000000" value="1"></label>
+      <label class="depth">Depth<select id="depth">${[4, 6, 8, 12, 16, 24, 32].map((depth) => `<option${depth === 8 ? ' selected' : ''}>${depth}</option>`).join('')}</select></label>
+      <button class="primary" id="build">Calculate</button>
     </div>
-    <button id="reload" title="Обновить snapshot из Minecraft">↻</button>
+    <button id="reload" title="Refresh snapshot from Minecraft">↻</button>
   </header>
   <main>
     <aside class="ledger">
-      <h2>Базовые ресурсы</h2>
-      <div class="summary"><div><strong id="baseCount">—</strong><span class="muted">позиций</span></div><div><strong id="recipeCount">—</strong><span class="muted">рецептов</span></div><div><strong id="time">—</strong><span class="muted">тиков</span></div><div><strong id="energy">—</strong><span class="muted">энергии</span></div></div>
+      <h2>Base resources</h2>
+      <div class="summary"><div><strong id="baseCount">—</strong><span class="muted">entries</span></div><div><strong id="recipeCount">—</strong><span class="muted">recipes</span></div><div><strong id="time">—</strong><span class="muted">ticks</span></div><div><strong id="energy">—</strong><span class="muted">energy</span></div></div>
       <ul class="resource-list" id="resources"></ul>
     </aside>
     <section class="graph">
-      <div class="graph-head"><div><h2>Производственная цепочка</h2><div class="status" id="status">Загружаем рецепты…</div></div><button id="collapse">Свернуть всё</button></div>
-      <ul class="tree" id="tree"><li class="empty">Подключаем каталог рецептов.</li></ul>
+      <div class="graph-head"><div><h2>Production Chain</h2><div class="status" id="status">Loading recipes…</div></div><button id="collapse">Collapse All</button></div>
+      <ul class="tree" id="tree"><li class="empty">Connecting to the recipe catalog.</li></ul>
     </section>
     <aside class="inspector">
-      <h2>Инспектор узла</h2>
-      <p class="muted" id="inspectHint">Выберите строку в дереве, чтобы увидеть рецепт, количество операций и побочные продукты.</p>
+      <h2>Node Inspector</h2>
+      <p class="muted" id="inspectHint">Select a tree row to inspect its recipe, operation count, and byproducts.</p>
       <dl class="detail" id="detail"></dl>
     </aside>
   </main>
@@ -437,7 +432,7 @@ function legacyCraftGraphHtml(
     let catalogReady = false;
     let latestTree;
     function humanize(id) { return id.split(':').pop().replaceAll('/', ' › ').replaceAll('_', ' ').replace(/\\b\\p{L}/gu, c => c.toUpperCase()); }
-    function format(value) { return Number.isInteger(value) ? value.toLocaleString('ru-RU') : value.toLocaleString('ru-RU', {maximumFractionDigits: 2}); }
+    function format(value) { return Number.isInteger(value) ? value.toLocaleString('en-US') : value.toLocaleString('en-US', {maximumFractionDigits: 2}); }
     function flushIcons() {
       const ids = [...iconQueue].slice(0, 128);
       ids.forEach(id => { iconQueue.delete(id); requestedIcons.add(id); });
@@ -465,7 +460,7 @@ function legacyCraftGraphHtml(
     }
     function stationElement(stack, catalyst) {
       const chip = document.createElement('span'); chip.className = 'station' + (catalyst ? ' catalyst' : '');
-      chip.title = (catalyst ? 'Катализатор: ' : 'Рабочая станция: ') + stack.id;
+      chip.title = (catalyst ? 'Catalyst: ' : 'Workstation: ') + stack.id;
       const img = document.createElement('img'); img.alt = ''; img.dataset.iconId = stack.id;
       const name = document.createElement('span'); name.textContent = humanize(stack.id);
       chip.append(img, name); return chip;
@@ -475,7 +470,7 @@ function legacyCraftGraphHtml(
       const count = Number(amount.value);
       const maxDepth = Number(depth.value);
       if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(value) || !Number.isSafeInteger(count) || count < 1) {
-        statusEl.className = 'status error'; statusEl.textContent = 'Проверьте ID результата и количество.'; return;
+        statusEl.className = 'status error'; statusEl.textContent = 'Check the output ID and quantity.'; return;
       }
       vscode.postMessage({type:'build', target:value, amount:count, depth:maxDepth});
     }
@@ -495,13 +490,13 @@ function legacyCraftGraphHtml(
       const recipe = document.createElement('div'); recipe.className = 'recipe-line';
       if (node.state === 'crafted') {
         const machine = document.createElement('span'); machine.className = 'machine'; machine.textContent = node.recipeLabel || humanize(node.recipeType);
-        recipe.append(machine, document.createTextNode(node.batches + ' операций'));
-        if (node.duration) recipe.append(document.createTextNode(' · ' + format(node.duration) + ' тик.'));
+        recipe.append(machine, document.createTextNode(node.batches + ' operations'));
+        if (node.duration) recipe.append(document.createTextNode(' · ' + format(node.duration) + ' ticks'));
         if (node.energy) recipe.append(document.createTextNode(' · ' + format(node.energy) + ' FE'));
         if (node.alternatives > 1) {
           const alternative = document.createElement('button'); alternative.className = 'alternative';
-          alternative.textContent = (node.selectedAlternative + 1) + ' / ' + node.alternatives + ' рецептов';
-          alternative.title = 'Переключить альтернативный рецепт';
+          alternative.textContent = (node.selectedAlternative + 1) + ' / ' + node.alternatives + ' recipes';
+          alternative.title = 'Switch alternative recipe';
           alternative.addEventListener('click', event => { event.stopPropagation(); vscode.postMessage({type:'cycle', item:node.item.id, direction:1}); });
           recipe.append(alternative);
         }
@@ -509,7 +504,7 @@ function legacyCraftGraphHtml(
           const extra = document.createElement('span'); extra.className = 'byproduct'; extra.textContent = '+ ' + format(item.count) + ' ' + humanize(item.id); recipe.append(extra);
         }
       } else {
-        recipe.textContent = node.state === 'base' ? 'Базовый ресурс' : node.state === 'cycle' ? 'Обнаружен цикл' : 'Достигнут предел глубины';
+        recipe.textContent = node.state === 'base' ? 'Base resource' : node.state === 'cycle' ? 'Cycle detected' : 'Depth limit reached';
       }
       row.append(recipe);
       if (node.state === 'crafted' && (node.workstations.length || node.catalysts.length)) {
@@ -535,7 +530,7 @@ function legacyCraftGraphHtml(
     }
     function renderTotals(totals) {
       const entries = [...Object.entries(totals.items), ...Object.entries(totals.fluids)];
-      document.getElementById('baseCount').textContent = entries.length.toLocaleString('ru-RU');
+      document.getElementById('baseCount').textContent = entries.length.toLocaleString('en-US');
       document.getElementById('time').textContent = format(totals.duration);
       document.getElementById('energy').textContent = format(totals.energy);
       resources.replaceChildren(...entries.sort((a,b)=>b[1]-a[1]).map(([id,count]) => {
@@ -550,22 +545,22 @@ function legacyCraftGraphHtml(
     function inspectNode(node) {
       document.getElementById('inspectHint').hidden = true; detail.replaceChildren();
       const values = [
-        ['Предмет', (node.item.kind==='tag'?'#':'')+node.item.id],
-        ['Нужно', format(node.required)],
-        ['Состояние', node.state],
-        ['Рецепт', node.recipeId || '—'],
-        ['Операция', node.recipeLabel || node.recipeType || '—'],
-        ['Категория', node.categoryId || '—'],
-        ['Источник', 'обычный snapshot'],
-        ['Рабочие станции', node.workstations.length ? node.workstations.map(value => value.id).join(', ') : '—'],
-        ['Катализаторы', node.catalysts.length ? node.catalysts.map(value => value.id).join(', ') : '—'],
-        ['Операций', format(node.batches)],
-        ['Побочные продукты', node.byproducts.length ? node.byproducts.map(value => format(value.count)+' '+value.id).join(', ') : '—']
+        ['Item', (node.item.kind==='tag'?'#':'')+node.item.id],
+        ['Required', format(node.required)],
+        ['State', node.state],
+        ['Recipe', node.recipeId || '—'],
+        ['Operation', node.recipeLabel || node.recipeType || '—'],
+        ['Category', node.categoryId || '—'],
+        ['Source', 'standard snapshot'],
+        ['Workstations', node.workstations.length ? node.workstations.map(value => value.id).join(', ') : '—'],
+        ['Catalysts', node.catalysts.length ? node.catalysts.map(value => value.id).join(', ') : '—'],
+        ['Operations', format(node.batches)],
+        ['By-products', node.byproducts.length ? node.byproducts.map(value => format(value.count)+' '+value.id).join(', ') : '—']
       ];
       for (const [name,value] of values) { const dt=document.createElement('dt'); dt.textContent=name; const dd=document.createElement('dd'); dd.textContent=value; detail.append(dt,dd); }
     }
     document.getElementById('build').addEventListener('click', requestBuild);
-    document.getElementById('pick').addEventListener('click', () => vscode.postMessage({type:'pickRegistry',requestId:++pickRequest,registry:'minecraft:item',current:target.value,title:'KubeVS — выберите результат цепочки'}));
+    document.getElementById('pick').addEventListener('click', () => vscode.postMessage({type:'pickRegistry',requestId:++pickRequest,registry:'minecraft:item',current:target.value,title:'KubeVS — select a chain output'}));
     document.getElementById('reload').addEventListener('click', () => vscode.postMessage({type:'reload'}));
     document.getElementById('collapse').addEventListener('click', () => {
       if (!latestTree) return; const visit=node=>{if(node.children.length)collapsed.add(node.item.id);node.children.forEach(visit)}; visit(latestTree); renderTree(latestTree);
@@ -573,12 +568,12 @@ function legacyCraftGraphHtml(
     target.addEventListener('keydown', event => { if (event.key === 'Enter') requestBuild(); });
     window.addEventListener('message', event => {
       const message=event.data;
-      if(message.type==='loading'){catalogReady=false;statusEl.className='status';statusEl.textContent='Загружаем snapshot рецептов…';}
-      else if(message.type==='catalog'){catalogReady=true;document.getElementById('recipeCount').textContent=message.recipes.toLocaleString('ru-RU');statusEl.className='status';statusEl.textContent=message.recipes.toLocaleString('ru-RU')+' цепочек · '+(message.source==='live'?'данные Minecraft':'Offline snapshot');requestBuild();}
-      else if(message.type==='tree'){renderTree(message.tree);renderTotals(message.totals);statusEl.className='status';statusEl.textContent='Цепочка рассчитана. Нажмите на рецепт с альтернативами, чтобы переключить путь.';}
+      if(message.type==='loading'){catalogReady=false;statusEl.className='status';statusEl.textContent='Loading recipe snapshot…';}
+      else if(message.type==='catalog'){catalogReady=true;document.getElementById('recipeCount').textContent=message.recipes.toLocaleString('en-US');statusEl.className='status';statusEl.textContent=message.recipes.toLocaleString('en-US')+' chains · '+(message.source==='live'?'Minecraft data':'Offline snapshot');requestBuild();}
+      else if(message.type==='tree'){renderTree(message.tree);renderTotals(message.totals);statusEl.className='status';statusEl.textContent='Chain calculated. Select a recipe with alternatives to switch paths.';}
       else if(message.type==='icons'){for(const [id,src] of Object.entries(message.icons)){iconSources.set(id,src);document.querySelectorAll('[data-icon-id="'+CSS.escape(id)+'"]').forEach(img=>img.src=src);}}
       else if(message.type==='registryPicked'&&message.requestId===pickRequest&&message.value){target.value=message.value;requestBuild();}
-      else if(message.type==='error'){catalogReady=false;statusEl.className='status error';statusEl.textContent=message.message;treeEl.innerHTML='<li class="empty">Дерево недоступно. Подключите Minecraft или обновите snapshot.</li>';}
+      else if(message.type==='error'){catalogReady=false;statusEl.className='status error';statusEl.textContent=message.message;treeEl.innerHTML='<li class="empty">The tree is unavailable. Connect Minecraft or refresh the snapshot.</li>';}
     });
   </script>
 </body>
@@ -594,8 +589,8 @@ function craftGraphHtml(webview: vscode.Webview, nonce: string, calculatorMode: 
     'img-src data:',
     `script-src 'nonce-${nonce}'`,
   ].join('; ');
-  let html = `<!doctype html>
-<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="${csp}"><title>KubeVS — Craft Graph</title>
 <style>
 *{box-sizing:border-box} :root{--wire:#c57a37;--node:var(--vscode-editorWidget-background);--panel:var(--vscode-sideBar-background)}
@@ -603,21 +598,21 @@ body{margin:0;overflow:hidden;color:var(--vscode-editor-foreground);background:v
 button,input,select{font:inherit} button{min-height:30px;padding:4px 9px;border:1px solid var(--vscode-button-border,var(--vscode-panel-border));color:var(--vscode-button-secondaryForeground);background:var(--vscode-button-secondaryBackground);cursor:pointer}button:hover{background:var(--vscode-button-secondaryHoverBackground)}button.primary{color:var(--vscode-button-foreground);background:var(--vscode-button-background);border-color:transparent}button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:1px solid var(--vscode-focusBorder);outline-offset:2px}
 header{height:64px;display:flex;align-items:center;gap:14px;padding:9px 14px;border-bottom:1px solid var(--vscode-panel-border);background:var(--vscode-titleBar-activeBackground)}h1,h2{margin:0}h1{font-size:16px}.identity{min-width:180px}.muted,.status{color:var(--vscode-descriptionForeground);font-size:11px}.target{flex:1;display:grid;grid-template-columns:minmax(190px,1fr) 32px 84px 70px auto;gap:6px;align-items:end}label{display:grid;gap:3px;color:var(--vscode-descriptionForeground);font-size:10px}input,select{height:30px;padding:4px 7px;border:1px solid var(--vscode-input-border,transparent);color:var(--vscode-input-foreground);background:var(--vscode-input-background)}
 main{height:calc(100vh - 64px);display:grid;grid-template-columns:230px minmax(420px,1fr) 250px}.side{min-width:0;overflow:auto;padding:14px;background:var(--panel)}.ledger{border-right:1px solid var(--vscode-panel-border)}.inspector{border-left:1px solid var(--vscode-panel-border)}h2{font-size:12px;margin-bottom:10px}.summary{display:grid;grid-template-columns:1fr 1fr;margin-bottom:12px;border-block:1px solid var(--vscode-panel-border)}.summary div{padding:8px 4px}.summary strong{display:block;font-size:14px}.resource-list{margin:0;padding:0;list-style:none}.resource{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:7px;align-items:center;min-height:34px;border-bottom:1px solid var(--vscode-panel-border)}.resource img,.item-icon{width:24px;height:24px;object-fit:contain;image-rendering:pixelated}.resource img:not([src]),.item-icon:not([src]){visibility:hidden}.resource-id{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px var(--vscode-editor-font-family)}
-/* impeccable-disable-next-line codex-grid-background: функциональная координатная сетка перетаскиваемого node canvas */
+/* impeccable-disable-next-line codex-grid-background: functional coordinate grid for the draggable node canvas */
 .workspace{position:relative;min-width:0;overflow:hidden;background-color:var(--vscode-editor-background);background-image:radial-gradient(color-mix(in srgb,var(--vscode-descriptionForeground) 28%,transparent) 1px,transparent 1px);background-size:20px 20px;touch-action:none}.toolbar{position:absolute;z-index:20;top:10px;left:10px;right:10px;display:flex;align-items:center;gap:6px;pointer-events:none}.toolbar>*{pointer-events:auto}.status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 9px;border:1px solid var(--vscode-panel-border);background:color-mix(in srgb,var(--vscode-editor-background) 92%,transparent)}.status.error{color:var(--vscode-errorForeground)}.toolbar-spacer{flex:1}.zoom{min-width:46px;text-align:center;font-variant-numeric:tabular-nums}
 .world{position:absolute;left:0;top:0;width:4000px;height:3000px;transform-origin:0 0}.wires{position:absolute;inset:0;width:4000px;height:3000px;overflow:visible;pointer-events:none}.wire{fill:none;stroke:color-mix(in srgb,var(--wire) 78%,var(--vscode-panel-border));stroke-width:2}.wire-dot{fill:var(--wire)}
 .craft-node{position:absolute;width:286px;will-change:auto;border:1px solid var(--vscode-panel-border);border-radius:4px;background:var(--node);box-shadow:0 8px 22px rgba(0,0,0,.24);overflow:hidden;user-select:none}.craft-node.dragging{will-change:transform}.craft-node.selected{border-color:var(--vscode-focusBorder);box-shadow:0 0 0 1px var(--vscode-focusBorder),0 8px 22px rgba(0,0,0,.28)}.node-head{height:34px;display:grid;grid-template-columns:27px minmax(0,1fr) auto;gap:7px;align-items:center;padding:4px 7px;background:color-mix(in srgb,var(--wire) 20%,var(--node));cursor:grab}.node-head:active{cursor:grabbing}.node-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.node-id{font:9px var(--vscode-editor-font-family);color:var(--vscode-descriptionForeground);overflow:hidden;text-overflow:ellipsis}.node-qty{padding-left:5px;font-variant-numeric:tabular-nums}.node-body{padding:7px}.recipe-visual{display:block;max-width:100%;max-height:190px;margin:0 auto 7px;image-rendering:pixelated}.recipe-placeholder{min-height:52px;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:7px;border:1px solid var(--vscode-panel-border);background:var(--vscode-editor-background);color:var(--vscode-descriptionForeground);font-size:10px}.recipe-placeholder img{width:28px;height:28px;object-fit:contain;image-rendering:pixelated}.recipe-meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px;color:var(--vscode-descriptionForeground);font-size:10px}.badge{padding:2px 5px;color:var(--vscode-badge-foreground);background:var(--vscode-badge-background)}.provider{margin-left:auto}.alt{min-height:22px;padding:1px 5px;font-size:10px}.ports{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.chip{display:inline-flex;align-items:center;gap:3px;padding:2px 5px;border:1px solid var(--vscode-panel-border);font-size:9px}.chip img{width:17px;height:17px;object-fit:contain;image-rendering:pixelated}.base .node-head{background:color-mix(in srgb,var(--vscode-charts-green) 18%,var(--node))}.socket{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--wire);top:17px}.socket.in{left:-6px}.socket.out{right:-6px}
 .empty{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:360px;padding:20px;border:1px dashed var(--vscode-panel-border);color:var(--vscode-descriptionForeground);text-align:center;background:var(--vscode-editor-background)}.detail{margin:0}.detail dt{margin-top:12px;color:var(--vscode-descriptionForeground);font-size:10px}.detail dd{margin:2px 0 0;overflow-wrap:anywhere;font:10px var(--vscode-editor-font-family)}
 @media(max-width:900px){main{grid-template-columns:190px 1fr}.inspector{display:none}.identity{display:none}}@media(max-width:650px){header{height:104px;align-items:stretch;flex-direction:column}.target{grid-template-columns:1fr 32px 74px}.depth{display:none}main{height:calc(100vh - 104px);grid-template-columns:1fr}.ledger{display:none}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style></head><body>
-<header><div class="identity"><h1>${calculatorMode ? 'Калькулятор ресурсов' : 'Craft Graph'}</h1><div class="muted">Ноды · альтернативы · ленивые иконки</div></div><div class="target"><label>Результат<input id="target" value="minecraft:diamond_pickaxe" spellcheck="false"></label><button id="pick" title="Найти по имени или ID">⌕</button><label>Количество<input id="amount" type="number" min="1" max="1000000000" value="1"></label><label class="depth">Глубина<select id="depth">${[4, 6, 8, 12, 16, 24, 32].map((n) => `<option${n === 8 ? ' selected' : ''}>${n}</option>`).join('')}</select></label><button class="primary" id="build">Построить</button></div><button id="reload" title="Обновить данные Minecraft">↻</button></header>
-<main><aside class="side ledger"><h2>Базовые ресурсы</h2><div class="summary"><div><strong id="baseCount">—</strong><span class="muted">позиций</span></div><div><strong id="recipeCount">—</strong><span class="muted">рецептов</span></div><div><strong id="time">—</strong><span class="muted">тиков</span></div><div><strong id="energy">—</strong><span class="muted">энергии</span></div></div><ul class="resource-list" id="resources"></ul></aside>
-<section class="workspace" id="viewport"><div class="toolbar"><div class="status" id="status">Загружаем рецепты…</div><span class="toolbar-spacer"></span><button id="fit">Показать всё</button><button id="reset">Сбросить позиции</button><button class="zoom" id="zoom">100%</button></div><div class="world" id="world"><svg class="wires" id="wires" aria-hidden="true"></svg><div id="nodes"></div></div><div class="empty" id="empty">Подключаем каталог рецептов Minecraft.</div></section>
-<aside class="side inspector"><h2>Инспектор</h2><p class="muted" id="inspectHint">Выберите ноду: здесь будут ID рецепта, станок, энергия и побочные продукты.</p><dl class="detail" id="detail"></dl></aside></main>
+<header><div class="identity"><h1>${calculatorMode ? 'Resource Calculator' : 'Craft Graph'}</h1><div class="muted">Nodes · alternatives · lazy-loaded icons</div></div><div class="target"><label>Result<input id="target" value="minecraft:diamond_pickaxe" spellcheck="false"></label><button id="pick" title="Find by name or ID">⌕</button><label>Amount<input id="amount" type="number" min="1" max="1000000000" value="1"></label><label class="depth">Depth<select id="depth">${[4, 6, 8, 12, 16, 24, 32].map((n) => `<option${n === 8 ? ' selected' : ''}>${n}</option>`).join('')}</select></label><button class="primary" id="build">Build</button></div><button id="reload" title="Refresh Minecraft data">↻</button></header>
+<main><aside class="side ledger"><h2>Base resources</h2><div class="summary"><div><strong id="baseCount">—</strong><span class="muted">entries</span></div><div><strong id="recipeCount">—</strong><span class="muted">recipes</span></div><div><strong id="time">—</strong><span class="muted">ticks</span></div><div><strong id="energy">—</strong><span class="muted">energy</span></div></div><ul class="resource-list" id="resources"></ul></aside>
+<section class="workspace" id="viewport"><div class="toolbar"><div class="status" id="status">Loading recipes…</div><span class="toolbar-spacer"></span><button id="fit">Fit all</button><button id="reset">Reset positions</button><button class="zoom" id="zoom">100%</button></div><div class="world" id="world"><svg class="wires" id="wires" aria-hidden="true"></svg><div id="nodes"></div></div><div class="empty" id="empty">Connecting to the Minecraft recipe catalog.</div></section>
+<aside class="side inspector"><h2>Inspector</h2><p class="muted" id="inspectHint">Select a node to inspect its recipe ID, machine, energy, and byproducts.</p><dl class="detail" id="detail"></dl></aside></main>
 <script nonce="${nonce}">
 const vscode=acquireVsCodeApi(),viewport=document.getElementById('viewport'),world=document.getElementById('world'),nodesEl=document.getElementById('nodes'),wires=document.getElementById('wires'),statusEl=document.getElementById('status'),target=document.getElementById('target'),amount=document.getElementById('amount'),depth=document.getElementById('depth'),resources=document.getElementById('resources'),detail=document.getElementById('detail'),empty=document.getElementById('empty');
 const iconQueue=new Set(),requestedIcons=new Set(),iconSources=new Map(),positions=new Map(),tagMembers=new Map();let iconTimer,pickRequest=0,latestTree,flat=[],edges=[],panX=30,panY=70,scale=1,drag=null,pan=null,wireFrame=0;
-function humanize(id){return id.split(':').pop().replaceAll('/',' › ').replaceAll('_',' ').replace(/\\b\\p{L}/gu,function(c){return c.toUpperCase()})}function format(v){return Number.isInteger(v)?v.toLocaleString('ru-RU'):v.toLocaleString('ru-RU',{maximumFractionDigits:2})}
+function humanize(id){return id.split(':').pop().replaceAll('/',' › ').replaceAll('_',' ').replace(/\\b\\p{L}/gu,function(c){return c.toUpperCase()})}function format(v){return Number.isInteger(v)?v.toLocaleString('en-US'):v.toLocaleString('en-US',{maximumFractionDigits:2})}
 function flushIcons(){const ids=Array.from(iconQueue).slice(0,128);ids.forEach(function(id){iconQueue.delete(id);requestedIcons.add(id)});if(ids.length)vscode.postMessage({type:'icons',ids:ids});if(iconQueue.size)iconTimer=setTimeout(flushIcons,30)}function queueIcon(id){if(!id||requestedIcons.has(id))return;iconQueue.add(id);clearTimeout(iconTimer);iconTimer=setTimeout(flushIcons,20)}
 const observer=new IntersectionObserver(function(entries){entries.forEach(function(entry){if(!entry.isIntersecting)return;entry.target.querySelectorAll('[data-icon-id]').forEach(function(img){const id=img.dataset.iconId,cached=iconSources.get(id);if(cached)img.src=cached;else queueIcon(id)});observer.unobserve(entry.target)})},{root:viewport,rootMargin:'220px'});
 function applyTransform(){world.style.transform='translate('+panX+'px,'+panY+'px) scale('+scale+')';document.getElementById('zoom').textContent=Math.round(scale*100)+'%'}
@@ -626,7 +621,7 @@ function icon(id,cls){const img=document.createElement('img');img.alt='';img.cla
 function chip(stack){const el=document.createElement('span');el.className='chip';el.append(icon(stack.id),document.createTextNode(humanize(stack.id)));return el}
 function makeNode(item){const n=item.node,pos=positions.get(item.key),el=document.createElement('article');el.className='craft-node '+n.state;el.dataset.key=item.key;el.dataset.recipeId=n.recipeId||'';el.style.left=pos.x+'px';el.style.top=pos.y+'px';el.tabIndex=0;
  const head=document.createElement('div');head.className='node-head';const mainIcon=itemIcon(n.item,'item-icon'),title=document.createElement('div');title.innerHTML='<div class="node-name"></div><div class="node-id"></div>';title.querySelector('.node-name').textContent=humanize(n.item.id);title.querySelector('.node-id').textContent=(n.item.kind==='tag'?'#':'')+n.item.id;const qty=document.createElement('strong');qty.className='node-qty';qty.textContent='× '+format(n.required);head.append(mainIcon,title,qty);el.append(head);
- const body=document.createElement('div');body.className='node-body';if(n.state==='crafted'){const placeholder=document.createElement('div');placeholder.className='recipe-placeholder';n.children.slice(0,5).forEach(function(c){placeholder.append(itemIcon(c.item))});placeholder.append(document.createTextNode('→'),itemIcon(n.item));body.append(placeholder);const meta=document.createElement('div');meta.className='recipe-meta';const badge=document.createElement('span');badge.className='badge';badge.textContent=n.recipeLabel||humanize(n.recipeType);meta.append(badge,document.createTextNode(format(n.batches)+' оп.'));if(n.duration)meta.append(document.createTextNode(format(n.duration)+' т.'));if(n.energy)meta.append(document.createTextNode(format(n.energy)+' FE'));if(n.alternatives>1){const alt=document.createElement('button');alt.className='alt';alt.textContent=(n.selectedAlternative+1)+' / '+n.alternatives;alt.title='Следующий альтернативный рецепт';alt.onclick=function(e){e.stopPropagation();vscode.postMessage({type:'cycle',item:n.item.id,direction:1})};meta.append(alt)}body.append(meta);if(n.workstations.length||n.catalysts.length){const ports=document.createElement('div');ports.className='ports';n.workstations.forEach(function(s){ports.append(chip(s))});n.catalysts.forEach(function(s){ports.append(chip(s))});body.append(ports)}}else{const p=document.createElement('div');p.className='muted';p.textContent=n.state==='base'?'Базовый ресурс':n.state==='cycle'?'Циклическая зависимость':'Предел глубины';body.append(p)}el.append(body);
+ const body=document.createElement('div');body.className='node-body';if(n.state==='crafted'){const placeholder=document.createElement('div');placeholder.className='recipe-placeholder';n.children.slice(0,5).forEach(function(c){placeholder.append(itemIcon(c.item))});placeholder.append(document.createTextNode('→'),itemIcon(n.item));body.append(placeholder);const meta=document.createElement('div');meta.className='recipe-meta';const badge=document.createElement('span');badge.className='badge';badge.textContent=n.recipeLabel||humanize(n.recipeType);meta.append(badge,document.createTextNode(format(n.batches)+' ops'));if(n.duration)meta.append(document.createTextNode(format(n.duration)+' ticks'));if(n.energy)meta.append(document.createTextNode(format(n.energy)+' FE'));if(n.alternatives>1){const alt=document.createElement('button');alt.className='alt';alt.textContent=(n.selectedAlternative+1)+' / '+n.alternatives;alt.title='Next alternative recipe';alt.onclick=function(e){e.stopPropagation();vscode.postMessage({type:'cycle',item:n.item.id,direction:1})};meta.append(alt)}body.append(meta);if(n.workstations.length||n.catalysts.length){const ports=document.createElement('div');ports.className='ports';n.workstations.forEach(function(s){ports.append(chip(s))});n.catalysts.forEach(function(s){ports.append(chip(s))});body.append(ports)}}else{const p=document.createElement('div');p.className='muted';p.textContent=n.state==='base'?'Base resource':n.state==='cycle'?'Cyclic dependency':'Depth limit';body.append(p)}el.append(body);
  const input=document.createElement('i');input.className='socket in';const output=document.createElement('i');output.className='socket out';el.append(input,output);el.onclick=function(){selectNode(el,n)};head.onpointerdown=function(e){if(e.button!==0)return;e.stopPropagation();drag={el:el,key:item.key,startX:e.clientX,startY:e.clientY,x:pos.x,y:pos.y};el.classList.add('dragging');head.setPointerCapture(e.pointerId)};head.onpointermove=moveDrag;head.onpointerup=endDrag;head.onpointercancel=endDrag;return el}
 function scheduleWires(){if(wireFrame)return;wireFrame=requestAnimationFrame(function(){wireFrame=0;drawWires()})}
 function moveDrag(e){if(!drag)return;const p=positions.get(drag.key),dx=(e.clientX-drag.startX)/scale,dy=(e.clientY-drag.startY)/scale;p.x=drag.x+dx;p.y=drag.y+dy;drag.el.style.transform='translate3d('+dx+'px,'+dy+'px,0)';scheduleWires()}
@@ -635,73 +630,16 @@ function drawWires(){wires.replaceChildren();const byKey=new Map(Array.from(node
 function renderTree(tree){latestTree=tree;empty.hidden=true;flatten(tree);nodesEl.replaceChildren.apply(nodesEl,flat.map(makeNode));Array.from(nodesEl.children).forEach(function(el){observer.observe(el)});requestAnimationFrame(function(){drawWires();fitGraph(false)})}
 function fitGraph(force){if(!flat.length)return;const xs=flat.map(function(i){return positions.get(i.key).x}),ys=flat.map(function(i){return positions.get(i.key).y}),minX=Math.min.apply(null,xs),minY=Math.min.apply(null,ys),maxX=Math.max.apply(null,xs)+286,maxY=Math.max.apply(null,ys)+200,w=viewport.clientWidth,h=viewport.clientHeight,next=Math.min(1.15,Math.max(.35,Math.min((w-70)/(maxX-minX),(h-100)/(maxY-minY))));if(force||!localStorage.getItem('kubevs.graph.view')){scale=next;panX=(w-(maxX-minX)*scale)/2-minX*scale;panY=(h-(maxY-minY)*scale)/2-minY*scale;applyTransform();localStorage.setItem('kubevs.graph.view','1')}}
 function savePositions(){const out={};positions.forEach(function(v,k){out[k]=v});localStorage.setItem('kubevs.graph.positions',JSON.stringify(out))}function restorePositions(){try{const raw=JSON.parse(localStorage.getItem('kubevs.graph.positions')||'{}');Object.entries(raw).forEach(function(e){if(Number.isFinite(e[1].x)&&Number.isFinite(e[1].y))positions.set(e[0],e[1])})}catch{}}
-function selectNode(el,n){document.querySelectorAll('.craft-node.selected').forEach(function(x){x.classList.remove('selected')});el.classList.add('selected');document.getElementById('inspectHint').hidden=true;detail.replaceChildren();[['Предмет',(n.item.kind==='tag'?'#':'')+n.item.id],['Нужно',format(n.required)],['Рецепт',n.recipeId||'—'],['Операция',n.recipeLabel||n.recipeType||'—'],['Источник','Minecraft snapshot'],['Станки',n.workstations.length?n.workstations.map(function(x){return x.id}).join(', '):'—'],['Побочные продукты',n.byproducts.length?n.byproducts.map(function(x){return format(x.count)+' '+x.id}).join(', '):'—']].forEach(function(v){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=v[0];dd.textContent=v[1];detail.append(dt,dd)})}
-function renderTotals(t){const entries=Object.entries(t.items).concat(Object.entries(t.fluids));document.getElementById('baseCount').textContent=entries.length.toLocaleString('ru-RU');document.getElementById('time').textContent=format(t.duration);document.getElementById('energy').textContent=format(t.energy);resources.replaceChildren.apply(resources,entries.sort(function(a,b){return b[1]-a[1]}).map(function(v){const li=document.createElement('li');li.className='resource';li.append(icon(v[0].replace(/^#/,'')),Object.assign(document.createElement('span'),{className:'resource-id',textContent:v[0]}),Object.assign(document.createElement('strong'),{textContent:'× '+format(v[1])}));queueIcon(v[0].replace(/^#/,''));return li}))}
-function requestBuild(){const id=target.value.trim(),count=Number(amount.value);if(!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(id)||!Number.isSafeInteger(count)||count<1){statusEl.className='status error';statusEl.textContent='Проверьте ID и количество.';return}vscode.postMessage({type:'build',target:id,amount:count,depth:Number(depth.value)})}
+function selectNode(el,n){document.querySelectorAll('.craft-node.selected').forEach(function(x){x.classList.remove('selected')});el.classList.add('selected');document.getElementById('inspectHint').hidden=true;detail.replaceChildren();[['Item',(n.item.kind==='tag'?'#':'')+n.item.id],['Required',format(n.required)],['Recipe',n.recipeId||'—'],['Operation',n.recipeLabel||n.recipeType||'—'],['Source','Minecraft snapshot'],['Workstations',n.workstations.length?n.workstations.map(function(x){return x.id}).join(', '):'—'],['By-products',n.byproducts.length?n.byproducts.map(function(x){return format(x.count)+' '+x.id}).join(', '):'—']].forEach(function(v){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=v[0];dd.textContent=v[1];detail.append(dt,dd)})}
+function renderTotals(t){const entries=Object.entries(t.items).concat(Object.entries(t.fluids));document.getElementById('baseCount').textContent=entries.length.toLocaleString('en-US');document.getElementById('time').textContent=format(t.duration);document.getElementById('energy').textContent=format(t.energy);resources.replaceChildren.apply(resources,entries.sort(function(a,b){return b[1]-a[1]}).map(function(v){const li=document.createElement('li');li.className='resource';li.append(icon(v[0].replace(/^#/,'')),Object.assign(document.createElement('span'),{className:'resource-id',textContent:v[0]}),Object.assign(document.createElement('strong'),{textContent:'× '+format(v[1])}));queueIcon(v[0].replace(/^#/,''));return li}))}
+function requestBuild(){const id=target.value.trim(),count=Number(amount.value);if(!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(id)||!Number.isSafeInteger(count)||count<1){statusEl.className='status error';statusEl.textContent='Check the item ID and amount.';return}vscode.postMessage({type:'build',target:id,amount:count,depth:Number(depth.value)})}
 viewport.onpointerdown=function(e){if(e.button!==0||e.target.closest('.craft-node,.toolbar'))return;pan={x:e.clientX,y:e.clientY,px:panX,py:panY};viewport.setPointerCapture(e.pointerId)};viewport.onpointermove=function(e){if(!pan)return;panX=pan.px+e.clientX-pan.x;panY=pan.py+e.clientY-pan.y;applyTransform()};viewport.onpointerup=viewport.onpointercancel=function(){pan=null};viewport.onwheel=function(e){e.preventDefault();const rect=viewport.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,old=scale;scale=Math.max(.35,Math.min(1.8,scale*(e.deltaY<0?1.1:.9)));panX=mx-(mx-panX)*(scale/old);panY=my-(my-panY)*(scale/old);applyTransform()};
-document.getElementById('build').onclick=requestBuild;document.getElementById('reload').onclick=function(){vscode.postMessage({type:'reload'})};document.getElementById('pick').onclick=function(){vscode.postMessage({type:'pickRegistry',requestId:++pickRequest,registry:'minecraft:item',current:target.value,title:'KubeVS — выберите результат'})};document.getElementById('fit').onclick=function(){fitGraph(true)};document.getElementById('reset').onclick=function(){positions.clear();localStorage.removeItem('kubevs.graph.positions');localStorage.removeItem('kubevs.graph.view');if(latestTree)renderTree(latestTree)};document.getElementById('zoom').onclick=function(){scale=1;applyTransform()};target.onkeydown=function(e){if(e.key==='Enter')requestBuild()};restorePositions();applyTransform();
-setInterval(function(){document.querySelectorAll('img[data-tag-id]').forEach(function(img){const members=tagMembers.get(img.dataset.tagId)||[];if(members.length<2)return;let next=members[Math.floor(Math.random()*members.length)];if(next===img.dataset.iconId)next=members[(members.indexOf(next)+1)%members.length];img.dataset.iconId=next;const src=iconSources.get(next);if(src)img.src=src;else{img.removeAttribute('src');queueIcon(next)}})},900);window.addEventListener('message',function(event){const m=event.data;if(m.type==='loading'){statusEl.className='status';statusEl.textContent='Загружаем snapshot рецептов…'}else if(m.type==='catalog'){document.getElementById('recipeCount').textContent=m.recipes.toLocaleString('ru-RU');statusEl.className='status';statusEl.textContent=m.recipes.toLocaleString('ru-RU')+' рецептов · '+(m.source==='live'?'Minecraft live':'Offline snapshot');requestBuild()}else if(m.type==='tree'){tagMembers.clear();Object.entries(m.tagMembers||{}).forEach(function(v){tagMembers.set(v[0],v[1]);v[1].forEach(queueIcon)});renderTree(m.tree);renderTotals(m.totals);statusEl.textContent='Граф готов · перетаскивайте ноды, фон двигает холст, колесо меняет масштаб'}else if(m.type==='icons'){Object.entries(m.icons).forEach(function(v){iconSources.set(v[0],v[1]);document.querySelectorAll('[data-icon-id="'+CSS.escape(v[0])+'"]').forEach(function(img){img.src=v[1]})})}else if(m.type==='registryPicked'&&m.requestId===pickRequest&&m.value){target.value=m.value;requestBuild()}else if(m.type==='error'){statusEl.className='status error';statusEl.textContent=m.message;empty.hidden=false;empty.textContent='Граф недоступен. Подключите Minecraft или обновите snapshot.'}});
+document.getElementById('build').onclick=requestBuild;document.getElementById('reload').onclick=function(){vscode.postMessage({type:'reload'})};document.getElementById('pick').onclick=function(){vscode.postMessage({type:'pickRegistry',requestId:++pickRequest,registry:'minecraft:item',current:target.value,title:'KubeVS — select a result'})};document.getElementById('fit').onclick=function(){fitGraph(true)};document.getElementById('reset').onclick=function(){positions.clear();localStorage.removeItem('kubevs.graph.positions');localStorage.removeItem('kubevs.graph.view');if(latestTree)renderTree(latestTree)};document.getElementById('zoom').onclick=function(){scale=1;applyTransform()};target.onkeydown=function(e){if(e.key==='Enter')requestBuild()};restorePositions();applyTransform();
+setInterval(function(){document.querySelectorAll('img[data-tag-id]').forEach(function(img){const members=tagMembers.get(img.dataset.tagId)||[];if(members.length<2)return;let next=members[Math.floor(Math.random()*members.length)];if(next===img.dataset.iconId)next=members[(members.indexOf(next)+1)%members.length];img.dataset.iconId=next;const src=iconSources.get(next);if(src)img.src=src;else{img.removeAttribute('src');queueIcon(next)}})},900);window.addEventListener('message',function(event){const m=event.data;if(m.type==='loading'){statusEl.className='status';statusEl.textContent='Loading recipe snapshot…'}else if(m.type==='catalog'){document.getElementById('recipeCount').textContent=m.recipes.toLocaleString('en-US');statusEl.className='status';statusEl.textContent=m.recipes.toLocaleString('en-US')+' recipes · '+(m.source==='live'?'Minecraft live':'Offline snapshot');requestBuild()}else if(m.type==='tree'){tagMembers.clear();Object.entries(m.tagMembers||{}).forEach(function(v){tagMembers.set(v[0],v[1]);v[1].forEach(queueIcon)});renderTree(m.tree);renderTotals(m.totals);statusEl.textContent='Graph ready · drag nodes, drag the background to pan, and use the wheel to zoom'}else if(m.type==='icons'){Object.entries(m.icons).forEach(function(v){iconSources.set(v[0],v[1]);document.querySelectorAll('[data-icon-id="'+CSS.escape(v[0])+'"]').forEach(function(img){img.src=v[1]})})}else if(m.type==='registryPicked'&&m.requestId===pickRequest&&m.value){target.value=m.value;requestBuild()}else if(m.type==='error'){statusEl.className='status error';statusEl.textContent=m.message;empty.hidden=false;empty.textContent='The graph is unavailable. Connect Minecraft or refresh the snapshot.'}});
 </script></body></html>`;
-  if (runtimeLanguage() === 'en') html = translateCraftGraphToEnglish(html);
   return html;
 }
 
-const craftGraphEnglish = new Map<string, string>([
-  ['<html lang="ru">', '<html lang="en">'],
-  ['Калькулятор ресурсов', 'Resource Calculator'],
-  ['Ноды · альтернативы · ленивые иконки', 'Nodes · alternatives · lazy-loaded icons'],
-  ['Результат', 'Result'],
-  ['Найти по имени или ID', 'Find by name or ID'],
-  ['Количество', 'Amount'],
-  ['Глубина', 'Depth'],
-  ['Построить', 'Build'],
-  ['Обновить данные Minecraft', 'Refresh Minecraft data'],
-  ['Базовые ресурсы', 'Base resources'],
-  ['позиций', 'entries'],
-  ['рецептов', 'recipes'],
-  ['тиков', 'ticks'],
-  ['энергии', 'energy'],
-  ['Загружаем рецепты…', 'Loading recipes…'],
-  ['Показать всё', 'Fit all'],
-  ['Сбросить позиции', 'Reset positions'],
-  ['Подключаем каталог рецептов Minecraft.', 'Connecting to the Minecraft recipe catalog.'],
-  ['Инспектор', 'Inspector'],
-  [
-    'Выберите ноду: здесь будут ID рецепта, станок, энергия и побочные продукты.',
-    'Select a node to inspect its recipe ID, workstation, energy, and by-products.',
-  ],
-  ['Следующий альтернативный рецепт', 'Next alternative recipe'],
-  ['Базовый ресурс', 'Base resource'],
-  ['Циклическая зависимость', 'Cyclic dependency'],
-  ['Предел глубины', 'Depth limit'],
-  ['Предмет', 'Item'],
-  ['Нужно', 'Required'],
-  ['Рецепт', 'Recipe'],
-  ['Операция', 'Operation'],
-  ['Источник', 'Source'],
-  ['Станки', 'Workstations'],
-  ['Побочные продукты', 'By-products'],
-  ['Проверьте ID и количество.', 'Check the item ID and amount.'],
-  ['KubeVS — выберите результат', 'KubeVS — select a result'],
-  ['Загружаем snapshot рецептов…', 'Loading recipe snapshot…'],
-  [
-    'Граф готов · перетаскивайте ноды, фон двигает холст, колесо меняет масштаб',
-    'Graph ready · drag nodes, drag the background to pan, and scroll to zoom',
-  ],
-  [
-    'Граф недоступен. Подключите Minecraft или обновите snapshot.',
-    'Graph unavailable. Connect Minecraft or refresh the snapshot.',
-  ],
-  [' оп.', ' ops'],
-  [' т.', ' ticks'],
-  ['ru-RU', 'en-US'],
-]);
-
-function translateCraftGraphToEnglish(html: string): string {
-  for (const [source, translation] of craftGraphEnglish)
-    html = html.replaceAll(source, translation);
-  return html;
-}
 function createNonce(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from(

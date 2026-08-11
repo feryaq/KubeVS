@@ -186,11 +186,6 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
   <meta http-equiv="Content-Security-Policy" content="${csp}">
   <title>KubeVS Recipe Editor</title>
   <style>
-    /* THESIS: Recipe structure stays visible at all times; this is an IDE workbench, not a form wizard.
-       OWN-WORLD: Native VS Code surfaces with a restrained crafting-table amber and precise slot geometry.
-       STORY: Choose a recipe, compose ingredients, verify readable code, then save through a safe diff.
-       FIRST VIEWPORT: Controls left, tactile 3x3 work area center, generated-code proof on the right.
-       FORM: Dense three-pane operator workspace inherited from KubeVS Dashboard and VS Code. */
     * { box-sizing: border-box; }
     body { margin: 0; color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.45 var(--vscode-font-family); }
     button, input { font: inherit; }
@@ -257,44 +252,44 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
 </head>
 <body>
   <header>
-    <div class="identity"><h1>Vanilla-рецепт</h1><div class="subtitle">Наглядная сетка · читаемый KubeJS · безопасный diff</div></div>
-    <div class="types" role="group" aria-label="Тип рецепта">
-      <button type="button" data-kind="shaped" aria-pressed="true">Верстак</button>
-      <button type="button" data-kind="shapeless" aria-pressed="false">Без формы</button>
-      <button type="button" data-kind="smelting" aria-pressed="false">Печь</button>
-      <button type="button" data-kind="blasting" aria-pressed="false">Плавильня</button>
-      <button type="button" data-kind="smoking" aria-pressed="false">Коптильня</button>
-      <button type="button" data-kind="campfire_cooking" aria-pressed="false">Костёр</button>
+    <div class="identity"><h1>Vanilla Recipe</h1><div class="subtitle">Visual grid · readable KubeJS · safe diff</div></div>
+    <div class="types" role="group" aria-label="Recipe type">
+      <button type="button" data-kind="shaped" aria-pressed="true">Crafting Table</button>
+      <button type="button" data-kind="shapeless" aria-pressed="false">Shapeless</button>
+      <button type="button" data-kind="smelting" aria-pressed="false">Furnace</button>
+      <button type="button" data-kind="blasting" aria-pressed="false">Blast Furnace</button>
+      <button type="button" data-kind="smoking" aria-pressed="false">Smoker</button>
+      <button type="button" data-kind="campfire_cooking" aria-pressed="false">Campfire</button>
     </div>
-    <button class="save" type="button" id="save">Сохранить рецепт</button>
+    <button class="save" type="button" id="save">Save Recipe</button>
   </header>
   <main>
     <aside>
-      <h2>Параметры рецепта</h2>
-      <label>ID рецепта <span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="pick" type="button">Изменить</button></span><span class="hint">Формируется из результата, процесса и основного ингредиента.</span></label>
+      <h2>Recipe Settings</h2>
+      <label>Recipe ID <span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="pick" type="button">Edit</button></span><span class="hint">Generated from the output, process, and primary ingredient.</span></label>
       <div class="row">
-        <label>Результат <span class="picker has-icon"><img id="outputIcon" class="item-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="output" value="minecraft:diamond" spellcheck="false"><button id="pickOutput" class="pick" type="button" title="Найти предмет по имени или ID">⌕</button></span></label>
-        <label>Кол-во <input id="count" type="number" min="1" max="64" value="1"></label>
+        <label>Output <span class="picker has-icon"><img id="outputIcon" class="item-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="output" value="minecraft:diamond" spellcheck="false"><button id="pickOutput" class="pick" type="button" title="Find an item by name or ID">⌕</button></span></label>
+        <label>Count <input id="count" type="number" min="1" max="64" value="1"></label>
       </div>
       <div class="row cooking-options" id="cookingOptions" hidden>
-        <label>Опыт <input id="experience" type="number" min="0" step="0.05" value="0"></label>
-        <label>Время, тики <input id="cookingTime" type="number" min="1" step="1" value="200"></label>
+        <label>Experience <input id="experience" type="number" min="0" step="0.05" value="0"></label>
+        <label>Time, ticks <input id="cookingTime" type="number" min="1" step="1" value="200"></label>
       </div>
-      <p class="hint">Выберите предмет по имени или ID. Для группы предметов используйте тег вида <strong>#namespace:tag</strong>.</p>
+      <p class="hint">Select an item by name or ID. For an item group, use a tag such as <strong>#namespace:tag</strong>.</p>
     </aside>
     <section class="workbench" aria-labelledby="ingredientsTitle">
       <div>
-        <div class="ingredient-toolbar"><h2 id="ingredientsTitle">Ингредиенты</h2><button id="pickIngredient" class="pick" type="button">⌕ Найти для выбранной ячейки</button></div>
+        <div class="ingredient-toolbar"><h2 id="ingredientsTitle">Ingredients</h2><button id="pickIngredient" class="pick" type="button">⌕ Find for selected slot</button></div>
         <div class="crafting" id="grid">
-          ${Array.from({ length: 9 }, (_, index) => `<span class="slot-frame"><img class="slot-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input class="slot" aria-label="Ингредиент, ячейка ${index + 1}" placeholder="${index === 0 ? 'minecraft:stone' : 'пусто'}" spellcheck="false"></span>`).join('')}
+          ${Array.from({ length: 9 }, (_, index) => `<span class="slot-frame"><img class="slot-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input class="slot" aria-label="Ingredient, slot ${index + 1}" placeholder="${index === 0 ? 'minecraft:stone' : 'empty'}" spellcheck="false"></span>`).join('')}
         </div>
       </div>
-      <div class="result"><div class="result-mark" aria-hidden="true">→</div><div><strong id="resultName">minecraft:diamond</strong><div class="hint">Результат рецепта</div></div></div>
+      <div class="result"><div class="result-mark" aria-hidden="true">→</div><div><strong id="resultName">minecraft:diamond</strong><div class="hint">Recipe output</div></div></div>
     </section>
     <section class="preview">
-      <h2>Сгенерированный KubeJS</h2>
+      <h2>Generated KubeJS</h2>
       <pre id="code"></pre>
-      <p class="status" id="status" role="status" aria-live="polite">Рецепт готов к проверке.</p>
+      <p class="status" id="status" role="status" aria-live="polite">Recipe is ready for review.</p>
     </section>
   </main>
   <script nonce="${nonce}">
@@ -327,7 +322,7 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
       const requestId = ++pickSequence;
       const icon = input === output ? outputIcon : input.closest('.slot-frame')?.querySelector('.slot-icon');
       pendingPicks.set(requestId, {input, icon});
-      vscode.postMessage({type:'pickRegistry',requestId,registry:'minecraft:item',includeTags,current:input.value,title:'KubeVS — выберите предмет или тег'});
+      vscode.postMessage({type:'pickRegistry',requestId,registry:'minecraft:item',includeTags,current:input.value,title:'KubeVS — select an item or tag'});
     }
     function canonicalPart(value, fallback) {
       const match = /^#?([a-z0-9_.-]+):([a-z0-9_./-]+)/.exec(value.trim());
@@ -369,7 +364,7 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
     document.getElementById('editRecipeId').addEventListener('click', () => {
       recipeIdAutomatic = !recipeIdAutomatic;
       recipeId.readOnly = recipeIdAutomatic;
-      document.getElementById('editRecipeId').textContent = recipeIdAutomatic ? 'Изменить' : 'Авто';
+      document.getElementById('editRecipeId').textContent = recipeIdAutomatic ? 'Edit' : 'Auto';
       if (recipeIdAutomatic) updateRecipeId();
       else recipeId.focus();
       preview();
@@ -377,7 +372,7 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
     function preview() {
       const nextRevision = ++revision;
       const values = slots.map((slot) => slot.value.trim());
-      document.getElementById('resultName').textContent = output.value.trim() || 'Не указан результат';
+      document.getElementById('resultName').textContent = output.value.trim() || 'No output selected';
       const countValue = Number(count.value);
       const cooking = kind !== 'shaped' && kind !== 'shapeless';
       const ingredients = (cooking ? values.slice(0, 1) : values).filter(Boolean);
@@ -387,12 +382,12 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
       save.disabled = busy || !output.value.trim() || ingredients.length === 0 || !Number.isSafeInteger(countValue) || countValue < 1 || countValue > 64 || cookingInvalid;
       if (!Number.isSafeInteger(countValue) || countValue < 1 || countValue > 64) {
         appliedRevision = nextRevision;
-        code.textContent = '// Количество должно быть целым числом от 1 до 64.';
+        code.textContent = '// Count must be an integer from 1 to 64.';
         return;
       }
       if (cookingInvalid) {
         appliedRevision = nextRevision;
-        code.textContent = '// Опыт не может быть отрицательным, а время должно быть целым числом больше нуля.';
+        code.textContent = '// Experience cannot be negative, and time must be an integer greater than zero.';
         return;
       }
       vscode.postMessage({ type: 'preview', revision: nextRevision, kind, recipeId: recipeId.value, output: output.value, count: countValue, experience: experienceValue, cookingTime: cookingTimeValue, slots: slots.map((slot) => slot.value) });
@@ -421,10 +416,10 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
       if (save.disabled || busy) return;
       busy = true;
       save.disabled = true;
-      save.textContent = 'Сохранение…';
+      save.textContent = 'Saving…';
       status.className = 'status';
       status.setAttribute('role', 'status');
-      status.textContent = 'Сохраняем в kubevs/crafts/vanilla…';
+      status.textContent = 'Saving to kubevs/crafts/vanilla…';
       vscode.postMessage({ type: 'save', revision: ++revision, kind, recipeId: recipeId.value, output: output.value, count: Number(count.value), experience: Number(experience.value), cookingTime: Number(cookingTime.value), slots: slots.map((slot) => slot.value) });
     });
     window.addEventListener('message', (event) => {
@@ -457,25 +452,25 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
         code.textContent = '// ' + event.data.message;
       } else if (event.data?.type === 'saved') {
         busy = false;
-        save.textContent = 'Сохранить рецепт';
+        save.textContent = 'Save Recipe';
         preview();
         status.className = 'status';
         status.setAttribute('role', 'status');
-        status.textContent = 'Сохранено: ' + event.data.path;
+        status.textContent = 'Saved: ' + event.data.path;
       } else if (event.data?.type === 'error') {
         busy = false;
-        save.textContent = 'Сохранить рецепт';
+        save.textContent = 'Save Recipe';
         preview();
         status.className = 'status error';
         status.setAttribute('role', 'alert');
-        status.textContent = event.data.message + ' Проверьте значения и повторите сохранение.';
+        status.textContent = event.data.message + ' Review the values and try saving again.';
       } else if (event.data?.type === 'cancelled') {
         busy = false;
-        save.textContent = 'Сохранить рецепт';
+        save.textContent = 'Save Recipe';
         preview();
         status.className = 'status';
         status.setAttribute('role', 'status');
-        status.textContent = 'Сохранение отменено. Файлы не изменены.';
+        status.textContent = 'Save cancelled. No files were changed.';
       }
     });
     slots[0].value = 'minecraft:stone';

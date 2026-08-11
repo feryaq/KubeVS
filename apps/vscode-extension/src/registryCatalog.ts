@@ -45,67 +45,67 @@ interface RegistryIconsResult {
 
 const KNOWN_REGISTRIES: readonly RegistryChoice[] = [
   {
-    label: 'Предметы',
+    label: 'Items',
     description: 'minecraft:item',
-    detail: 'Ингредиенты, результаты, инструменты и добыча',
+    detail: 'Ingredients, outputs, tools, and loot',
     registry: 'minecraft:item',
     includeTags: true,
   },
   {
-    label: 'Блоки',
+    label: 'Blocks',
     description: 'minecraft:block',
-    detail: 'Блоки и теги блоков',
+    detail: 'Blocks and block tags',
     registry: 'minecraft:block',
     includeTags: true,
   },
   {
-    label: 'Жидкости',
+    label: 'Fluids',
     description: 'minecraft:fluid',
-    detail: 'Жидкости и теги жидкостей',
+    detail: 'Fluids and fluid tags',
     registry: 'minecraft:fluid',
     includeTags: true,
   },
   {
-    label: 'Сущности',
+    label: 'Entities',
     description: 'minecraft:entity_type',
-    detail: 'Мобы и другие типы сущностей',
+    detail: 'Mobs and other entity types',
     registry: 'minecraft:entity_type',
     includeTags: true,
   },
   {
-    label: 'Структуры мира',
+    label: 'World Structures',
     description: 'minecraft:worldgen/structure',
-    detail: 'Деревни, крепости, данжи и структуры модов',
+    detail: 'Villages, strongholds, dungeons, and mod structures',
     registry: 'minecraft:worldgen/structure',
     includeTags: false,
   },
   {
-    label: 'Биомы',
+    label: 'Biomes',
     description: 'minecraft:worldgen/biome',
-    detail: 'Биомы Minecraft и модов',
+    detail: 'Biomes Minecraft and modded',
     registry: 'minecraft:worldgen/biome',
     includeTags: true,
   },
 ];
 
 const BUILTIN_NAMES: Readonly<Record<string, string>> = {
-  'minecraft:air': 'Воздух',
-  'minecraft:stone': 'Камень',
-  'minecraft:dirt': 'Земля',
-  'minecraft:grass_block': 'Дёрн',
-  'minecraft:cobblestone': 'Булыжник',
-  'minecraft:oak_log': 'Дубовое бревно',
-  'minecraft:iron_ingot': 'Железный слиток',
-  'minecraft:gold_ingot': 'Золотой слиток',
-  'minecraft:diamond': 'Алмаз',
-  'minecraft:netherite_ingot': 'Незеритовый слиток',
-  'minecraft:stick': 'Палка',
-  'minecraft:chest': 'Сундук',
-  'minecraft:iron_pickaxe': 'Железная кирка',
-  'minecraft:zombie': 'Зомби',
-  'minecraft:skeleton': 'Скелет',
-  'minecraft:water': 'Вода',
-  'minecraft:lava': 'Лава',
+  'minecraft:air': 'Air',
+  'minecraft:stone': 'Stone',
+  'minecraft:dirt': 'Dirt',
+  'minecraft:grass_block': 'Grass Block',
+  'minecraft:cobblestone': 'Cobblestone',
+  'minecraft:oak_log': 'Oak Log',
+  'minecraft:iron_ingot': 'Iron Ingot',
+  'minecraft:gold_ingot': 'Gold Ingot',
+  'minecraft:diamond': 'Diamond',
+  'minecraft:netherite_ingot': 'Netherite Ingot',
+  'minecraft:stick': 'Stick',
+  'minecraft:chest': 'Chest',
+  'minecraft:iron_pickaxe': 'Iron Pickaxe',
+  'minecraft:zombie': 'Zombie',
+  'minecraft:skeleton': 'Skeleton',
+  'minecraft:water': 'Water',
+  'minecraft:lava': 'Lava',
 };
 
 export class RegistryCatalog {
@@ -232,8 +232,8 @@ export class RegistryCatalog {
     let includeTags = options.includeTags ?? false;
     if (!registry) {
       const choice = await vscode.window.showQuickPick(await this.registryChoices(), {
-        title: options.title ?? 'KubeVS — поиск игрового ID',
-        placeHolder: 'Что нужно найти?',
+        title: options.title ?? 'KubeVS — Search In-game IDs',
+        placeHolder: 'What do you want to find?',
         matchOnDescription: true,
         matchOnDetail: true,
       });
@@ -252,15 +252,15 @@ export class RegistryCatalog {
             ? `Minecraft · ${entry.translationKey}`
             : 'Minecraft · live registry'
           : entry.source === 'tag'
-            ? 'Тег из подключённого Minecraft'
+            ? 'Tag from connected Minecraft'
             : entry.source === 'project'
-              ? 'Найдено в открытом проекте · Offline Mode'
-              : 'Встроенная подсказка · Offline Mode',
+              ? 'Found in the open project · Offline Mode'
+              : 'Built-in suggestion · Offline Mode',
       entry,
     }));
     const selected = await vscode.window.showQuickPick(items, {
       title: options.title ?? registryTitle(registry),
-      placeHolder: 'Введите имя в игре или ID, например «алмаз» или minecraft:diamond',
+      placeHolder: 'Enter an in-game name or ID, such as “diamond” or minecraft:diamond',
       matchOnDescription: true,
       matchOnDetail: true,
     });
@@ -271,7 +271,7 @@ export class RegistryCatalog {
     const selected = await this.pick();
     if (!selected) return;
     await vscode.env.clipboard.writeText(selected);
-    void vscode.window.showInformationMessage(`KubeVS: ${selected} скопирован в буфер обмена.`);
+    void vscode.window.showInformationMessage(`KubeVS: ${selected} copied to the clipboard.`);
   }
 
   private async entries(registry: string, includeTags: boolean): Promise<readonly CatalogEntry[]> {
@@ -286,7 +286,7 @@ export class RegistryCatalog {
         live.push(
           ...tags.map((id) => ({
             id: `#${id}`,
-            name: `Тег: ${humanize(id)}`,
+            name: `Tag: ${humanize(id)}`,
             translationKey: null,
             source: 'tag' as const,
           })),
@@ -355,7 +355,7 @@ export class RegistryCatalog {
           known ?? {
             label: humanize(registry),
             description: registry,
-            detail: 'Игровой реестр из подключённого Minecraft',
+            detail: 'In-game registry from connected Minecraft',
             registry,
             includeTags: true,
           }

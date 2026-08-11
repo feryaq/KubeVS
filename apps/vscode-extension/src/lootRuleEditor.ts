@@ -4,7 +4,6 @@ import { generateLootRule, LOOT_RULE_PRESETS, type LootRuleDraft } from './lootR
 import type { RegistryCatalog } from './registryCatalog.js';
 import { handleRegistryPickMessage } from './registryWebview.js';
 import { writeFileWithDiff } from './safeWrite.js';
-import { runtimeLanguage } from './localization.js';
 
 interface LootRuleMessage {
   readonly type: 'preview' | 'save';
@@ -35,9 +34,9 @@ export function openLootRuleEditor(
         }
         const target = await generatedLootRuleTarget(value.draft.target);
         const written = await writeFileWithDiff(context, target, code, {
-          diffTitle: 'KubeVS: текущий файл ↔ новое правило LootJS',
-          confirmation: `Перезаписать ${vscode.workspace.asRelativePath(target)}? Сначала проверьте открытый diff.`,
-          confirmButton: 'Перезаписать',
+          diffTitle: 'KubeVS: current file ↔ new LootJS rule',
+          confirmation: `Overwrite ${vscode.workspace.asRelativePath(target)}? Review the open diff first.`,
+          confirmButton: 'Overwrite',
           confirmExisting: false,
         });
         if (!written) {
@@ -93,8 +92,8 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
   // HIERARCHY: where loot changes → what happens → when it happens → generated code.
   // CONTRAST: one primary save action, semantic logic badges, theme-owned surfaces.
   // DEPTH: one-pixel dividers and tree rails; no ornamental card stacking.
-  let html = `<!doctype html>
-<html lang="ru">
+  const html = `<!doctype html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -168,55 +167,55 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
 </head>
 <body>
   <header>
-    <div class="brand"><div class="cube" aria-hidden="true">K</div><div><h1>Правило добычи</h1><div class="subtitle">LootJS · визуальный редактор</div></div></div>
-    <div id="status" class="status" role="status" aria-live="polite">Готово</div>
-    <button id="save" class="primary">Сохранить правило</button>
+    <div class="brand"><div class="cube" aria-hidden="true">K</div><div><h1>Loot rule</h1><div class="subtitle">LootJS · visual editor</div></div></div>
+    <div id="status" class="status" role="status" aria-live="polite">Ready</div>
+    <button id="save" class="primary">Save rule</button>
   </header>
   <main>
     <section>
-      <div class="section-head"><strong>Изменения добычи</strong><span>Выберите источник и результат</span></div>
+      <div class="section-head"><strong>Loot changes</strong><span>Choose a source and result</span></div>
       <div class="pane">
         <div class="group">
-          <h2>Где менять</h2>
-          <p class="group-intro">Сундук, блок или сущность, чью добычу нужно изменить.</p>
+          <h2>Where to change loot</h2>
+          <p class="group-intro">The chest, block, or entity whose loot should be changed.</p>
           <div class="preset-row">
-            <select id="preset" aria-label="Готовый пресет LootJS">
-              <option value="chest">Сундук данжа · редкий изумруд</option>
-              <option value="fishing">Рыбалка · шанс на алмаз</option>
-              <option value="leaves">Листва · дополнительные яблоки</option>
-              <option value="stone">Камень · редкий кремень</option>
-              <option value="zombie">Зомби · шанс на железо</option>
-              <option value="skeleton">Скелет · дополнительные стрелы</option>
+            <select id="preset" aria-label="LootJS preset">
+              <option value="chest">Dungeon chest · rare emerald</option>
+              <option value="fishing">Fishing · chance for a diamond</option>
+              <option value="leaves">Leaves · extra apples</option>
+              <option value="stone">Stone · rare flint</option>
+              <option value="zombie">Zombie · chance for iron</option>
+              <option value="skeleton">Skeleton · extra arrows</option>
             </select>
-            <button id="applyPreset" type="button">Применить пресет</button>
+            <button id="applyPreset" type="button">Apply preset</button>
           </div>
-          <label>Источник добычи<select id="targetKind"><option value="table">Готовая таблица добычи</option><option value="block">Блок или тег блоков</option><option value="entity">Сущность или тег сущностей</option></select></label>
-          <label>Игровой ID<div class="picker"><input id="target" spellcheck="false" value="minecraft:chests/simple_dungeon"><button id="pickTarget" class="ghost" type="button" title="Найти по имени или ID" aria-label="Найти цель по имени или ID">⌕</button></div></label>
-          <div class="hint">Например: <code>minecraft:chests/simple_dungeon</code>. Для блоков и сущностей поддерживаются теги с <code>#</code>.</div>
+          <label>Loot source<select id="targetKind"><option value="table">Loot table</option><option value="block">Block or block tag</option><option value="entity">Entity or entity tag</option></select></label>
+          <label>Game ID<div class="picker"><input id="target" spellcheck="false" value="minecraft:chests/simple_dungeon"><button id="pickTarget" class="ghost" type="button" title="Find by name or ID" aria-label="Find target by name or ID">⌕</button></div></label>
+          <div class="hint">For example: <code>minecraft:chests/simple_dungeon</code>. Block and entity tags can start with <code>#</code>.</div>
         </div>
         <div class="group">
-          <h2>Что сделать</h2>
-          <p class="group-intro">Действия выполняются по порядку сверху вниз.</p>
+          <h2>What to do</h2>
+          <p class="group-intro">Actions run from top to bottom.</p>
           <div class="add-action">
-            <select id="actionKind" aria-label="Новое действие">
-              <option value="add">Добавить предмет</option>
-              <option value="remove">Удалить предмет</option>
-              <option value="replace">Заменить предмет</option>
-              <option value="experience">Добавить опыт</option>
+            <select id="actionKind" aria-label="New action">
+              <option value="add">Add item</option>
+              <option value="remove">Remove item</option>
+              <option value="replace">Replace item</option>
+              <option value="experience">Add experience</option>
             </select>
-            <button id="addAction" type="button">Добавить</button>
+            <button id="addAction" type="button">Add</button>
           </div>
           <div id="actions"></div>
         </div>
       </div>
     </section>
     <section>
-      <div class="section-head"><strong>Когда применять</strong><span>Условия можно объединять в группы</span></div>
-      <div class="pane"><p class="group-intro">AND — все условия, OR — любое, NOT — наоборот. Главное условие нельзя удалить.</p><div id="tree"></div></div>
+      <div class="section-head"><strong>When to apply</strong><span>Conditions can be grouped</span></div>
+      <div class="pane"><p class="group-intro">AND matches all conditions, OR matches any, and NOT inverts one. The root condition cannot be removed.</p><div id="tree"></div></div>
     </section>
     <details class="preview">
-      <summary>Показать сгенерированный JavaScript</summary>
-      <pre id="code">Подготовка предпросмотра…</pre>
+      <summary>Show generated JavaScript</summary>
+      <pre id="code">Preparing preview…</pre>
     </details>
   </main>
   <script nonce="${nonce}">
@@ -231,8 +230,8 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
     };
     const presets = ${JSON.stringify(LOOT_RULE_PRESETS)};
     let state = isUsableState(restored) ? restored : initial;
-    const labels = { and:'AND — все условия', or:'OR — любое условие', not:'NOT — инверсия', chance:'Случайный шанс', tool:'Инструмент', killedByPlayer:'Убит игроком', survivesExplosion:'Пережило взрыв', custom:'Своё JSON-условие' };
-    const actionLabels = { add:'Добавить предмет', remove:'Удалить добычу', replace:'Заменить добычу', experience:'Добавить опыт' };
+    const labels = { and:'AND — all conditions', or:'OR — any condition', not:'NOT — inverted', chance:'Random chance', tool:'Tool', killedByPlayer:'Killed by player', survivesExplosion:'Survives explosion', custom:'Custom JSON condition' };
+    const actionLabels = { add:'Add item', remove:'Remove loot', replace:'Replace loot', experience:'Add experience' };
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const id = prefix => prefix + (++sequence);
     const byId = (node, wanted) => node.id === wanted ? node : node.children.map(child => byId(child, wanted)).find(Boolean);
@@ -274,21 +273,21 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
       const host = document.getElementById('actions');
       host.innerHTML = state.actions.length ? state.actions.map(action => {
         let fields = '';
-        if (action.kind === 'add') fields = '<div class="action-fields"><label>Предмет<div class="picker"><input aria-label="ID предмета" data-action-field="item" value="'+esc(action.item)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="false" title="Найти предмет" aria-label="Найти предмет по имени или ID">⌕</button></div></label><label>Количество<input aria-label="Количество предметов" type="number" min="1" data-action-field="count" value="'+esc(action.count)+'"></label><label>Шанс, от 0 до 1<input aria-label="Шанс добавления от нуля до единицы" type="number" min="0.001" max="1" step="0.05" data-action-field="chance" value="'+esc(action.chance)+'"></label></div>';
-        if (action.kind === 'remove') fields = '<div class="single-field"><label>Предмет или тег<div class="picker"><input aria-label="Предмет или тег для удаления" data-action-field="filter" value="'+esc(action.filter)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="true" title="Найти предмет или тег" aria-label="Найти предмет или тег для удаления">⌕</button></div></label></div>';
-        if (action.kind === 'replace') fields = '<div class="single-field"><label>Что заменить<div class="picker"><input aria-label="Что заменить" data-action-field="filter" value="'+esc(action.filter)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="true" title="Найти исходный предмет" aria-label="Найти исходный предмет или тег">⌕</button></div></label></div><div class="single-field"><label>На что заменить<div class="picker"><input aria-label="На что заменить" data-action-field="replacement" value="'+esc(action.replacement)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="false" title="Найти новый предмет" aria-label="Найти новый предмет">⌕</button></div></label></div><label class="checkbox"><input type="checkbox" data-action-field="preserveCount" '+(action.preserveCount?'checked':'')+'> Сохранить исходное количество</label>';
-        if (action.kind === 'experience') fields = '<div class="single-field"><label>Количество опыта<input aria-label="Количество опыта" type="number" min="0" data-action-field="amount" value="'+esc(action.amount)+'"></label></div>';
-        return '<div class="action" data-action="'+esc(action.id)+'"><div class="action-head"><strong>'+actionLabels[action.kind]+'</strong><button class="ghost danger" data-remove-action="'+esc(action.id)+'" aria-label="Удалить действие">×</button></div>'+fields+'</div>';
-      }).join('') : '<div class="empty">Действий пока нет. Выберите нужное выше и нажмите «Добавить».</div>';
+        if (action.kind === 'add') fields = '<div class="action-fields"><label>Item<div class="picker"><input aria-label="Item ID" data-action-field="item" value="'+esc(action.item)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="false" title="Find item" aria-label="Find item by name or ID">⌕</button></div></label><label>Amount<input aria-label="Item count" type="number" min="1" data-action-field="count" value="'+esc(action.count)+'"></label><label>Chance, from 0 to 1<input aria-label="Add chance from zero to one" type="number" min="0.001" max="1" step="0.05" data-action-field="chance" value="'+esc(action.chance)+'"></label></div>';
+        if (action.kind === 'remove') fields = '<div class="single-field"><label>Item or tag<div class="picker"><input aria-label="Item or tag to remove" data-action-field="filter" value="'+esc(action.filter)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="true" title="Find item or tag" aria-label="Find item or tag to remove">⌕</button></div></label></div>';
+        if (action.kind === 'replace') fields = '<div class="single-field"><label>Loot to replace<div class="picker"><input aria-label="Loot to replace" data-action-field="filter" value="'+esc(action.filter)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="true" title="Find source item" aria-label="Find source item or tag">⌕</button></div></label></div><div class="single-field"><label>Replacement item<div class="picker"><input aria-label="Replacement item" data-action-field="replacement" value="'+esc(action.replacement)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="false" title="Find replacement item" aria-label="Find replacement item">⌕</button></div></label></div><label class="checkbox"><input type="checkbox" data-action-field="preserveCount" '+(action.preserveCount?'checked':'')+'> Preserve original count</label>';
+        if (action.kind === 'experience') fields = '<div class="single-field"><label>Experience amount<input aria-label="Experience amount" type="number" min="0" data-action-field="amount" value="'+esc(action.amount)+'"></label></div>';
+        return '<div class="action" data-action="'+esc(action.id)+'"><div class="action-head"><strong>'+actionLabels[action.kind]+'</strong><button class="ghost danger" data-remove-action="'+esc(action.id)+'" aria-label="Remove action">×</button></div>'+fields+'</div>';
+      }).join('') : '<div class="empty">No actions yet. Choose one above and select “Add”.</div>';
     }
     function nodeHtml(node, root = false) {
       let editor = '';
-      if (node.kind === 'chance') editor = '<label>Шанс, от 0 до 1<input aria-label="Шанс от нуля до единицы" type="number" min="0" max="1" step="0.05" data-node-value="'+esc(node.id)+'" value="'+esc(node.value)+'"></label>';
-      if (node.kind === 'tool') editor = '<div class="picker"><input aria-label="ID или тег инструмента" data-node-value="'+esc(node.id)+'" value="'+esc(node.value)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="true" title="Найти инструмент или тег">⌕</button></div>';
-      if (node.kind === 'custom') editor = '<label>JSON условия<textarea aria-label="Пользовательское JSON-условие" data-node-value="'+esc(node.id)+'">'+esc(node.value)+'</textarea></label>';
+      if (node.kind === 'chance') editor = '<label>Chance, from 0 to 1<input aria-label="Chance from zero to one" type="number" min="0" max="1" step="0.05" data-node-value="'+esc(node.id)+'" value="'+esc(node.value)+'"></label>';
+      if (node.kind === 'tool') editor = '<div class="picker"><input aria-label="Tool ID or tag" data-node-value="'+esc(node.id)+'" value="'+esc(node.value)+'"><button class="ghost" data-pick-registry="minecraft:item" data-include-tags="true" title="Find tool or tag">⌕</button></div>';
+      if (node.kind === 'custom') editor = '<label>Condition JSON<textarea aria-label="Custom JSON condition" data-node-value="'+esc(node.id)+'">'+esc(node.value)+'</textarea></label>';
       const composite = ['and','or','not'].includes(node.kind);
-      const add = composite ? '<div class="add-child"><select aria-label="Тип нового условия" data-child-kind="'+esc(node.id)+'"><option value="chance">Случайный шанс</option><option value="tool">Инструмент</option><option value="killedByPlayer">Убит игроком</option><option value="survivesExplosion">Пережило взрыв</option><option value="and">Группа AND</option><option value="or">Группа OR</option><option value="not">Инверсия NOT</option><option value="custom">Своё JSON</option></select><button data-add-child="'+esc(node.id)+'" '+(node.kind==='not'&&node.children.length?'disabled':'')+'>Добавить условие</button></div>' : '';
-      return '<div class="node" data-node="'+esc(node.id)+'"><div class="node-head"><span class="badge '+(node.kind==='not'?'not':'')+'">'+esc(node.kind.toUpperCase())+'</span><strong>'+labels[node.kind]+'</strong>'+(root?'':'<button class="ghost danger" data-remove-node="'+esc(node.id)+'" aria-label="Удалить условие">×</button>')+'</div>'+editor+(composite?'<div class="children">'+node.children.map(child => nodeHtml(child)).join('')+add+'</div>':'')+'</div>';
+      const add = composite ? '<div class="add-child"><select aria-label="New condition type" data-child-kind="'+esc(node.id)+'"><option value="chance">Random chance</option><option value="tool">Tool</option><option value="killedByPlayer">Killed by player</option><option value="survivesExplosion">Survives explosion</option><option value="and">AND group</option><option value="or">OR group</option><option value="not">NOT group</option><option value="custom">Custom JSON</option></select><button data-add-child="'+esc(node.id)+'" '+(node.kind==='not'&&node.children.length?'disabled':'')+'>Add condition</button></div>' : '';
+      return '<div class="node" data-node="'+esc(node.id)+'"><div class="node-head"><span class="badge '+(node.kind==='not'?'not':'')+'">'+esc(node.kind.toUpperCase())+'</span><strong>'+labels[node.kind]+'</strong>'+(root?'':'<button class="ghost danger" data-remove-node="'+esc(node.id)+'" aria-label="Remove condition">×</button>')+'</div>'+editor+(composite?'<div class="children">'+node.children.map(child => nodeHtml(child)).join('')+add+'</div>':'')+'</div>';
     }
     function render(focusSelector) {
       document.getElementById('targetKind').value = state.targetKind;
@@ -309,7 +308,7 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
       previewValid = false;
       document.getElementById('save').disabled = true;
       const current = ++revision;
-      document.getElementById('code').textContent = 'Проверка правила…';
+      document.getElementById('code').textContent = 'Validating rule…';
       vscode.postMessage({type:'preview', revision:current, draft:state});
     }
     document.addEventListener('input', event => {
@@ -334,7 +333,7 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
         if (selected) {
           state = JSON.parse(JSON.stringify(selected));
           normalizeIds();
-          status('Пресет применён — проверьте цель, шанс и награду');
+          status('Preset applied — review the target, chance, and reward');
           render('#target');
         }
         return;
@@ -343,7 +342,7 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
         const input = button.closest('.picker')?.querySelector('input');
         if (input) {
           const requestId = ++pickSequence; pendingPicks.set(requestId, input);
-          vscode.postMessage({type:'pickRegistry',requestId,registry:button.dataset.pickRegistry,includeTags:button.dataset.includeTags==='true',current:input.value,title:'KubeVS — выберите игровой ID'});
+          vscode.postMessage({type:'pickRegistry',requestId,registry:button.dataset.pickRegistry,includeTags:button.dataset.includeTags==='true',current:input.value,title:'KubeVS — select a game ID'});
         }
         return;
       }
@@ -362,7 +361,7 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
       }
     });
     document.getElementById('targetKind').addEventListener('change', event => { state.targetKind = event.target.value; changed(); });
-    document.getElementById('save').addEventListener('click', () => { if (!previewValid) return; setBusy(true); status('Сохранение в папку KubeVS…'); vscode.postMessage({type:'save',revision:++revision,draft:state}); });
+    document.getElementById('save').addEventListener('click', () => { if (!previewValid) return; setBusy(true); status('Saving to the KubeVS folder…'); vscode.postMessage({type:'save',revision:++revision,draft:state}); });
     window.addEventListener('message', event => {
       const message = event.data;
       if (message.type === 'registryPicked') {
@@ -370,119 +369,19 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
         if (input && message.value) { input.value = message.value; input.dispatchEvent(new Event('input', {bubbles:true})); input.focus(); }
         return;
       }
-      if (message.type === 'preview' && message.revision === revision) { previewValid = true; document.getElementById('save').disabled = false; document.getElementById('code').className=''; document.getElementById('code').textContent=message.code; status('Правило корректно'); }
-      if (message.type === 'previewError' && message.revision === revision) { previewValid = false; document.getElementById('save').disabled = true; document.getElementById('code').className='error'; document.getElementById('code').textContent=message.message; status('Исправьте параметры', true); }
-      if (message.type === 'saved') { setBusy(false); status('Сохранено: '+message.path); requestPreview(); }
-      if (message.type === 'cancelled') { setBusy(false); status('Сохранение отменено'); requestPreview(); }
+      if (message.type === 'preview' && message.revision === revision) { previewValid = true; document.getElementById('save').disabled = false; document.getElementById('code').className=''; document.getElementById('code').textContent=message.code; status('Rule is valid'); }
+      if (message.type === 'previewError' && message.revision === revision) { previewValid = false; document.getElementById('save').disabled = true; document.getElementById('code').className='error'; document.getElementById('code').textContent=message.message; status('Fix the parameters', true); }
+      if (message.type === 'saved') { setBusy(false); status('Saved: '+message.path); requestPreview(); }
+      if (message.type === 'cancelled') { setBusy(false); status('Save cancelled'); requestPreview(); }
       if (message.type === 'error') { setBusy(false); status(message.message, true); requestPreview(); }
     });
     render();
   </script>
 </body>
 </html>`;
-  if (runtimeLanguage() === 'en') html = translateLootEditorToEnglish(html);
   return html;
 }
 
-const lootEditorEnglish = new Map<string, string>([
-  ['<html lang="ru">', '<html lang="en">'],
-  ['Правило добычи', 'Loot rule'],
-  ['визуальный редактор', 'visual editor'],
-  ['Сохранить правило', 'Save rule'],
-  ['Изменения добычи', 'Loot changes'],
-  ['Выберите источник и результат', 'Choose a source and result'],
-  ['Где менять', 'Where to change loot'],
-  [
-    'Сундук, блок или сущность, чью добычу нужно изменить.',
-    'The chest, block, or entity whose loot should change.',
-  ],
-  ['Сундук данжа · редкий изумруд', 'Dungeon chest · rare emerald'],
-  ['Рыбалка · шанс на алмаз', 'Fishing · chance for a diamond'],
-  ['Листва · дополнительные яблоки', 'Leaves · extra apples'],
-  ['Камень · редкий кремень', 'Stone · rare flint'],
-  ['Зомби · шанс на железо', 'Zombie · chance for iron'],
-  ['Скелет · дополнительные стрелы', 'Skeleton · extra arrows'],
-  ['Применить пресет', 'Apply preset'],
-  ['Источник добычи', 'Loot source'],
-  ['Готовая таблица добычи', 'Loot table'],
-  ['Блок или тег блоков', 'Block or block tag'],
-  ['Сущность или тег сущностей', 'Entity or entity tag'],
-  ['Игровой ID', 'Game ID'],
-  ['Найти по имени или ID', 'Find by name or ID'],
-  ['Найти цель по имени или ID', 'Find target by name or ID'],
-  ['Для блоков и сущностей поддерживаются теги с', 'Block and entity tags can start with'],
-  ['Что сделать', 'What to do'],
-  ['Действия выполняются по порядку сверху вниз.', 'Actions run from top to bottom.'],
-  ['Новое действие', 'New action'],
-  ['Добавить предмет', 'Add item'],
-  ['Удалить предмет', 'Remove item'],
-  ['Заменить предмет', 'Replace item'],
-  ['Добавить опыт', 'Add experience'],
-  ['Когда применять', 'When to apply'],
-  ['Условия можно объединять в группы', 'Conditions can be grouped'],
-  [
-    'AND — все условия, OR — любое, NOT — наоборот. Главное условие нельзя удалить.',
-    'AND requires every condition, OR requires any condition, and NOT inverts one condition. The root condition cannot be removed.',
-  ],
-  ['Показать сгенерированный JavaScript', 'Show generated JavaScript'],
-  ['Подготовка предпросмотра…', 'Preparing preview…'],
-  ['AND — все условия', 'AND — all conditions'],
-  ['OR — любое условие', 'OR — any condition'],
-  ['NOT — инверсия', 'NOT — inverted'],
-  ['Случайный шанс', 'Random chance'],
-  ['Инструмент', 'Tool'],
-  ['Убит игроком', 'Killed by player'],
-  ['Пережило взрыв', 'Survives explosion'],
-  ['Своё JSON-условие', 'Custom JSON condition'],
-  ['Удалить добычу', 'Remove loot'],
-  ['Заменить добычу', 'Replace loot'],
-  ['Предмет или тег', 'Item or tag'],
-  ['Что заменить', 'Loot to replace'],
-  ['На что заменить', 'Replacement item'],
-  ['Сохранить исходное количество', 'Preserve original count'],
-  ['Количество опыта', 'Experience amount'],
-  ['Количество предметов', 'Item count'],
-  ['Шанс, от 0 до 1', 'Chance, from 0 to 1'],
-  ['Шанс добавления от нуля до единицы', 'Add chance from zero to one'],
-  [
-    'Действий пока нет. Выберите нужное выше и нажмите «Добавить».',
-    'No actions yet. Choose one above and select Add.',
-  ],
-  ['JSON условия', 'Condition JSON'],
-  ['Тип нового условия', 'New condition type'],
-  ['Группа AND', 'AND group'],
-  ['Группа OR', 'OR group'],
-  ['Инверсия NOT', 'NOT group'],
-  ['Своё JSON', 'Custom JSON'],
-  ['Добавить условие', 'Add condition'],
-  ['Удалить условие', 'Remove condition'],
-  ['Удалить действие', 'Remove action'],
-  ['Найти предмет или тег', 'Find item or tag'],
-  ['Найти предмет', 'Find item'],
-  ['Найти инструмент или тег', 'Find tool or tag'],
-  ['KubeVS — выберите игровой ID', 'KubeVS — select a game ID'],
-  [
-    'Пресет применён — проверьте цель, шанс и награду',
-    'Preset applied — review the target, chance, and reward',
-  ],
-  ['Проверка правила…', 'Validating rule…'],
-  ['Сохранение в папку KubeVS…', 'Saving to the KubeVS folder…'],
-  ['Правило корректно', 'Rule is valid'],
-  ['Исправьте параметры', 'Fix the parameters'],
-  ['Сохранение отменено', 'Save cancelled'],
-  ['Сохранено: ', 'Saved: '],
-  ['Готово', 'Ready'],
-  ['Добавить', 'Add'],
-  ['Количество', 'Amount'],
-  ['Шанс', 'Chance'],
-  ['Предмет', 'Item'],
-]);
-
-function translateLootEditorToEnglish(html: string): string {
-  const entries = [...lootEditorEnglish].sort((left, right) => right[0].length - left[0].length);
-  for (const [source, translation] of entries) html = html.replaceAll(source, translation);
-  return html;
-}
 function createNonce(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from(

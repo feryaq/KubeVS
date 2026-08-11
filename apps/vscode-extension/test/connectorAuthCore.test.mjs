@@ -45,7 +45,10 @@ test('parses one-click KubeVS connection codes', () => {
       .secure,
     true,
   );
-  assert.throws(() => parseConnectorConnectionCode('https://example.net'), /не код подключения/u);
+  assert.throws(
+    () => parseConnectorConnectionCode('https://example.net'),
+    /not a KubeVS connection code/u,
+  );
   assert.throws(
     () => parseConnectorConnectionCode('kubevs://example.net?token=short'),
     /32 to 256/u,

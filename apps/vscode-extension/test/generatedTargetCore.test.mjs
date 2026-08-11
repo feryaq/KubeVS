@@ -7,35 +7,35 @@ import {
   safeGeneratedSegment,
 } from '../dist/generatedTargetCore.mjs';
 
-test('не дублирует kubejs, когда открыта сама папка kubejs', () => {
+test('does not duplicate kubejs when the kubejs folder itself is open', () => {
   assert.deepEqual(generatedDirectorySegments('KubeJS', 'kubejs/server_scripts/kubevs-generated'), [
     'server_scripts',
     'kubevs-generated',
   ]);
 });
 
-test('не дублирует kubejs в удалённой серверной рабочей области', () => {
+test('does not duplicate kubejs in a remote server workspace', () => {
   assert.deepEqual(
     generatedDirectorySegments('', 'kubejs/server_scripts/kubevs', 'kubevs-remote'),
     ['server_scripts', 'kubevs'],
   );
 });
 
-test('не дублирует server_scripts, когда открыта папка скриптов', () => {
+test('does not duplicate server_scripts when the scripts folder is open', () => {
   assert.deepEqual(
     generatedDirectorySegments('server_scripts', 'kubejs/server_scripts/kubevs-generated'),
     ['kubevs-generated'],
   );
 });
 
-test('сохраняет полный путь для корня Minecraft-сборки', () => {
+test('keeps the full path for a Minecraft instance root', () => {
   assert.deepEqual(
     generatedDirectorySegments('My Modpack', 'kubejs/server_scripts/kubevs-generated'),
     ['kubejs', 'server_scripts', 'kubevs-generated'],
   );
 });
 
-test('раскладывает рецепты по стабильным папкам интеграций', () => {
+test('routes recipes into stable integration folders', () => {
   assert.equal(craftCategory('create:pressing'), 'create');
   assert.equal(craftCategory('oritech:pulverizer'), 'oritech');
   assert.equal(craftCategory('farmersdelight:cooking'), 'farmersdelight');
@@ -43,12 +43,12 @@ test('раскладывает рецепты по стабильным папк
   assert.equal(craftCategory('othermod:machine'), 'generic');
 });
 
-test('не пропускает путь через имя генерируемого файла', () => {
+test('does not allow path traversal through a generated filename', () => {
   assert.equal(safeGeneratedSegment('simple_dungeon', 'loot_rule'), 'simple_dungeon');
   assert.equal(safeGeneratedSegment('../outside', 'loot_rule'), 'loot_rule');
 });
 
-test('создаёт читаемые канонические имена файлов без hash-хвоста', () => {
+test('creates readable canonical filenames without a hash suffix', () => {
   assert.equal(
     generatedArtifactStem('kubevs:iron_ingot_from_smelting_iron_ore', 'recipe'),
     'iron_ingot_from_smelting_iron_ore',
@@ -59,7 +59,7 @@ test('создаёт читаемые канонические имена фай
   );
 });
 
-test('не сталкивает namespace и похожие пути в одном generated-файле', () => {
+test('avoids collisions between namespaces and similar paths in one generated file', () => {
   assert.notEqual(
     generatedArtifactStem('create:foo/bar', 'recipe'),
     generatedArtifactStem('create:foo_bar', 'recipe'),

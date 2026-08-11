@@ -1,31 +1,31 @@
 const RECIPE_LABELS: Readonly<Record<string, string>> = {
-  'minecraft:crafting_shaped': 'Форменный крафт',
-  'minecraft:crafting_shapeless': 'Бесформенный крафт',
-  'minecraft:smelting': 'Плавка',
-  'minecraft:blasting': 'Плавка в плавильной печи',
-  'minecraft:smoking': 'Приготовление в коптильне',
-  'minecraft:campfire_cooking': 'Приготовление на костре',
-  'minecraft:stonecutting': 'Камнерез',
-  'minecraft:smithing_transform': 'Кузнечный стол',
-  'create:mixing': 'Смешивание',
-  'create:compacting': 'Уплотнение',
-  'create:pressing': 'Прессование',
-  'create:crushing': 'Дробление',
-  'create:milling': 'Измельчение',
-  'create:cutting': 'Распиливание',
-  'create:deploying': 'Установка компонентом',
-  'create:filling': 'Наполнение жидкостью',
-  'create:emptying': 'Опустошение',
-  'create:splashing': 'Промывание',
-  'create:haunting': 'Обработка душами',
-  'create:sandpaper_polishing': 'Полировка наждачной бумагой',
-  'create:mechanical_crafting': 'Механический крафт',
-  'create:sequenced_assembly': 'Последовательная сборка',
-  'farmersdelight:cutting': 'Разделочная доска',
-  'farmersdelight:cooking': 'Приготовление в котле',
-  'oritech:grinder': 'Измельчение в дробилке',
-  'oritech:pulverizer': 'Дробление',
-  'oritech:assembler': 'Сборка',
+  'minecraft:crafting_shaped': 'Shaped Crafting',
+  'minecraft:crafting_shapeless': 'Shapeless Crafting',
+  'minecraft:smelting': 'Smelting',
+  'minecraft:blasting': 'Blasting',
+  'minecraft:smoking': 'Smoking',
+  'minecraft:campfire_cooking': 'Campfire Cooking',
+  'minecraft:stonecutting': 'Stonecutting',
+  'minecraft:smithing_transform': 'Smithing',
+  'create:mixing': 'Mixing',
+  'create:compacting': 'Compacting',
+  'create:pressing': 'Pressing',
+  'create:crushing': 'Crushing',
+  'create:milling': 'Milling',
+  'create:cutting': 'Cutting',
+  'create:deploying': 'Deploying',
+  'create:filling': 'Filling',
+  'create:emptying': 'Emptying',
+  'create:splashing': 'Splashing',
+  'create:haunting': 'Haunting',
+  'create:sandpaper_polishing': 'Sandpaper Polishing',
+  'create:mechanical_crafting': 'Mechanical Crafting',
+  'create:sequenced_assembly': 'Sequenced Assembly',
+  'farmersdelight:cutting': 'Cutting Board',
+  'farmersdelight:cooking': 'Cooking Pot',
+  'oritech:grinder': 'Grinding',
+  'oritech:pulverizer': 'Pulverizing',
+  'oritech:assembler': 'Assembly',
 };
 
 const DEFAULT_WORKSTATIONS: Readonly<Record<string, readonly string[]>> = {
@@ -63,7 +63,7 @@ export function canonicalRecipeLabel(recipeType: string, categoryName?: string):
   return path
     .replaceAll('/', ' · ')
     .replaceAll('_', ' ')
-    .replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase('ru-RU'));
+    .replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase('en-US'));
 }
 
 export function defaultWorkstations(recipeType: string): readonly string[] {

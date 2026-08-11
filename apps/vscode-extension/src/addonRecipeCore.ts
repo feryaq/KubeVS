@@ -73,7 +73,7 @@ const RECIPE_TYPES = new Set<AddonRecipeType>([
 
 export function generateAddonRecipe(draft: AddonRecipeDraft): string {
   validateDraftShape(draft);
-  const recipeId = requireResource(draft.recipeId, 'ID рецепта');
+  const recipeId = requireResource(draft.recipeId, 'Recipe ID');
   const ingredients = draft.ingredients
     .map((ingredient) => ingredient.trim())
     .filter(Boolean)
@@ -81,10 +81,10 @@ export function generateAddonRecipe(draft: AddonRecipeDraft): string {
   const fluidInputs = draft.fluidInputs.map(parseFluidIngredient);
   const fluidOutputs = draft.fluidOutputs.map(parseFluidOutput);
   if (ingredients.length + fluidInputs.length === 0) {
-    throw new Error('Добавьте хотя бы один предметный или жидкостный вход.');
+    throw new Error('Add at least one item or fluid input.');
   }
   if (draft.outputs.length + fluidOutputs.length === 0) {
-    throw new Error('Добавьте хотя бы один предметный или жидкостный результат.');
+    throw new Error('Add at least one item or fluid output.');
   }
   const outputs = draft.outputs.map(parseOutput);
   const firstIngredient = ingredients.at(0);
@@ -95,17 +95,17 @@ export function generateAddonRecipe(draft: AddonRecipeDraft): string {
   let recipe: Record<string, unknown>;
   if (draft.type === 'create:sequenced_assembly') {
     if (!firstIngredient || outputs.length === 0) {
-      throw new Error('Последовательной сборке нужны предметный вход и предметный результат.');
+      throw new Error('Sequenced assembly requires an item input and an item output.');
     }
     recipe = createSequencedAssembly(draft, firstIngredient, outputs);
   } else if (draft.type === 'farmersdelight:cooking') {
-    if (!firstOutput) throw new Error('Готовке в котле нужен предметный результат.');
+    if (!firstOutput) throw new Error('Cooking pot recipes require an item output.');
     recipe = {
       type: draft.type,
       ingredients,
       result: stripChance(firstOutput),
-      experience: nonNegative(draft.experience, 'Опыт'),
-      cookingtime: positiveInteger(draft.processingTime, 'Время приготовления'),
+      experience: nonNegative(draft.experience, 'Experience'),
+      cookingtime: positiveInteger(draft.processingTime, 'Cooking time'),
       recipe_book_tab: 'meals',
     };
   } else if (draft.type === 'farmersdelight:cutting') {
@@ -122,14 +122,14 @@ export function generateAddonRecipe(draft: AddonRecipeDraft): string {
       results: [...outputs, ...fluidOutputs],
     };
     if (draft.type.startsWith('oritech:')) {
-      recipe.time = positiveInteger(draft.processingTime, 'Время обработки');
+      recipe.time = positiveInteger(draft.processingTime, 'Processing time');
     }
     if (
       draft.type === 'create:crushing' ||
       draft.type === 'create:milling' ||
       draft.type === 'create:cutting'
     ) {
-      recipe.processing_time = positiveInteger(draft.processingTime, 'Время обработки');
+      recipe.processing_time = positiveInteger(draft.processingTime, 'Processing time');
     }
     if (
       draft.heat !== 'none' &&
@@ -194,7 +194,7 @@ export function isAddonRecipeDraft(value: unknown): value is AddonRecipeDraft {
 
 function validateDraftShape(draft: AddonRecipeDraft): void {
   if (!isAddonRecipeDraft(draft)) {
-    throw new Error('Редактор передал повреждённую или неподдерживаемую модель рецепта.');
+    throw new Error('The editor supplied an invalid or unsupported recipe model.');
   }
 }
 
@@ -219,13 +219,13 @@ function validateMachineLimits(
     'farmersdelight:cooking',
   ]);
   if (singleInput.has(type) && ingredientCount !== 1) {
-    throw new Error('Выбранная машина принимает ровно один входной ингредиент.');
+    throw new Error('The selected machine accepts exactly one input ingredient.');
   }
   if (type === 'create:deploying' && ingredientCount !== 2) {
-    throw new Error('Установка Create требует основной предмет и устанавливаемый ингредиент.');
+    throw new Error('Create deploying requires a base item and a deployed ingredient.');
   }
   if (singleOutput.has(type) && outputCount !== 1) {
-    throw new Error('Выбранная машина создаёт ровно один результат.');
+    throw new Error('The selected machine produces exactly one output.');
   }
 }
 
@@ -239,9 +239,7 @@ function validateFluidSupport(
     type !== 'create:mixing' &&
     type !== 'create:compacting'
   ) {
-    throw new Error(
-      'Жидкости в этом редакторе поддерживаются для механического смешивания и прессования в бассейне.',
-    );
+    throw new Error('This editor supports fluids for mechanical mixing and basin compacting.');
   }
 }
 
@@ -250,19 +248,19 @@ function createSequencedAssembly(
   ingredient: Record<string, unknown>,
   outputs: readonly Record<string, unknown>[],
 ): Record<string, unknown> {
-  const transitional = requireResource(draft.transitionalItem, 'Переходный предмет');
+  const transitional = requireResource(draft.transitionalItem, 'Transitional item');
   const sequence = draft.sequence.map((step, index) => {
     if (
       step.type !== 'create:pressing' &&
       step.type !== 'create:deploying' &&
       step.type !== 'create:cutting'
     ) {
-      throw new Error(`Шаг ${index + 1}: неподдерживаемая операция.`);
+      throw new Error(`Step ${index + 1}: unsupported operation.`);
     }
     const stepIngredients: Record<string, unknown>[] = [{ item: transitional }];
     if (step.type === 'create:deploying') {
       if (!step.ingredient.trim()) {
-        throw new Error(`Шаг ${index + 1}: для установки нужен дополнительный ингредиент.`);
+        throw new Error(`Step ${index + 1}: deploying requires an additional ingredient.`);
       }
       stepIngredients.push(parseIngredient(step.ingredient));
     }
@@ -272,62 +270,62 @@ function createSequencedAssembly(
       results: [{ id: transitional }],
     };
   });
-  if (sequence.length === 0) throw new Error('Добавьте хотя бы один шаг сборки.');
+  if (sequence.length === 0) throw new Error('Add at least one assembly step.');
   return {
     type: draft.type,
     ingredient,
     transitional_item: { id: transitional },
     sequence,
     results: outputs,
-    loops: positiveInteger(draft.loops, 'Количество циклов'),
+    loops: positiveInteger(draft.loops, 'Loop count'),
   };
 }
 
 function parseIngredient(value: string): Record<string, unknown> {
   const trimmed = value.trim();
   if (trimmed.startsWith('#')) {
-    return { tag: requireResource(trimmed.slice(1), 'Тег ингредиента') };
+    return { tag: requireResource(trimmed.slice(1), 'Ingredient tag') };
   }
-  return { item: requireResource(trimmed, 'Ингредиент') };
+  return { item: requireResource(trimmed, 'Ingredient') };
 }
 
 function parseOutput(output: AddonRecipeOutput): Record<string, unknown> {
   const result: Record<string, unknown> = {
-    id: requireResource(output.item, 'Результат'),
+    id: requireResource(output.item, 'Output'),
   };
-  const count = positiveInteger(output.count, 'Количество результата');
+  const count = positiveInteger(output.count, 'Output count');
   if (count !== 1) result.count = count;
   if (!Number.isFinite(output.chance) || output.chance <= 0) {
-    throw new Error('Шанс или вес результата должен быть больше нуля.');
+    throw new Error('Output chance or weight must be greater than zero.');
   }
   if (output.chance !== 1) result.chance = output.chance;
   return result;
 }
 
 function parseFluidIngredient(stack: AddonRecipeFluidStack): Record<string, unknown> {
-  const amount = positiveInteger(stack.amount, 'Объём жидкостного входа');
+  const amount = positiveInteger(stack.amount, 'Fluid input amount');
   const value = stack.fluid.trim();
   if (value.startsWith('#')) {
     return {
       type: 'neoforge:tag',
       amount,
-      tag: requireResource(value.slice(1), 'Тег жидкости'),
+      tag: requireResource(value.slice(1), 'Fluid tag'),
     };
   }
   return {
     type: 'neoforge:single',
     amount,
-    fluid: requireResource(value, 'Жидкость'),
+    fluid: requireResource(value, 'Fluid'),
   };
 }
 
 function parseFluidOutput(stack: AddonRecipeFluidStack): Record<string, unknown> {
   if (stack.fluid.trim().startsWith('#')) {
-    throw new Error('Жидкостный результат должен указывать конкретную жидкость, а не тег.');
+    throw new Error('A fluid output must specify a concrete fluid, not a tag.');
   }
   return {
-    amount: positiveInteger(stack.amount, 'Объём жидкостного результата'),
-    id: requireResource(stack.fluid, 'Жидкостный результат'),
+    amount: positiveInteger(stack.amount, 'Fluid output amount'),
+    id: requireResource(stack.fluid, 'Fluid output'),
   };
 }
 
@@ -355,21 +353,21 @@ function stripChance(output: Record<string, unknown>): Record<string, unknown> {
 function requireResource(value: string, label: string): string {
   const trimmed = value.trim();
   if (!RESOURCE_LOCATION.test(trimmed)) {
-    throw new Error(`${label}: ожидается ID вида namespace:path.`);
+    throw new Error(`${label}: expected an ID in namespace:path format.`);
   }
   return trimmed;
 }
 
 function positiveInteger(value: number, label: string): number {
   if (!Number.isSafeInteger(value) || value < 1) {
-    throw new Error(`${label}: укажите целое число больше нуля.`);
+    throw new Error(`${label}: enter an integer greater than zero.`);
   }
   return value;
 }
 
 function nonNegative(value: number, label: string): number {
   if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`${label}: значение не может быть отрицательным.`);
+    throw new Error(`${label}: value cannot be negative.`);
   }
   return value;
 }

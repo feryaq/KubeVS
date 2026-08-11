@@ -83,11 +83,11 @@ suite('KubeVS Extension', () => {
     assert.ok(symbols.some((symbol) => symbol.name === 'ServerEvents.recipes'));
   });
 
-  test('provides registry completion by Russian game name and ID', async () => {
+  test('provides registry completion by English game name and ID', async () => {
     const folder = vscode.workspace.workspaceFolders?.[0];
     assert.ok(folder);
     const file = vscode.Uri.joinPath(folder.uri, 'server_scripts', 'registry-completion-test.js');
-    await vscode.workspace.fs.writeFile(file, new TextEncoder().encode('const item = "алм"\n'));
+    await vscode.workspace.fs.writeFile(file, new TextEncoder().encode('const item = "dia"\n'));
     try {
       const document = await vscode.workspace.openTextDocument(file);
       const completions = await vscode.commands.executeCommand(
@@ -98,7 +98,7 @@ suite('KubeVS Extension', () => {
       assert.ok(
         completions.items.some((item) => {
           const label = typeof item.label === 'string' ? item.label : item.label.label;
-          return label === 'Алмаз' && item.insertText === 'minecraft:diamond';
+          return label === 'Diamond' && item.insertText === 'minecraft:diamond';
         }),
       );
     } finally {
@@ -122,7 +122,7 @@ suite('KubeVS Extension', () => {
       assert.ok(
         !completions?.items.some((item) => {
           const label = typeof item.label === 'string' ? item.label : item.label.label;
-          return label === 'Алмаз' && item.insertText === 'minecraft:diamond';
+          return label === 'Diamond' && item.insertText === 'minecraft:diamond';
         }),
       );
     } finally {
@@ -142,13 +142,13 @@ suite('KubeVS Extension', () => {
     await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   });
 
-  test('opens the Russian addon recipe editor', async () => {
+  test('opens the English addon recipe editor', async () => {
     await vscode.commands.executeCommand('kubevs.createAddonRecipe');
     await new Promise((resolve) => setTimeout(resolve, 100));
     await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   });
 
-  test('opens the Russian LootJS Builder', async () => {
+  test('opens the English LootJS Builder', async () => {
     await vscode.commands.executeCommand('kubevs.createLootRule');
     await new Promise((resolve) => setTimeout(resolve, 100));
     await vscode.commands.executeCommand('workbench.action.closeActiveEditor');

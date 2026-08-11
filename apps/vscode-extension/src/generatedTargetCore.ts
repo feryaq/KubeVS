@@ -8,7 +8,7 @@ export function generatedDirectorySegments(
 ): string[] {
   const segments = configuredDirectory.split(/[\\/]/u).filter(Boolean);
   if (segments.length === 0 || segments.some((segment) => segment === '.' || segment === '..')) {
-    throw new Error('Папка kubevs.generatedFiles.directory должна находиться внутри проекта.');
+    throw new Error('The kubevs.generatedFiles.directory folder must be inside the project.');
   }
 
   const root = (workspaceScheme === 'kubevs-remote' ? 'kubejs' : workspaceName).toLocaleLowerCase(

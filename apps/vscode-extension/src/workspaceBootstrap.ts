@@ -4,9 +4,9 @@ import type { ConnectorHello } from '@kubevs/protocol';
 
 const SCRIPT_TEMPLATES: Readonly<Record<string, string>> = {
   server_scripts:
-    '// Серверные рецепты и события KubeJS.\nServerEvents.recipes(event => {\n  // Код проекта\n})\n',
-  client_scripts: '// Клиентские скрипты KubeJS.\n',
-  startup_scripts: '// Startup-скрипты KubeJS. Изменения требуют перезапуска игры.\n',
+    '// KubeJS server recipes and events.\nServerEvents.recipes(event => {\n  // Project code\n})\n',
+  client_scripts: '// KubeJS client scripts.\n',
+  startup_scripts: '// KubeJS startup scripts. Changes require a game restart.\n',
 };
 
 export interface WorkspaceBootstrapResult {
@@ -58,7 +58,7 @@ export async function bootstrapConnectorWorkspace(
     return { prepared: false, opened: false, kubejsPath: target.fsPath };
   }
 
-  void vscode.window.showInformationMessage(`KubeVS: открываю папку проекта ${target.fsPath}.`);
+  void vscode.window.showInformationMessage(`KubeVS: opening project folder ${target.fsPath}.`);
   log.info(`Opening Connector workspace ${target.fsPath}.`);
   await vscode.commands.executeCommand('vscode.openFolder', target, {
     forceReuseWindow: true,

@@ -34,19 +34,19 @@ export function parseConnectorConnectionCode(value: string): ConnectorConnection
   try {
     url = new URL(value.trim());
   } catch {
-    throw new Error('Код подключения повреждён. Скопируйте его повторно из /kvs join.');
+    throw new Error('The connection code is corrupted. Copy it again from /kvs join.');
   }
   if (url.protocol !== 'kubevs:' || !url.hostname || url.username || url.password || url.hash) {
-    throw new Error('Это не код подключения KubeVS.');
+    throw new Error('This is not a KubeVS connection code.');
   }
   const port = url.port ? Number.parseInt(url.port, 10) : 32145;
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('В коде подключения указан недопустимый порт.');
+    throw new Error('The connection code contains an invalid port.');
   }
   const token = parseConnectorToken(url.searchParams.get('token') ?? '');
   const secureValue = url.searchParams.get('secure');
   if (secureValue !== null && secureValue !== 'true' && secureValue !== 'false') {
-    throw new Error('В коде подключения неверно указано использование TLS.');
+    throw new Error('The connection code has an invalid TLS setting.');
   }
   return {
     host: url.hostname.replace(/^\[(.*)\]$/u, '$1'),

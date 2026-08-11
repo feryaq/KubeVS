@@ -17,7 +17,7 @@ const base = {
   sequence: [],
 };
 
-test('генерирует читаемый рецепт Create', () => {
+test('generates a readable Create recipe', () => {
   const code = generateAddonRecipe({ ...base, type: 'create:pressing' });
 
   assert.match(code, /"type": "create:pressing"/);
@@ -25,7 +25,7 @@ test('генерирует читаемый рецепт Create', () => {
   assert.doesNotMatch(code, /"count": 1/);
 });
 
-test('генерирует Sequenced Assembly с упорядоченными шагами', () => {
+test('generates Sequenced Assembly with ordered steps', () => {
   const code = generateAddonRecipe({
     ...base,
     type: 'create:sequenced_assembly',
@@ -41,7 +41,7 @@ test('генерирует Sequenced Assembly с упорядоченными ш
   assert.ok(code.indexOf('create:deploying') < code.indexOf('create:pressing'));
 });
 
-test('поддерживает Oritech и Farmer’s Delight', () => {
+test('supports Oritech and Farmer’s Delight', () => {
   const oritech = generateAddonRecipe({ ...base, type: 'oritech:assembler' });
   const cooking = generateAddonRecipe({
     ...base,
@@ -55,7 +55,7 @@ test('поддерживает Oritech и Farmer’s Delight', () => {
   assert.match(cooking, /"cookingtime": 100/);
 });
 
-test('генерирует жидкостные входы и результаты Create в миллибакетах', () => {
+test('generates Create fluid inputs and outputs in millibuckets', () => {
   const code = generateAddonRecipe({
     ...base,
     type: 'create:mixing',
@@ -73,7 +73,7 @@ test('генерирует жидкостные входы и результат
   assert.match(code, /"heat_requirement": "heated"/);
 });
 
-test('поддерживает конкретную жидкость и отклоняет жидкость у неподходящей машины', () => {
+test('supports a concrete fluid and rejects fluids for an incompatible machine', () => {
   const compacting = generateAddonRecipe({
     ...base,
     type: 'create:compacting',
@@ -91,11 +91,11 @@ test('поддерживает конкретную жидкость и откл
         type: 'create:pressing',
         fluidInputs: [{ fluid: 'minecraft:water', amount: 1000 }],
       }),
-    /Жидкости.*смешивания.*бассейне/,
+    /fluids.*mixing.*compacting/,
   );
 });
 
-test('проверяет объём и запрещает тег в жидкостном результате', () => {
+test('validates amounts and rejects tags in fluid outputs', () => {
   assert.throws(
     () =>
       generateAddonRecipe({
@@ -103,7 +103,7 @@ test('проверяет объём и запрещает тег в жидкос
         type: 'create:mixing',
         fluidInputs: [{ fluid: 'minecraft:water', amount: 0 }],
       }),
-    /Объём жидкостного входа/,
+    /Fluid input amount/,
   );
   assert.throws(
     () =>
@@ -112,25 +112,25 @@ test('проверяет объём и запрещает тег в жидкос
         type: 'create:mixing',
         fluidOutputs: [{ fluid: '#c:milk', amount: 250 }],
       }),
-    /конкретную жидкость/,
+    /concrete fluid/,
   );
 });
 
-test('отклоняет некорректные ID и пустую последовательность', () => {
+test('rejects invalid IDs and an empty sequence', () => {
   assert.throws(
     () => generateAddonRecipe({ ...base, type: 'create:pressing', recipeId: 'bad id' }),
     /namespace:path/,
   );
   assert.throws(
     () => generateAddonRecipe({ ...base, type: 'create:sequenced_assembly' }),
-    /хотя бы один шаг/,
+    /at least one assembly step/,
   );
 });
 
-test('не допускает произвольные типы и недопустимую форму машины', () => {
+test('rejects arbitrary types and invalid machine shapes', () => {
   assert.throws(
     () => generateAddonRecipe({ ...base, type: 'evil:machine' }),
-    /повреждённую или неподдерживаемую/,
+    /invalid or unsupported/,
   );
   assert.throws(
     () =>
@@ -139,7 +139,7 @@ test('не допускает произвольные типы и недопу�
         type: 'create:pressing',
         ingredients: ['minecraft:iron_ingot', 'minecraft:stick'],
       }),
-    /ровно один входной/,
+    /exactly one input/,
   );
   assert.throws(
     () =>
@@ -151,6 +151,6 @@ test('не допускает произвольные типы и недопу�
           { item: 'minecraft:bowl', count: 1, chance: 1 },
         ],
       }),
-    /ровно один результат/,
+    /exactly one output/,
   );
 });

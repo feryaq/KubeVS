@@ -23,7 +23,7 @@ export function openAddonRecipeEditor(
 ): void {
   const panel = vscode.window.createWebviewPanel(
     'kubevs.addonRecipeEditor',
-    'KubeVS — рецепты модов',
+    'KubeVS — Mod Recipes',
     vscode.ViewColumn.One,
     { enableScripts: true, retainContextWhenHidden: true },
   );
@@ -37,7 +37,7 @@ export function openAddonRecipeEditor(
         const namespace = value.draft.type.split(':', 1)[0] ?? '';
         if (availableIntegrations && !availableIntegrations.has(namespace)) {
           throw new Error(
-            `Мод ${namespace} не установлен на подключённом сервере. Этот рецепт нельзя сохранить.`,
+            `Mod ${namespace} is not installed on the connected server. This recipe cannot be saved.`,
           );
         }
         const code = generateAddonRecipe(value.draft);
@@ -51,9 +51,9 @@ export function openAddonRecipeEditor(
           'addon_recipe',
         );
         const written = await writeFileWithDiff(context, target, code, {
-          diffTitle: 'KubeVS: текущий файл ↔ новый рецепт мода',
-          confirmation: `Перезаписать ${vscode.workspace.asRelativePath(target)}? Сначала проверьте открытый diff.`,
-          confirmButton: 'Перезаписать',
+          diffTitle: 'KubeVS: current file ↔ new mod recipe',
+          confirmation: `Overwrite ${vscode.workspace.asRelativePath(target)}? Review the open diff first.`,
+          confirmButton: 'Overwrite',
         });
         if (!written) {
           await panel.webview.postMessage({ type: 'cancelled' });
@@ -112,12 +112,7 @@ function addonRecipeEditorHtml(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="${csp}">
-  <title>KubeVS — редактор рецептов модов</title>
-  <!-- THESIS: сложный рецепт читается как производственная линия, а не как JSON-анкета.
-       OWN-WORLD: нативные поверхности VS Code, медь Create, сталь Oritech и тёплый акцент кухни.
-       STORY: выбрать машину, собрать входы и выходы, увидеть точный код, безопасно сохранить.
-       FIRST VIEWPORT: навигация слева, рабочая линия в центре, доказательство кодом справа.
-       FORM: плотное операторское рабочее место, продолжающее существующий KubeVS Dashboard. -->
+  <title>KubeVS — Mod Recipe Editor</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.45 var(--vscode-font-family); }
@@ -179,22 +174,22 @@ function addonRecipeEditorHtml(
 </head>
 <body>
   <header>
-    <div><h1>Рецепты модов</h1><div class="subtitle">Create · Oritech · Farmer’s Delight</div></div>
-    <button class="save" id="save" type="button">Сохранить рецепт</button>
+    <div><h1>Mod Recipes</h1><div class="subtitle">Create · Oritech · Farmer’s Delight</div></div>
+    <button class="save" id="save" type="button">Save Recipe</button>
   </header>
   <main>
-    <nav aria-label="Тип рецепта">
+    <nav aria-label="Recipe type">
       <div class="mod-group"><div class="mod-name">CREATE</div>
         ${typeButtons(
           [
-            ['create:pressing', 'Механическое прессование'],
-            ['create:crushing', 'Дробление колёсами'],
-            ['create:milling', 'Помол на жерновах'],
-            ['create:mixing', 'Механическое смешивание'],
-            ['create:compacting', 'Прессование в бассейне'],
-            ['create:cutting', 'Механическая резка'],
-            ['create:deploying', 'Установка манипулятором'],
-            ['create:sequenced_assembly', 'Последовательная сборка'],
+            ['create:pressing', 'Mechanical Pressing'],
+            ['create:crushing', 'Crushing'],
+            ['create:milling', 'Milling'],
+            ['create:mixing', 'Mechanical Mixing'],
+            ['create:compacting', 'Basin Compacting'],
+            ['create:cutting', 'Mechanical Cutting'],
+            ['create:deploying', 'Deploying'],
+            ['create:sequenced_assembly', 'Sequenced Assembly'],
           ],
           availableIntegrations,
         )}
@@ -202,12 +197,12 @@ function addonRecipeEditorHtml(
       <div class="mod-group"><div class="mod-name">ORITECH</div>
         ${typeButtons(
           [
-            ['oritech:assembler', 'Сборка в ассемблере'],
-            ['oritech:pulverizer', 'Измельчение в пульверизаторе'],
-            ['oritech:grinder', 'Измельчение в дробилке'],
-            ['oritech:centrifuge', 'Разделение в центрифуге'],
-            ['oritech:foundry', 'Плавка в литейной'],
-            ['oritech:atomic_forge', 'Обработка в атомной кузнице'],
+            ['oritech:assembler', 'Assembler'],
+            ['oritech:pulverizer', 'Pulverizer'],
+            ['oritech:grinder', 'Grinder'],
+            ['oritech:centrifuge', 'Centrifuge'],
+            ['oritech:foundry', 'Foundry'],
+            ['oritech:atomic_forge', 'Atomic Forge'],
           ],
           availableIntegrations,
         )}
@@ -215,8 +210,8 @@ function addonRecipeEditorHtml(
       <div class="mod-group"><div class="mod-name">FARMER’S DELIGHT</div>
         ${typeButtons(
           [
-            ['farmersdelight:cooking', 'Приготовление в котле'],
-            ['farmersdelight:cutting', 'Нарезка на доске'],
+            ['farmersdelight:cooking', 'Cooking Pot'],
+            ['farmersdelight:cutting', 'Cutting Board'],
           ],
           availableIntegrations,
         )}
@@ -224,50 +219,50 @@ function addonRecipeEditorHtml(
     </nav>
     <section class="workspace">
       <div class="fields">
-        <label>ID рецепта<span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="mini" type="button">Изменить</button></span><span class="help">Формируется из результата, процесса и основного ингредиента.</span></label>
-        <label>Тип машины<input id="selectedType" value="create:pressing" readonly></label>
+        <label>Recipe ID<span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="mini" type="button">Edit</button></span><span class="help">Generated from the output, process, and primary ingredient.</span></label>
+        <label>Machine type<input id="selectedType" value="create:pressing" readonly></label>
       </div>
       <div class="section">
-        <div class="section-head"><div><h2>Предметные ингредиенты</h2><span class="help">Один ID предмета или #тег на строку</span></div><button class="secondary" data-pick-for="ingredients" data-pick-mode="append" data-include-tags="true" type="button">⌕ Добавить предмет</button></div>
-        <textarea id="ingredients" aria-label="Предметные ингредиенты, по одному на строку" spellcheck="false">minecraft:iron_ingot</textarea>
+        <div class="section-head"><div><h2>Item Ingredients</h2><span class="help">One item ID or #tag per line</span></div><button class="secondary" data-pick-for="ingredients" data-pick-mode="append" data-include-tags="true" type="button">⌕ Add Item</button></div>
+        <textarea id="ingredients" aria-label="Item Ingredients, one per line" spellcheck="false">minecraft:iron_ingot</textarea>
       </div>
       <div class="section" id="fluidInputsSection" hidden>
-        <div class="section-head"><div><h2>Жидкостные ингредиенты</h2><span class="help">Объём задаётся в миллибакетах: 1 ведро = 1000 mB</span></div><button class="secondary" id="addFluidInput" type="button">Добавить жидкость</button></div>
-        <div class="row-legend fluid-legend"><span>Жидкость или #тег</span><span>Объём, mB</span><span></span></div>
+        <div class="section-head"><div><h2>Fluid Ingredients</h2><span class="help">Amounts use millibuckets: 1 bucket = 1000 mB</span></div><button class="secondary" id="addFluidInput" type="button">Add Fluid</button></div>
+        <div class="row-legend fluid-legend"><span>Fluid or #tag</span><span>Amount, mB</span><span></span></div>
         <div id="fluidInputs"></div>
       </div>
       <div class="section">
-        <div class="section-head"><h2>Предметные результаты</h2><button class="secondary" id="addOutput" type="button">Добавить предмет</button></div>
-        <div class="row-legend"><span>Предмет</span><span>Штук</span><span>Шанс / вес</span><span></span></div>
+        <div class="section-head"><h2>Item Outputs</h2><button class="secondary" id="addOutput" type="button">Add Item</button></div>
+        <div class="row-legend"><span>Item</span><span>Count</span><span>Chance / Weight</span><span></span></div>
         <div id="outputs"></div>
       </div>
       <div class="section" id="fluidOutputsSection" hidden>
-        <div class="section-head"><div><h2>Жидкостные результаты</h2><span class="help">Результатом должна быть конкретная жидкость, не тег</span></div><button class="secondary" id="addFluidOutput" type="button">Добавить жидкость</button></div>
-        <div class="row-legend fluid-legend"><span>Жидкость</span><span>Объём, mB</span><span></span></div>
+        <div class="section-head"><div><h2>Fluid Outputs</h2><span class="help">The output must be a concrete fluid, not a tag</span></div><button class="secondary" id="addFluidOutput" type="button">Add Fluid</button></div>
+        <div class="row-legend fluid-legend"><span>Fluid</span><span>Amount, mB</span><span></span></div>
         <div id="fluidOutputs"></div>
       </div>
       <div class="section" id="optionsSection">
-        <div class="section-head"><h2>Параметры машины</h2></div>
+        <div class="section-head"><h2>Machine Settings</h2></div>
         <div class="options">
-          <label>Время обработки, тики<input id="processingTime" type="number" min="1" step="1" value="100"></label>
-          <label>Опыт за приготовление<input id="experience" type="number" min="0" step="0.1" value="0"></label>
-          <label>Требуемый нагрев бассейна<select id="heat"><option value="none">Без нагрева</option><option value="heated">Нагрев горелкой</option><option value="superheated">Сверхнагрев</option></select></label>
-          <label id="toolLabel">Инструмент<span class="picker with-icon"><img class="field-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="tool" value="#minecraft:axes" spellcheck="false"><button class="mini" data-pick-for="tool" data-include-tags="true" type="button" title="Найти инструмент или тег">⌕</button></span></label>
+          <label>Processing time, ticks<input id="processingTime" type="number" min="1" step="1" value="100"></label>
+          <label>Cooking experience<input id="experience" type="number" min="0" step="0.1" value="0"></label>
+          <label>Required basin heat<select id="heat"><option value="none">No heat</option><option value="heated">Heated</option><option value="superheated">Superheated</option></select></label>
+          <label id="toolLabel">Tool<span class="picker with-icon"><img class="field-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="tool" value="#minecraft:axes" spellcheck="false"><button class="mini" data-pick-for="tool" data-include-tags="true" type="button" title="Find a tool or tag">⌕</button></span></label>
         </div>
       </div>
       <div class="section" id="sequenceSection" hidden>
-        <div class="section-head"><h2>Линия последовательной сборки</h2><button class="secondary" id="addStep" type="button">Добавить шаг</button></div>
+        <div class="section-head"><h2>Sequenced Assembly Line</h2><button class="secondary" id="addStep" type="button">Add Step</button></div>
         <div class="options">
-          <label>Переходный предмет<span class="picker with-icon"><img class="field-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="transitionalItem" value="create:incomplete_precision_mechanism" spellcheck="false"><button class="mini" data-pick-for="transitionalItem" type="button" title="Найти предмет">⌕</button></span></label>
-          <label>Количество циклов<input id="loops" type="number" min="1" step="1" value="5"></label>
+          <label>Transitional item<span class="picker with-icon"><img class="field-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="transitionalItem" value="create:incomplete_precision_mechanism" spellcheck="false"><button class="mini" data-pick-for="transitionalItem" type="button" title="Find item">⌕</button></span></label>
+          <label>Loop count<input id="loops" type="number" min="1" step="1" value="5"></label>
         </div>
         <div class="timeline" id="timeline"></div>
       </div>
     </section>
     <section class="preview">
-      <h2>Готовый KubeJS</h2>
+      <h2>Generated KubeJS</h2>
       <pre id="code"></pre>
-      <p class="status" id="status" role="status">Предпросмотр обновляется автоматически.</p>
+      <p class="status" id="status" role="status">Preview updates automatically.</p>
     </section>
   </main>
   <script nonce="${nonce}">
@@ -305,15 +300,15 @@ function addonRecipeEditorHtml(
       return '<img class="field-icon" alt=""' + (icon ? ' src="' + esc(icon) + '"' : ' hidden') + '>';
     }
     function renderOutputs() {
-      outputsEl.innerHTML = outputs.map((entry, index) => '<div class="output-row" data-output="' + index + '"><span class="picker with-icon">' + iconMarkup(entry.item) + '<input aria-label="ID результата" data-field="item" value="' + esc(entry.item) + '" spellcheck="false"><button class="mini" data-pick-input="true" type="button" title="Найти предмет по имени или ID">⌕</button></span><input aria-label="Количество" data-field="count" type="number" min="1" step="1" value="' + entry.count + '"><input aria-label="Шанс или вес" data-field="chance" type="number" min="0.001" step="0.05" value="' + entry.chance + '"><button class="mini" data-remove-output="' + index + '" title="Удалить результат" type="button">×</button></div>').join('');
+      outputsEl.innerHTML = outputs.map((entry, index) => '<div class="output-row" data-output="' + index + '"><span class="picker with-icon">' + iconMarkup(entry.item) + '<input aria-label="Output ID" data-field="item" value="' + esc(entry.item) + '" spellcheck="false"><button class="mini" data-pick-input="true" type="button" title="Find an item by name or ID">⌕</button></span><input aria-label="Count" data-field="count" type="number" min="1" step="1" value="' + entry.count + '"><input aria-label="Chance or weight" data-field="chance" type="number" min="0.001" step="0.05" value="' + entry.chance + '"><button class="mini" data-remove-output="' + index + '" title="Remove output" type="button">×</button></div>').join('');
       outputsEl.querySelectorAll('.with-icon input').forEach(scheduleIcon);
     }
     function renderFluids(container, entries, output) {
-      container.innerHTML = entries.map((entry, index) => '<div class="fluid-row" data-fluid="' + index + '"><span class="picker with-icon">' + iconMarkup(entry.fluid) + '<input aria-label="' + (output ? 'ID жидкостного результата' : 'ID или тег жидкостного ингредиента') + '" data-fluid-field="fluid" data-registry="minecraft:fluid" value="' + esc(entry.fluid) + '" spellcheck="false"><button class="mini" data-pick-input="true" data-registry="minecraft:fluid" data-include-tags="' + (!output) + '" type="button" title="Найти жидкость по имени или ID">⌕</button></span><input aria-label="Объём в миллибакетах" data-fluid-field="amount" type="number" min="1" step="1" value="' + entry.amount + '"><button class="mini" data-remove-fluid="' + index + '" data-fluid-output="' + output + '" title="Удалить жидкость" type="button">×</button></div>').join('');
+      container.innerHTML = entries.map((entry, index) => '<div class="fluid-row" data-fluid="' + index + '"><span class="picker with-icon">' + iconMarkup(entry.fluid) + '<input aria-label="' + (output ? 'Fluid output ID' : 'Fluid ingredient ID or tag') + '" data-fluid-field="fluid" data-registry="minecraft:fluid" value="' + esc(entry.fluid) + '" spellcheck="false"><button class="mini" data-pick-input="true" data-registry="minecraft:fluid" data-include-tags="' + (!output) + '" type="button" title="Find a fluid by name or ID">⌕</button></span><input aria-label="Amount in millibuckets" data-fluid-field="amount" type="number" min="1" step="1" value="' + entry.amount + '"><button class="mini" data-remove-fluid="' + index + '" data-fluid-output="' + output + '" title="Remove fluid" type="button">×</button></div>').join('');
       container.querySelectorAll('.with-icon input').forEach(scheduleIcon);
     }
     function renderSteps() {
-      timeline.innerHTML = steps.map((step, index) => '<div class="step" data-step="' + index + '"><span class="step-index">' + (index + 1) + '</span><select data-step-field="type" aria-label="Операция шага ' + (index + 1) + '"><option value="create:deploying"' + (step.type === 'create:deploying' ? ' selected' : '') + '>Установка</option><option value="create:pressing"' + (step.type === 'create:pressing' ? ' selected' : '') + '>Прессование</option><option value="create:cutting"' + (step.type === 'create:cutting' ? ' selected' : '') + '>Резка</option></select><span class="picker"><input data-step-field="ingredient" aria-label="Дополнительный ингредиент шага ' + (index + 1) + '" value="' + esc(step.ingredient) + '" placeholder="Дополнительный ингредиент" spellcheck="false"' + (step.type === 'create:deploying' ? '' : ' disabled') + '><button class="mini" data-pick-input="true" type="button" title="Найти предмет"' + (step.type === 'create:deploying' ? '' : ' disabled') + '>⌕</button></span><button class="mini" data-move="-1" aria-label="Переместить шаг ' + (index + 1) + ' выше" title="Выше" type="button">↑</button><button class="mini" data-move="1" aria-label="Переместить шаг ' + (index + 1) + ' ниже" title="Ниже" type="button">↓</button><button class="mini" data-remove-step="' + index + '" aria-label="Удалить шаг ' + (index + 1) + '" title="Удалить шаг" type="button">×</button></div>').join('');
+      timeline.innerHTML = steps.map((step, index) => '<div class="step" data-step="' + index + '"><span class="step-index">' + (index + 1) + '</span><select data-step-field="type" aria-label="Step operation ' + (index + 1) + '"><option value="create:deploying"' + (step.type === 'create:deploying' ? ' selected' : '') + '>Deploying</option><option value="create:pressing"' + (step.type === 'create:pressing' ? ' selected' : '') + '>Pressing</option><option value="create:cutting"' + (step.type === 'create:cutting' ? ' selected' : '') + '>Cutting</option></select><span class="picker"><input data-step-field="ingredient" aria-label="Additional ingredient for step ' + (index + 1) + '" value="' + esc(step.ingredient) + '" placeholder="Additional ingredient" spellcheck="false"' + (step.type === 'create:deploying' ? '' : ' disabled') + '><button class="mini" data-pick-input="true" type="button" title="Find item"' + (step.type === 'create:deploying' ? '' : ' disabled') + '>⌕</button></span><button class="mini" data-move="-1" aria-label="Move step ' + (index + 1) + ' up" title="Up" type="button">↑</button><button class="mini" data-move="1" aria-label="Move step ' + (index + 1) + ' down" title="Down" type="button">↓</button><button class="mini" data-remove-step="' + index + '" aria-label="Remove step ' + (index + 1) + '" title="Remove step" type="button">×</button></div>').join('');
     }
     function readRows() {
       outputs = [...outputsEl.querySelectorAll('[data-output]')].map(row => ({
@@ -431,7 +426,7 @@ function addonRecipeEditorHtml(
       if (event.target.id === 'editRecipeId') {
         recipeIdAutomatic = !recipeIdAutomatic;
         recipeId.readOnly = recipeIdAutomatic;
-        event.target.textContent = recipeIdAutomatic ? 'Изменить' : 'Авто';
+        event.target.textContent = recipeIdAutomatic ? 'Edit' : 'Auto';
         if (recipeIdAutomatic) updateRecipeId();
         else recipeId.focus();
         preview();
@@ -445,7 +440,7 @@ function addonRecipeEditorHtml(
           pendingPicks.set(requestId, {input, append:picker.dataset.pickMode==='append', icon:input.closest('.picker')?.querySelector('.field-icon')});
           const registry = picker.dataset.registry || input.dataset.registry || 'minecraft:item';
           const fluid = registry === 'minecraft:fluid';
-          vscode.postMessage({type:'pickRegistry',requestId,registry,includeTags:picker.dataset.includeTags==='true',current:input.value,title:fluid ? 'KubeVS — выберите жидкость или тег' : 'KubeVS — выберите предмет или тег'});
+          vscode.postMessage({type:'pickRegistry',requestId,registry,includeTags:picker.dataset.includeTags==='true',current:input.value,title:fluid ? 'KubeVS — select a fluid or tag' : 'KubeVS — select an item or tag'});
         }
         return;
       }
@@ -480,7 +475,7 @@ function addonRecipeEditorHtml(
     });
     document.addEventListener('change', event => { if (event.target.matches('[data-step-field="type"]')) { readRows(); renderSteps(); } preview(); });
     save.addEventListener('click', () => {
-      if (busy) return; const snapshot = draft(); setBusy(true); save.textContent = 'Сохранение…'; status.textContent = 'Сохраняем в kubevs/crafts/' + recipeType.split(':')[0] + '…';
+      if (busy) return; const snapshot = draft(); setBusy(true); save.textContent = 'Saving…'; status.textContent = 'Saving to kubevs/crafts/' + recipeType.split(':')[0] + '…';
       vscode.postMessage({ type: 'save', revision: ++revision, draft: snapshot });
     });
     window.addEventListener('message', event => {
@@ -502,11 +497,11 @@ function addonRecipeEditorHtml(
           applyIcon(pending.input, pending.icon, message.icon);
         }
       }
-      else if (message.type === 'preview' && message.revision === revision && message.revision >= appliedRevision) { appliedRevision = message.revision; code.textContent = message.code; status.className = 'status'; status.textContent = 'Рецепт готов к сохранению.'; }
+      else if (message.type === 'preview' && message.revision === revision && message.revision >= appliedRevision) { appliedRevision = message.revision; code.textContent = message.code; status.className = 'status'; status.textContent = 'Recipe is ready to save.'; }
       else if (message.type === 'previewError' && message.revision === revision && message.revision >= appliedRevision) { appliedRevision = message.revision; code.textContent = '// ' + message.message; status.className = 'status error'; status.textContent = message.message; }
-      else if (message.type === 'saved') { setBusy(false); save.textContent = 'Сохранить рецепт'; status.className = 'status'; status.textContent = 'Сохранено: ' + message.path; preview(); }
-      else if (message.type === 'error') { setBusy(false); save.textContent = 'Сохранить рецепт'; status.className = 'status error'; status.textContent = message.message; preview(); }
-      else if (message.type === 'cancelled') { setBusy(false); save.textContent = 'Сохранить рецепт'; status.className = 'status'; status.textContent = 'Сохранение отменено, файлы не изменены.'; preview(); }
+      else if (message.type === 'saved') { setBusy(false); save.textContent = 'Save Recipe'; status.className = 'status'; status.textContent = 'Saved: ' + message.path; preview(); }
+      else if (message.type === 'error') { setBusy(false); save.textContent = 'Save Recipe'; status.className = 'status error'; status.textContent = message.message; preview(); }
+      else if (message.type === 'cancelled') { setBusy(false); save.textContent = 'Save Recipe'; status.className = 'status'; status.textContent = 'Save cancelled; no files were changed.'; preview(); }
     });
     renderOutputs(); renderFluids(fluidInputsEl, fluidInputs, false); renderFluids(fluidOutputsEl, fluidOutputs, true); renderSteps();
     document.querySelectorAll('.with-icon input').forEach(scheduleIcon);
@@ -525,7 +520,7 @@ function typeButtons(
     .map(([type, label], index) => {
       const namespace = type.split(':', 1)[0] ?? '';
       const available = !availableIntegrations || availableIntegrations.has(namespace);
-      return `<button class="type-button" type="button" data-type="${type}" aria-pressed="${index === 0 && type === 'create:pressing' ? 'true' : 'false'}"${available ? '' : ` disabled title="Мод ${namespace} не установлен"`}>${label}${available ? '' : ' · недоступно'}</button>`;
+      return `<button class="type-button" type="button" data-type="${type}" aria-pressed="${index === 0 && type === 'create:pressing' ? 'true' : 'false'}"${available ? '' : ` disabled title="Mod ${namespace} is not installed"`}>${label}${available ? '' : ' · unavailable'}</button>`;
     })
     .join('');
 }

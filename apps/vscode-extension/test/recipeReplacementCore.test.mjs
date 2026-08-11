@@ -13,7 +13,7 @@ test('replacement always uses the target recipe ID, never the source ID', () => 
   assert.equal(replacement.recipeType, 'minecraft:crafting_shapeless');
   assert.match(replacement.code, /\.id\("minecraft:sticks"\)/);
   assert.doesNotMatch(replacement.code, /\.id\("minecraft:oak_planks"\)/);
-  assert.match(replacement.code, /Определение взято из minecraft:oak_planks/);
+  assert.match(replacement.code, /Definition copied from minecraft:oak_planks/);
 });
 
 test('generic recipes preserve raw fields while overriding the ID', () => {
@@ -39,6 +39,6 @@ test('invalid target and source IDs are rejected', () => {
         ingredients: [],
         result: 'minecraft:stick',
       }),
-    /ID заменяемого рецепта/,
+    /Recipe ID to replace/,
   );
 });

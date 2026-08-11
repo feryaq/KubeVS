@@ -24,23 +24,23 @@ export function registerRecipeManagement(
         const recipeId = await selectRecipeToDelete(connector);
         if (!recipeId) return;
         const confirmed = await vscode.window.showWarningMessage(
-          `Удалить рецепт ${recipeId} при следующей перезагрузке KubeJS?`,
+          `Remove recipe ${recipeId} on the next KubeJS reload?`,
           {
             modal: true,
-            detail: 'Исходный JSON не изменяется. KubeVS создаст безопасное правило event.remove.',
+            detail: 'The original JSON is unchanged. KubeVS creates a safe event.remove rule.',
           },
-          'Удалить рецепт',
+          'Remove Recipe',
         );
-        if (confirmed !== 'Удалить рецепт') return;
+        if (confirmed !== 'Remove Recipe') return;
         const current = await readRemovedIds();
         await persistRemovedIds(context, withRemovedRecipe(current, recipeId));
         void vscode.window.showInformationMessage(
-          `KubeVS: рецепт ${recipeId} добавлен в список удалённых.`,
+          `KubeVS: recipe ${recipeId} added to the removed recipe list.`,
         );
         await reloadManagedRecipeChanges(connector);
       } catch (error) {
         void vscode.window.showErrorMessage(
-          `KubeVS не смог удалить рецепт: ${error instanceof Error ? error.message : String(error)}`,
+          `KubeVS could not remove the recipe: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }),
@@ -48,21 +48,21 @@ export function registerRecipeManagement(
       try {
         const current = await readRemovedIds();
         if (current.length === 0) {
-          void vscode.window.showInformationMessage('KubeVS: список удалённых рецептов пуст.');
+          void vscode.window.showInformationMessage('KubeVS: the removed recipe list is empty.');
           return;
         }
         const recipeId = await vscode.window.showQuickPick(current, {
-          title: 'KubeVS — восстановить рецепт',
-          placeHolder: 'Выберите правило удаления, которое нужно убрать',
+          title: 'KubeVS — Restore Recipe',
+          placeHolder: 'Select the removal rule to delete',
           matchOnDescription: true,
         });
         if (!recipeId) return;
         await persistRemovedIds(context, withoutRemovedRecipe(current, recipeId));
-        void vscode.window.showInformationMessage(`KubeVS: рецепт ${recipeId} восстановлен.`);
+        void vscode.window.showInformationMessage(`KubeVS: recipe ${recipeId} restored.`);
         await reloadManagedRecipeChanges(connector);
       } catch (error) {
         void vscode.window.showErrorMessage(
-          `KubeVS не смог восстановить рецепт: ${error instanceof Error ? error.message : String(error)}`,
+          `KubeVS could not restore the recipe: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }),
@@ -82,18 +82,18 @@ async function selectRecipeToDelete(connector: ConnectorClient): Promise<string 
       .sort((left, right) => left.label.localeCompare(right.label, 'en'));
     return (
       await vscode.window.showQuickPick(items, {
-        title: 'KubeVS — удалить рецепт',
-        placeHolder: `${snapshot.total.toLocaleString('ru-RU')} рецептов · поиск по ID или типу`,
+        title: 'KubeVS — Remove Recipe',
+        placeHolder: `${snapshot.total.toLocaleString('en-US')} recipes · search by ID or type`,
         matchOnDescription: true,
       })
     )?.label;
   }
   return await vscode.window.showInputBox({
-    title: 'KubeVS — удалить рецепт в Offline Mode',
-    prompt: 'Введите полный ID рецепта',
+    title: 'KubeVS — Remove Recipe in Offline Mode',
+    prompt: 'Enter the full recipe ID',
     placeHolder: 'minecraft:diamond_pickaxe',
     validateInput: (value) =>
-      /^[a-z0-9_.-]+:[a-z0-9_./-]+$/u.test(value) ? undefined : 'Ожидается namespace:recipe_id',
+      /^[a-z0-9_.-]+:[a-z0-9_./-]+$/u.test(value) ? undefined : 'Expected namespace:recipe_id',
   });
 }
 
@@ -101,24 +101,24 @@ async function persistRemovedIds(
   context: vscode.ExtensionContext,
   ids: readonly string[],
 ): Promise<void> {
-  if (!vscode.workspace.workspaceFolders?.[0]) throw new Error('Сначала откройте папку проекта.');
+  if (!vscode.workspace.workspaceFolders?.[0]) throw new Error('Open a project folder first.');
   const scriptTarget = await generatedScriptTarget(
     'kubevs:zz_kubevs_removed_recipes',
     'zz_kubevs_removed_recipes',
   );
   const written = await writeFileWithDiff(context, scriptTarget, generateRecipeRemovalScript(ids), {
-    diffTitle: 'KubeVS: список удалённых рецептов',
-    confirmation: `Применить изменения к ${vscode.workspace.asRelativePath(scriptTarget)}?`,
-    confirmButton: 'Применить',
+    diffTitle: 'KubeVS: Removed Recipe List',
+    confirmation: `Apply changes to ${vscode.workspace.asRelativePath(scriptTarget)}?`,
+    confirmButton: 'Apply',
     // This file is fully owned by KubeVS and rebuilt from the ID list above.
     // Do not interrupt delete/restore with a second save confirmation.
     confirmExisting: false,
   });
-  if (!written) throw new Error('Изменение отменено пользователем.');
+  if (!written) throw new Error('The change was cancelled by the user.');
 }
 
 async function readRemovedIds(): Promise<string[]> {
-  if (!vscode.workspace.workspaceFolders?.[0]) throw new Error('Сначала откройте папку проекта.');
+  if (!vscode.workspace.workspaceFolders?.[0]) throw new Error('Open a project folder first.');
   const target = await generatedScriptTarget(
     'kubevs:zz_kubevs_removed_recipes',
     'zz_kubevs_removed_recipes',

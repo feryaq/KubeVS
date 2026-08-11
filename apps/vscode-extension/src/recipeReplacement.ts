@@ -43,33 +43,33 @@ export async function replaceRecipe(
 ): Promise<void> {
   const snapshot = await connector.request<RecipeTypes>('recipes.types');
   const choices = recipePicks(snapshot);
-  if (choices.length === 0) throw new Error('Connector не вернул ни одного рецепта.');
+  if (choices.length === 0) throw new Error('The Connector did not return any recipes.');
 
   const target = await vscode.window.showQuickPick(choices, {
-    title: 'Какой рецепт заменить?',
-    placeHolder: 'Поиск по ID или типу рецепта',
+    title: 'Which recipe should be replaced?',
+    placeHolder: 'Search by recipe ID or type',
     matchOnDescription: true,
     matchOnDetail: true,
   });
   if (!target) return;
 
   const source = await vscode.window.showQuickPick(choices, {
-    title: `Чем заменить ${target.recipeId}?`,
-    placeHolder: 'Выберите готовый рецепт-шаблон',
+    title: `What should replace ${target.recipeId}?`,
+    placeHolder: 'Select an existing recipe as a template',
     matchOnDescription: true,
     matchOnDetail: true,
   });
   if (!source) return;
 
   const confirmed = await vscode.window.showWarningMessage(
-    `Заменить ${target.recipeId} определением из ${source.recipeId}?`,
+    `Replace ${target.recipeId} with the definition from ${source.recipeId}?`,
     {
       modal: true,
-      detail: 'Будет создан managed-файл KubeVS. Исходные файлы модов не изменяются.',
+      detail: 'KubeVS will create a managed file. Original mod files are not changed.',
     },
-    'Заменить по ID',
+    'Replace by ID',
   );
-  if (confirmed !== 'Заменить по ID') return;
+  if (confirmed !== 'Replace by ID') return;
 
   const sourceSnapshot = await connector.request<RecipeSnapshot>('recipes.get', {
     id: source.recipeId,
@@ -85,8 +85,8 @@ export async function replaceRecipe(
     'replacement',
   );
   const written = await writeFileWithDiff(context, file, replacement.code, {
-    diffTitle: 'KubeVS: замена рецепта',
-    confirmation: `Заменить managed-файл ${vscode.workspace.asRelativePath(file)}?`,
+    diffTitle: 'KubeVS: Recipe Replacement',
+    confirmation: `Replace managed file ${vscode.workspace.asRelativePath(file)}?`,
     confirmExisting: false,
   });
   if (!written) return;
@@ -97,7 +97,7 @@ export async function replaceRecipe(
     void vscode.window.showWarningMessage(`KubeVS: ${replacement.warnings[0]}`);
   } else {
     void vscode.window.showInformationMessage(
-      `KubeVS: ${target.recipeId} заменён рецептом ${source.recipeId}.`,
+      `KubeVS: ${target.recipeId} replaced with recipe ${source.recipeId}.`,
     );
   }
 }

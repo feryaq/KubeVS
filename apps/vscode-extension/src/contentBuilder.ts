@@ -42,9 +42,9 @@ export function openContentBuilder(
         const path = value.draft.id.split(':').at(-1)?.replaceAll('/', '_') || 'content';
         const target = vscode.Uri.joinPath(directory, `kubevs_${value.draft.kind}_${path}.js`);
         const written = await writeFileWithDiff(context, target, code, {
-          diffTitle: `KubeVS: ${value.draft.kind === 'item' ? 'предмет' : 'блок'} — текущий файл ↔ новый`,
-          confirmation: `Сохранить ${vscode.workspace.asRelativePath(target)}? Сначала проверьте diff.`,
-          confirmButton: 'Сохранить',
+          diffTitle: `KubeVS: ${value.draft.kind === 'item' ? 'item' : 'block'} — current file ↔ new file`,
+          confirmation: `Save ${vscode.workspace.asRelativePath(target)}? Review the diff first.`,
+          confirmButton: 'Save',
         });
         await panel.webview.postMessage(
           written
@@ -53,7 +53,7 @@ export function openContentBuilder(
         );
         if (written) {
           void vscode.window.showInformationMessage(
-            'KubeVS: startup-регистрация сохранена. Для появления нового контента перезапустите Minecraft.',
+            'KubeVS: startup registration saved. Restart Minecraft to load the new content.',
           );
         }
       } catch (error) {
@@ -108,11 +108,6 @@ function contentBuilderHtml(
   <meta http-equiv="Content-Security-Policy" content="${csp}">
   <title>KubeVS Content Builder</title>
   <style>
-    /* THESIS: Название в игре — главный ввод; технический ID является понятным следствием, а не обязательной рутиной.
-       OWN-WORLD: Нативные поверхности VS Code, инвентарный слот как рабочий образец и один медный акцент KubeVS.
-       STORY: Назвать контент, проверить его игровой образ, настроить свойства и сохранить читаемый startup-скрипт.
-       FIRST VIEWPORT: Редактор слева, крупный инвентарный образец и код справа, сохранение всегда в верхней панели.
-       FORM: Двухпанельный операторский верстак в существующей визуальной системе KubeVS. */
     * { box-sizing: border-box; }
     body { margin: 0; color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.45 var(--vscode-font-family); }
     button, input, select, textarea { font: inherit; }
@@ -162,48 +157,48 @@ function contentBuilderHtml(
 </head>
 <body>
   <header>
-    <div class="identity"><h1>Конструктор контента</h1><div class="muted">KubeJS · startup_scripts</div></div>
-    <div class="kind-switch" role="group" aria-label="Тип контента">
-      <button type="button" data-kind="item" aria-pressed="${initialKind === 'item'}">Предмет</button>
-      <button type="button" data-kind="block" aria-pressed="${initialKind === 'block'}">Блок</button>
+    <div class="identity"><h1>Content Builder</h1><div class="muted">KubeJS · startup_scripts</div></div>
+    <div class="kind-switch" role="group" aria-label="Content type">
+      <button type="button" data-kind="item" aria-pressed="${initialKind === 'item'}">Item</button>
+      <button type="button" data-kind="block" aria-pressed="${initialKind === 'block'}">Block</button>
     </div>
-    <button class="save primary" id="save" type="button">Сохранить</button>
+    <button class="save primary" id="save" type="button">Save</button>
   </header>
   <main>
     <section class="editor">
       <div class="primary-fields">
-        <label>Название в игре<input id="displayName" value="${initialKind === 'item' ? 'Тестовая деталь' : 'Тестовый блок'}" maxlength="120" autofocus><span class="help">ID будет создан автоматически.</span></label>
-        <label>Технический ID<span class="inline"><input id="contentId" readonly><button id="editId" type="button">Изменить</button></span><span class="help">Обычно его вводить не нужно.</span></label>
+        <label>In-game Name<input id="displayName" value="${initialKind === 'item' ? 'Test Component' : 'Test Block'}" maxlength="120" autofocus><span class="help">The ID is generated automatically.</span></label>
+        <label>Technical ID<span class="inline"><input id="contentId" readonly><button id="editId" type="button">Edit</button></span><span class="help">You normally do not need to enter it.</span></label>
       </div>
       <div class="section">
-        <h2>Внешний вид</h2>
-        <label>Иконка-образец существующего <span id="textureKind">предмета</span>
-          <span class="texture-picker"><img id="textureIcon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="textureItem" value="${initialKind === 'item' ? 'minecraft:iron_ingot' : 'minecraft:iron_block'}" spellcheck="false"><button id="pickTexture" type="button" title="Найти по имени или ID">⌕</button></span>
-          <span class="help">Используется для предпросмотра. Сложные игровые модели не копируются как неверный путь текстуры.</span>
+        <h2>Appearance</h2>
+        <label>Sample icon from an existing <span id="textureKind">item</span>
+          <span class="texture-picker"><img id="textureIcon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="textureItem" value="${initialKind === 'item' ? 'minecraft:iron_ingot' : 'minecraft:iron_block'}" spellcheck="false"><button id="pickTexture" type="button" title="Find by name or ID">⌕</button></span>
+          <span class="help">Used for preview only. Complex in-game models are not copied as invalid texture paths.</span>
         </label>
       </div>
       <div class="section" id="itemOptions">
-        <h2>Свойства предмета</h2>
+        <h2>Item Properties</h2>
         <div class="row">
-          <label>Размер стака<input id="maxStackSize" type="number" min="1" max="64" value="64"></label>
-          <label>Редкость<select id="rarity"><option>common</option><option>uncommon</option><option>rare</option><option>epic</option></select></label>
+          <label>Stack size<input id="maxStackSize" type="number" min="1" max="64" value="64"></label>
+          <label>Rarity<select id="rarity"><option>common</option><option>uncommon</option><option>rare</option><option>epic</option></select></label>
         </div>
         <div class="row">
-          <label>Подсказка<textarea id="tooltip" placeholder="Для чего нужен этот предмет"></textarea></label>
-          <label class="checkbox"><input id="glow" type="checkbox"> Постоянное зачарованное свечение</label>
+          <label>Tooltip<textarea id="tooltip" placeholder="What this item is used for"></textarea></label>
+          <label class="checkbox"><input id="glow" type="checkbox"> Always show enchantment glint</label>
         </div>
       </div>
       <div class="section" id="blockOptions" hidden>
-        <h2>Свойства блока</h2>
+        <h2>Block Properties</h2>
         <div class="row">
-          <label>Твёрдость<input id="hardness" type="number" min="0" step="0.1" value="2"></label>
-          <label>Взрывоустойчивость<input id="resistance" type="number" min="0" step="0.1" value="6"></label>
+          <label>Hardness<input id="hardness" type="number" min="0" step="0.1" value="2"></label>
+          <label>Blast resistance<input id="resistance" type="number" min="0" step="0.1" value="6"></label>
         </div>
         <div class="row">
-          <label>Звук<select id="soundType"><option>stone</option><option>metal</option><option>wood</option><option>glass</option><option>wool</option></select></label>
-          <label>Инструмент<select id="miningTool"><option value="pickaxe">Кирка</option><option value="axe">Топор</option><option value="shovel">Лопата</option><option value="hoe">Мотыга</option><option value="none">Любой</option></select></label>
+          <label>Sound<select id="soundType"><option>stone</option><option>metal</option><option>wood</option><option>glass</option><option>wool</option></select></label>
+          <label>Tool<select id="miningTool"><option value="pickaxe">Pickaxe</option><option value="axe">Axe</option><option value="shovel">Shovel</option><option value="hoe">Hoe</option><option value="none">Any</option></select></label>
         </div>
-        <label class="checkbox"><input id="requiresTool" type="checkbox" checked> Без подходящего инструмента блок не выпадает</label>
+        <label class="checkbox"><input id="requiresTool" type="checkbox" checked> The block drops nothing without the correct tool</label>
       </div>
     </section>
     <section class="preview">
@@ -211,9 +206,9 @@ function contentBuilderHtml(
         <div class="slot"><img id="specimenIcon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden></div>
         <div><div class="game-name" id="specimenName"></div><div class="game-id" id="specimenId"></div><div class="muted" id="specimenMeta"></div></div>
       </div>
-      <h2>Готовый KubeJS</h2>
+      <h2>Generated KubeJS</h2>
       <pre id="code"></pre>
-      <p class="status" id="status" role="status">Предпросмотр обновляется автоматически.</p>
+      <p class="status" id="status" role="status">Preview updates automatically.</p>
     </section>
   </main>
   <script nonce="${nonce}">
@@ -237,43 +232,8 @@ function contentBuilderHtml(
     let iconTimer;
     const pendingPicks = new Map();
     const pendingIcons = new Map();
-    const transliteration = ${JSON.stringify({
-      а: 'a',
-      б: 'b',
-      в: 'v',
-      г: 'g',
-      д: 'd',
-      е: 'e',
-      ё: 'e',
-      ж: 'zh',
-      з: 'z',
-      и: 'i',
-      й: 'y',
-      к: 'k',
-      л: 'l',
-      м: 'm',
-      н: 'n',
-      о: 'o',
-      п: 'p',
-      р: 'r',
-      с: 's',
-      т: 't',
-      у: 'u',
-      ф: 'f',
-      х: 'h',
-      ц: 'c',
-      ч: 'ch',
-      ш: 'sh',
-      щ: 'sch',
-      ъ: '',
-      ы: 'y',
-      ь: '',
-      э: 'e',
-      ю: 'yu',
-      я: 'ya',
-    })};
-    function slug(value) {
-      return value.trim().toLocaleLowerCase('ru').replace(/[а-яё]/g, c => transliteration[c] || '').replace(/[^a-z0-9_.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
+function slug(value) {
+      return value.trim().toLocaleLowerCase('en-US').replace(/[^a-z0-9_.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80);
     }
     function updateAutomaticId() {
       if (idAutomatic) contentId.value = 'kubejs:' + (slug(displayName.value) || (kind === 'item' ? 'new_item' : 'new_block'));
@@ -299,9 +259,9 @@ function contentBuilderHtml(
       updateAutomaticId();
       const current = ++revision;
       const value = draft();
-      document.getElementById('specimenName').textContent = value.displayName || 'Без названия';
+      document.getElementById('specimenName').textContent = value.displayName || 'Untitled';
       document.getElementById('specimenId').textContent = value.id;
-      document.getElementById('specimenMeta').textContent = kind === 'item' ? 'Стак: ' + value.maxStackSize + ' · ' + value.rarity : 'Твёрдость: ' + value.hardness + ' · ' + value.soundType;
+      document.getElementById('specimenMeta').textContent = kind === 'item' ? 'Stack: ' + value.maxStackSize + ' · ' + value.rarity : 'Hardness: ' + value.hardness + ' · ' + value.soundType;
       save.disabled = busy || !value.displayName || !/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(value.id);
       vscode.postMessage({ type: 'preview', revision: current, draft: value });
     }
@@ -323,7 +283,7 @@ function contentBuilderHtml(
       document.querySelectorAll('[data-kind]').forEach(candidate => candidate.setAttribute('aria-pressed', String(candidate === button)));
       document.getElementById('itemOptions').hidden = kind !== 'item';
       document.getElementById('blockOptions').hidden = kind !== 'block';
-      document.getElementById('textureKind').textContent = kind === 'item' ? 'предмета' : 'блока';
+      document.getElementById('textureKind').textContent = kind === 'item' ? 'item' : 'block';
       if (idAutomatic) updateAutomaticId();
       preview();
     }));
@@ -336,7 +296,7 @@ function contentBuilderHtml(
     document.getElementById('editId').addEventListener('click', () => {
       idAutomatic = !idAutomatic;
       contentId.readOnly = idAutomatic;
-      document.getElementById('editId').textContent = idAutomatic ? 'Изменить' : 'Авто';
+      document.getElementById('editId').textContent = idAutomatic ? 'Edit' : 'Auto';
       if (idAutomatic) updateAutomaticId();
       else contentId.focus();
       preview();
@@ -344,7 +304,7 @@ function contentBuilderHtml(
     document.getElementById('pickTexture').addEventListener('click', () => {
       const requestId = ++pickSequence;
       pendingPicks.set(requestId, true);
-      vscode.postMessage({ type: 'pickRegistry', requestId, registry: kind === 'item' ? 'minecraft:item' : 'minecraft:block', current: textureItem.value, title: 'KubeVS — выберите иконку-образец' });
+      vscode.postMessage({ type: 'pickRegistry', requestId, registry: kind === 'item' ? 'minecraft:item' : 'minecraft:block', current: textureItem.value, title: 'KubeVS — select a sample icon' });
     });
     document.addEventListener('input', event => {
       if (event.target === displayName) updateAutomaticId();
@@ -354,8 +314,8 @@ function contentBuilderHtml(
     document.addEventListener('change', preview);
     save.addEventListener('click', () => {
       if (save.disabled || busy) return;
-      busy = true; save.disabled = true; save.textContent = 'Сохранение…';
-      status.className = 'status'; status.textContent = 'Создаём startup-скрипт через безопасный diff…';
+      busy = true; save.disabled = true; save.textContent = 'Saving…';
+      status.className = 'status'; status.textContent = 'Creating the startup script through a safe diff…';
       vscode.postMessage({ type: 'save', revision: ++revision, draft: draft() });
     });
     window.addEventListener('message', event => {
@@ -377,15 +337,15 @@ function contentBuilderHtml(
           textureIcon.hidden = false; specimenIcon.hidden = false;
         }
       } else if (message.type === 'preview' && message.revision === revision) {
-        code.textContent = message.code; status.className = 'status'; status.textContent = 'Контент готов к сохранению.';
+        code.textContent = message.code; status.className = 'status'; status.textContent = 'Content is ready to save.';
       } else if (message.type === 'previewError' && message.revision === revision) {
         code.textContent = '// ' + message.message; status.className = 'status error'; status.textContent = message.message; save.disabled = true;
       } else if (message.type === 'saved') {
-        busy = false; save.textContent = 'Сохранить'; status.className = 'status'; status.textContent = 'Сохранено: ' + message.path + '. Перезапустите Minecraft.'; preview();
+        busy = false; save.textContent = 'Save'; status.className = 'status'; status.textContent = 'Saved: ' + message.path + '. Restart Minecraft.'; preview();
       } else if (message.type === 'cancelled') {
-        busy = false; save.textContent = 'Сохранить'; status.className = 'status'; status.textContent = 'Сохранение отменено.'; preview();
+        busy = false; save.textContent = 'Save'; status.className = 'status'; status.textContent = 'Save cancelled.'; preview();
       } else if (message.type === 'error') {
-        busy = false; save.textContent = 'Сохранить'; status.className = 'status error'; status.textContent = message.message; preview();
+        busy = false; save.textContent = 'Save'; status.className = 'status error'; status.textContent = message.message; preview();
       }
     });
     updateAutomaticId(); scheduleIcon(); preview();

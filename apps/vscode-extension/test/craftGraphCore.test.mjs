@@ -8,7 +8,7 @@ import {
   normalizeRecipe,
 } from '../dist/craftGraphCore.mjs';
 
-test('нормализует shaped-рецепт с фактическим количеством ячеек', () => {
+test('normalizes a shaped recipe using the actual slot count', () => {
   const recipe = normalizeRecipe({
     id: 'minecraft:sticks',
     recipeType: 'minecraft:crafting_shaped',
@@ -22,7 +22,7 @@ test('нормализует shaped-рецепт с фактическим ко�
   assert.equal(recipe.outputs[0].count, 4);
 });
 
-test('строит дерево, считает базовые ресурсы и поддерживает альтернативы', () => {
+test('builds a tree, totals base resources, and supports alternatives', () => {
   const recipes = [
     {
       id: 'test:stick_from_planks',
@@ -49,7 +49,7 @@ test('строит дерево, считает базовые ресурсы и
   assert.deepEqual(calculateCraftTotals(tree).items, { 'minecraft:planks': 4 });
 });
 
-test('не складывает варианты одного ингредиента и не считает инструмент расходником', () => {
+test('does not add ingredient alternatives together or count tools as consumables', () => {
   const recipe = normalizeRecipe({
     id: 'test:cutting',
     recipeType: 'test:cutting',
@@ -65,7 +65,7 @@ test('не складывает варианты одного ингредиен
   );
 });
 
-test('нормализует веса результатов и учитывает шанс побочного продукта', () => {
+test('normalizes output weights and accounts for byproduct chance', () => {
   const recipe = normalizeRecipe({
     id: 'test:weighted_crushing',
     recipeType: 'create:crushing',
@@ -85,8 +85,8 @@ test('нормализует веса результатов и учитывае
   assert.equal(tree.byproducts[0].count, 2);
 });
 
-test('сохраняет каноничные названия и станки без внешнего просмотрщика рецептов', () => {
-  assert.equal(canonicalRecipeLabel('create:pressing'), 'Прессование');
+test('keeps canonical names and machines without an external recipe viewer', () => {
+  assert.equal(canonicalRecipeLabel('create:pressing'), 'Pressing');
   assert.deepEqual(defaultWorkstations('create:mixing'), [
     'create:mechanical_mixer',
     'create:basin',

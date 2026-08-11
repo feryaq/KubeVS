@@ -250,11 +250,6 @@ function genericRecipeEditorHtml(
   <meta http-equiv="Content-Security-Policy" content="${csp}">
   <title>KubeVS Generic Recipe Editor</title>
   <style>
-    /* THESIS: A custom recipe is a typed contract, not an unstructured JSON gamble.
-       OWN-WORLD: The established VS Code workbench with crafting amber reserved for schema state and actions.
-       STORY: Select a trusted schema, complete its contract, inspect canonical KubeJS, then save through diff.
-       FIRST VIEWPORT: Schema identity and actions above a catalog, structured field canvas, and code proof.
-       FORM: Three-pane operator workbench extending the existing Recipe Editor surface. */
     * { box-sizing: border-box; }
     :root { color-scheme: light dark; }
     body { margin: 0; color: var(--vscode-editor-foreground); background: var(--vscode-editor-background); font: var(--vscode-font-size)/1.45 var(--vscode-font-family); }
@@ -341,7 +336,7 @@ function genericRecipeEditorHtml(
           <div class="muted" id="schemaDescription"></div>
           <div class="origin" id="schemaOrigin"></div>
         </div>
-        <label class="field"><span class="field-label">ID рецепта</span><span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false" placeholder="namespace:recipe_id"><button id="editRecipeId" type="button">Изменить</button></span><span class="field-help">Формируется из результата, процесса и основного ингредиента.</span></label>
+        <label class="field"><span class="field-label">Recipe ID</span><span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false" placeholder="namespace:recipe_id"><button id="editRecipeId" type="button">Edit</button></span><span class="field-help">Generated from the output, process, and primary ingredient.</span></label>
         <div>
           <h2>Schema library</h2>
           <div class="toolbar">
@@ -503,8 +498,8 @@ function genericRecipeEditorHtml(
       pick.type = 'button';
       pick.className = 'pick-id';
       pick.textContent = '⌕';
-      pick.title = 'Найти по имени в игре или ID';
-      pick.setAttribute('aria-label', 'Найти значение для ' + field.label);
+      pick.title = 'Find by in-game name or ID';
+      pick.setAttribute('aria-label', 'Find a value for ' + field.label);
       pick.addEventListener('click', () => {
         const requestId = ++pickSequence;
         pendingPicks.set(requestId, {input, icon});
@@ -514,7 +509,7 @@ function genericRecipeEditorHtml(
           registry: field.kind === 'ingredient' || field.kind === 'item_stack' ? 'minecraft:item' : undefined,
           includeTags: field.kind === 'ingredient',
           current: input.value,
-          title: 'KubeVS — выберите игровой ID'
+          title: 'KubeVS — select an in-game ID'
         });
       });
       wrapper.append(icon, input, pick);
@@ -753,7 +748,7 @@ function genericRecipeEditorHtml(
     document.getElementById('editRecipeId').addEventListener('click', event => {
       recipeIdAutomatic = !recipeIdAutomatic;
       recipeId.readOnly = recipeIdAutomatic;
-      event.currentTarget.textContent = recipeIdAutomatic ? 'Изменить' : 'Авто';
+      event.currentTarget.textContent = recipeIdAutomatic ? 'Edit' : 'Auto';
       if (recipeIdAutomatic) updateRecipeId();
       else recipeId.focus();
       preview();
@@ -773,7 +768,7 @@ function genericRecipeEditorHtml(
       setBusy(true);
       status.className = 'status';
       status.setAttribute('role', 'status');
-      status.textContent = 'Сохраняем в kubevs/crafts/generic…';
+      status.textContent = 'Saving to kubevs/crafts/generic…';
       vscode.postMessage({ type: 'save', revision: saveRevision, schemaId, recipeId: id, values });
     });
     window.addEventListener('message', (event) => {

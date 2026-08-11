@@ -30,8 +30,8 @@ export function registerRegistryCompletion(
         item.detail = `${registryLabel(entry.registry)} · ${entry.id}`;
         item.documentation = new vscode.MarkdownString(
           entry.source === 'minecraft'
-            ? `Имя и ID получены из подключённого Minecraft.\n\n\`${entry.id}\``
-            : `Офлайн-подсказка KubeVS.\n\n\`${entry.id}\``,
+            ? `Name and ID received from the connected Minecraft instance.\n\n\`${entry.id}\``
+            : `KubeVS offline suggestion.\n\n\`${entry.id}\``,
         );
         item.sortText = `${entry.source === 'minecraft' ? '0' : '1'}-${entry.name}-${entry.id}`;
         return item;
@@ -79,11 +79,11 @@ function completionKind(registry: string, tag: boolean): vscode.CompletionItemKi
 }
 
 function registryLabel(registry: string): string {
-  if (registry === 'minecraft:item') return 'Предмет';
-  if (registry === 'minecraft:block') return 'Блок';
-  if (registry === 'minecraft:fluid') return 'Жидкость';
-  if (registry === 'minecraft:entity_type') return 'Сущность';
-  if (registry.includes('structure')) return 'Структура';
-  if (registry.includes('biome')) return 'Биом';
+  if (registry === 'minecraft:item') return 'Item';
+  if (registry === 'minecraft:block') return 'Block';
+  if (registry === 'minecraft:fluid') return 'Fluid';
+  if (registry === 'minecraft:entity_type') return 'Entity';
+  if (registry.includes('structure')) return 'Structure';
+  if (registry.includes('biome')) return 'Biome';
   return registry;
 }

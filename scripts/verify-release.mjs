@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -12,8 +12,6 @@ const protocol = readFileSync(resolve(root, 'packages/protocol/src/index.ts'), '
 const protocolVersion = protocol.match(/PROTOCOL_VERSION = (\d+)/)?.[1];
 const connectorBuild = readFileSync(resolve(root, 'mods/kubevs-connector/build.gradle'), 'utf8');
 const packageNls = json('apps/vscode-extension/package.nls.json');
-const packageNlsRu = json('apps/vscode-extension/package.nls.ru.json');
-
 const errors = [];
 if (rootPackage.version !== extensionPackage.version) {
   errors.push(
@@ -35,12 +33,59 @@ if (extensionPackage.license !== 'SEE LICENSE IN LICENSE') {
 if (existsSync(resolve(root, 'apps/vscode-extension/media/pixel'))) {
   errors.push('Unlicensed user-supplied pixel assets are present');
 }
-if (extensionPackage.l10n !== './l10n') errors.push('Extension l10n bundle is not configured');
 if (!existsSync(resolve(root, 'apps/vscode-extension/media/kubevs-logo.png'))) {
   errors.push('KubeVS logo asset is missing');
 }
-if (!packageNls['command.connectWithCode'] || !packageNlsRu['command.connectWithCode']) {
-  errors.push('English and Russian manifest localizations are required');
+if (!packageNls['command.connectWithCode']) {
+  errors.push('English manifest localization is required');
+}
+const extensionRoot = resolve(root, 'apps/vscode-extension');
+const ignoredDirectories = new Set(['node_modules', 'dist', '.vscode-test']);
+const textExtensions = new Set([
+  '.ts',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.json',
+  '.md',
+  '.html',
+  '.css',
+  '.yml',
+  '.yaml',
+]);
+const extensionTextFiles = [];
+const visit = (directory) => {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) visit(path);
+    else if ([...textExtensions].some((extension) => entry.name.endsWith(extension))) {
+      extensionTextFiles.push(path);
+    }
+  }
+};
+visit(extensionRoot);
+for (const path of extensionTextFiles) {
+  const content = readFileSync(path, 'utf8');
+  if (/[А-Яа-яЁё]/u.test(content)) {
+    errors.push(
+      'Extension must be English-only; Cyrillic text found in ' + path.slice(root.length + 1),
+    );
+  }
+}
+if (existsSync(resolve(extensionRoot, 'package.nls.ru.json'))) {
+  errors.push('Russian manifest localization must not be packaged');
+}
+if (existsSync(resolve(extensionRoot, 'l10n/bundle.l10n.ru.json'))) {
+  errors.push('Russian runtime localization must not be packaged');
+}
+const publicMetadata = [
+  readFileSync(resolve(root, 'README.md'), 'utf8'),
+  readFileSync(resolve(extensionRoot, 'README.md'), 'utf8'),
+  JSON.stringify(extensionPackage),
+].join('\n');
+if (/(?:created|made) by\s+f|telegram|discord|t\.me\//iu.test(publicMetadata)) {
+  errors.push('Public extension metadata must not contain creator or social promotion');
 }
 if (/ProGuard|obfuscatedJar|guardsquare/u.test(connectorBuild)) {
   errors.push('Connector production build must not use binary obfuscation');
