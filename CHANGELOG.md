@@ -6,6 +6,19 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ---
 
+## [1.1.12 / Connector 1.1.12] — 2026-08-12
+
+### Reliable direct node dragging
+
+- **What:** Item and tag textures inside Craft Graph nodes can no longer start the browser's native image-drag operation. Pointer movement now remains owned by the node drag handler across headers and recipe previews.
+- **Where:** The Craft Graph webview's image elements, canvas drag guard, CSS interaction rules, and generated-webview regression test.
+- **Why:** Browser-native image dragging intercepted pointer movement, producing a translucent texture under the cursor instead of moving the node.
+- **Was:** Starting a drag over any visible item texture could detach a ghost image and leave the node stationary or moving inconsistently.
+
+The Connector version remains synchronized with the extension even though this release changes only the VS Code UI.
+
+---
+
 ## [1.1.11 / Connector 1.1.11] — 2026-08-12
 
 ### Stable tag previews and easier graph nodes

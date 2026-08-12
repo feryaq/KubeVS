@@ -10,8 +10,8 @@ KubeVS combines a Visual Studio Code extension with a secure NeoForge server bri
 
 | Component          | Version | Platform                                 |
 | ------------------ | ------: | ---------------------------------------- |
-| KubeVS Extension   |  1.1.11 | Visual Studio Code 1.105+                |
-| KubeVS Connector   |  1.1.11 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
+| KubeVS Extension   |  1.1.12 | Visual Studio Code 1.105+                |
+| KubeVS Connector   |  1.1.12 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
 | WebSocket protocol |       2 | Localhost-only by default                |
 
 ## What KubeVS gives you
@@ -29,8 +29,8 @@ KubeVS combines a Visual Studio Code extension with a secure NeoForge server bri
 
 ## Two-part installation
 
-1. Install `kubevs-1.1.11.vsix` in Visual Studio Code.
-2. Place `kubevs-connector-1.1.11.jar` in the NeoForge server's `mods` directory.
+1. Install `kubevs-1.1.12.vsix` in Visual Studio Code.
+2. Place `kubevs-connector-1.1.12.jar` in the NeoForge server's `mods` directory.
 3. Start Minecraft, run `/kvs join`, and paste the copied code into **KubeVS: Connect with /kvs join code**.
 
 The Modrinth download contains the Minecraft Connector JAR. The required VS Code extension is distributed through the [latest GitHub Release](https://github.com/Feryaq/KubeVS/releases/latest).
@@ -53,10 +53,10 @@ pnpm --filter kubevs-extension package:vsix
 
 Expected artifacts:
 
-- `apps/vscode-extension/kubevs-extension-1.1.11.vsix`
-- `mods/kubevs-connector/build/libs/kubevs-1.1.11.jar`
+- `apps/vscode-extension/kubevs-extension-1.1.12.vsix`
+- `mods/kubevs-connector/build/libs/kubevs-1.1.12.jar`
 
-Tagging a verified commit as `v1.1.11` runs the production release workflow and publishes only the VS Code extension VSIX to GitHub Releases. The Connector JAR remains distributed through Modrinth. Follow [the release checklist](docs/release-checklist.md).
+Tagging a verified commit as `v1.1.12` runs the production release workflow and publishes only the VS Code extension VSIX to GitHub Releases. The Connector JAR remains distributed through Modrinth. Follow [the release checklist](docs/release-checklist.md).
 
 ## Documentation
 

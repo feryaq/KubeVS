@@ -30,4 +30,7 @@ test('Craft Graph webview keeps tag previews visible and keyboard accessible', (
   assert.match(script, /updateWorldBounds/u);
   assert.match(script, /flat\.length<=300/u);
   assert.match(script, /Math\.max\(\.08/u);
+  assert.match(script, /img\.draggable=false/u);
+  assert.match(script, /dragstart/u);
+  assert.match(html, /-webkit-user-drag:none/u);
 });
