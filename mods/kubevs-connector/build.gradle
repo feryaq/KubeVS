@@ -109,7 +109,7 @@ dependencies {
     additionalRuntimeClasspath 'org.java-websocket:Java-WebSocket:1.6.0'
 
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
     testImplementation 'com.google.code.gson:gson:2.11.0'
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
