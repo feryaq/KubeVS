@@ -66,10 +66,10 @@
   "devDependencies": {
     "@types/vscode": "^1.105.0",
     "@types/ws": "^8.18.1",
-    "@vscode/test-electron": "^2.5.2",
+    "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
-    "esbuild": "^0.25.8",
-    "mocha": "^11.7.1"
+    "esbuild": "^0.28.2",
+    "mocha": "^11.8.0"
   },
   "contributes": {
     "commands": [
