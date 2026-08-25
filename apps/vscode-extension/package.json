@@ -61,7 +61,7 @@
     "@kubevs/kubejs-parser": "workspace:*",
     "@kubevs/protocol": "workspace:*",
     "@kubevs/recipe-model": "workspace:*",
-    "ws": "^8.18.3"
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
