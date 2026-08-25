@@ -19,11 +19,11 @@
     "check:release": "pnpm verify:release \u0026\u0026 pnpm check"
   },
   "devDependencies": {
-    "@eslint/js": "^9.32.0",
-    "@types/node": "^24.1.0",
-    "eslint": "^9.32.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.9.0",
     "prettier": "^3.6.2",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.38.0"
+    "typescript": "^7.0.2",
+    "typescript-eslint": "^8.67.0"
   }
 }
