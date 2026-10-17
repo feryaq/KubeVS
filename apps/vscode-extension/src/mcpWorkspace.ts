@@ -83,10 +83,30 @@ function assertRevision(expected: string | null | undefined, actual: string | un
       fail('File already exists; expectedRevision is required to overwrite');
   } else if (actual !== expected) fail('Revision conflict');
 }
-function dirtyDocument(uri: vscode.Uri): boolean {
-  return vscode.workspace.textDocuments.some(
-    (document) => document.uri.toString() === uri.toString() && document.isDirty,
-  );
+async function dirtyDocument(uri: vscode.Uri): Promise<boolean> {
+  const dirty = vscode.workspace.textDocuments.filter((document) => document.isDirty);
+  if (dirty.some((document) => document.uri.toString() === uri.toString())) return true;
+  if (uri.scheme !== 'file') return false;
+  const identity = async (file: string): Promise<string> => {
+    let resolved: string;
+    try {
+      // VS Code may retain a Windows short path while fs.realpath expands it.
+      resolved = await fs.realpath(file);
+    } catch {
+      try {
+        resolved = path.join(await fs.realpath(path.dirname(file)), path.basename(file));
+      } catch {
+        resolved = path.resolve(file);
+      }
+    }
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  };
+  const target = await identity(uri.fsPath);
+  for (const document of dirty) {
+    if (document.uri.scheme === 'file' && (await identity(document.uri.fsPath)) === target)
+      return true;
+  }
+  return false;
 }
 
 export class McpWorkspace {
@@ -362,7 +382,7 @@ export class McpWorkspace {
       if (root.remote) {
         this.remoteWriteAllowed();
         if (
-          dirtyDocument(
+          await dirtyDocument(
             vscode.Uri.from({ scheme: 'kubevs-remote', authority: 'server', path: `/${relative}` }),
           )
         )
@@ -388,7 +408,7 @@ export class McpWorkspace {
         });
       }
       const target = await this.diskPath(root, relative, 'createParents');
-      if (dirtyDocument(vscode.Uri.file(target))) fail('Open document has unsaved changes');
+      if (await dirtyDocument(vscode.Uri.file(target))) fail('Open document has unsaved changes');
       let current: Buffer | undefined;
       try {
         current = await fs.readFile(target);
@@ -430,7 +450,7 @@ export class McpWorkspace {
       if (root.remote) {
         this.remoteWriteAllowed(true);
         if (
-          dirtyDocument(
+          await dirtyDocument(
             vscode.Uri.from({ scheme: 'kubevs-remote', authority: 'server', path: `/${relative}` }),
           )
         )
@@ -447,7 +467,7 @@ export class McpWorkspace {
         });
       } else {
         const target = await this.diskPath(root, relative, 'existing');
-        if (dirtyDocument(vscode.Uri.file(target))) fail('Open document has unsaved changes');
+        if (await dirtyDocument(vscode.Uri.file(target))) fail('Open document has unsaved changes');
         const file = await this.localRead(root, relative);
         assertRevision(args.expectedRevision, file.revision);
         this.trusted();
@@ -492,7 +512,7 @@ export class McpWorkspace {
         this.remoteWriteAllowed(true);
         for (const p of [source, destination])
           if (
-            dirtyDocument(
+            await dirtyDocument(
               vscode.Uri.from({ scheme: 'kubevs-remote', authority: 'server', path: `/${p}` }),
             )
           )
@@ -513,11 +533,11 @@ export class McpWorkspace {
         });
       }
       const from = await this.diskPath(root, source, 'existing');
-      if (dirtyDocument(vscode.Uri.file(from))) fail('Open document has unsaved changes');
+      if (await dirtyDocument(vscode.Uri.file(from))) fail('Open document has unsaved changes');
       const file = await this.localRead(root, source);
       assertRevision(args.expectedRevision, file.revision);
       const to = await this.diskPath(root, destination, 'createParents');
-      if (dirtyDocument(vscode.Uri.file(to))) fail('Open document has unsaved changes');
+      if (await dirtyDocument(vscode.Uri.file(to))) fail('Open document has unsaved changes');
       try {
         await fs.lstat(to);
         fail('Destination already exists');
