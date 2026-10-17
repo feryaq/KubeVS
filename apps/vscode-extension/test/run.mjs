@@ -18,6 +18,26 @@ const token = 'T'.repeat(43);
 const missingKubeJsToken = 'M'.repeat(43);
 process.env.KUBEVS_TEST_MISSING_KUBEJS_TOKEN = missingKubeJsToken;
 const entries = new Map();
+const recipeFixtures = [
+  {
+    id: 'minecraft:test_sticks',
+    recipeType: 'minecraft:crafting_shapeless',
+    json: {
+      type: 'minecraft:crafting_shapeless',
+      ingredients: [{ item: 'minecraft:oak_planks' }],
+      result: { id: 'minecraft:stick', count: 4 },
+    },
+  },
+  {
+    id: 'create:test_pressing',
+    recipeType: 'create:pressing',
+    json: {
+      type: 'create:pressing',
+      ingredients: [{ item: 'minecraft:iron_ingot' }],
+      results: [{ id: 'create:iron_sheet' }],
+    },
+  },
+];
 let clock = Date.now();
 
 for (const folder of ['server_scripts', 'client_scripts', 'startup_scripts', 'assets']) {
@@ -76,10 +96,10 @@ server.on('connection', (socket, request) => {
       capabilities: {
         registries: true,
         recipes: true,
-        logs: false,
+        logs: true,
         reload: false,
-        inspect: false,
-        integrations: [],
+        inspect: true,
+        integrations: ['create', 'farmersdelight', 'lootjs'],
         workspaceFiles: true,
         workspaceLocks: true,
         workspaceWrite: true,
@@ -92,12 +112,112 @@ server.on('connection', (socket, request) => {
   socket.on('message', (payload) => {
     const requestMessage = JSON.parse(payload.toString());
     const { method, params = {}, requestId } = requestMessage;
+    if (method === 'recipes.types') {
+      respond(socket, requestId, {
+        types: Object.fromEntries(recipeFixtures.map((r) => [r.recipeType, [r.id]])),
+        total: recipeFixtures.length,
+      });
+      return;
+    }
+    if (method === 'recipes.get') {
+      const entry = recipeFixtures.find((r) => r.id === params.id);
+      if (entry) respond(socket, requestId, entry);
+      else
+        socket.send(
+          JSON.stringify({
+            type: 'error',
+            requestId,
+            code: 'INVALID_MESSAGE',
+            message: 'Unknown fixture recipe',
+          }),
+        );
+      return;
+    }
+    if (method === 'recipes.snapshot') {
+      const offset = params.offset ?? 0;
+      const limit = params.limit ?? 100;
+      respond(socket, requestId, {
+        entries: recipeFixtures.slice(offset, offset + limit),
+        offset,
+        total: recipeFixtures.length,
+        hasMore: offset + limit < recipeFixtures.length,
+      });
+      return;
+    }
+    if (method === 'registry.list') {
+      respond(socket, requestId, { entries: ['minecraft:item', 'minecraft:block'], total: 2 });
+      return;
+    }
+    if (method === 'registry.namedEntries') {
+      respond(socket, requestId, {
+        entries: [
+          {
+            id: 'minecraft:iron_ingot',
+            name: 'Iron Ingot',
+            translationKey: 'item.minecraft.iron_ingot',
+          },
+          { id: 'create:iron_sheet', name: 'Iron Sheet', translationKey: 'item.create.iron_sheet' },
+        ],
+        offset: 0,
+        total: 2,
+        hasMore: false,
+      });
+      return;
+    }
+    if (method === 'registry.tagEntries' || method === 'registry.tagValues') {
+      respond(socket, requestId, {
+        entries: ['minecraft:iron_ingot'],
+        offset: 0,
+        total: 1,
+        hasMore: false,
+      });
+      return;
+    }
+    if (method === 'registry.icon') {
+      respond(socket, requestId, { id: params.id, dataUri: null });
+      return;
+    }
+    if (method === 'logs.list') {
+      respond(socket, requestId, {
+        entries: [
+          {
+            timestamp: '2026-10-17T00:00:00Z',
+            level: 'info',
+            category: 'test',
+            message: 'Fixture Connector ready',
+          },
+        ],
+        total: 1,
+      });
+      return;
+    }
+    if (method === 'player.inspectHeldItem') {
+      respond(socket, requestId, { id: 'minecraft:iron_ingot', count: 1 });
+      return;
+    }
+    if (method === 'connector.status') {
+      respond(socket, requestId, {
+        uptimeSeconds: 1,
+        players: 1,
+        maxPlayers: 8,
+        clients: 1,
+        reloadAllowed: false,
+        kubejsVersion: missingKubeJs ? null : 'test',
+      });
+      return;
+    }
     if (method === 'registry.items' || method === 'registry.tags' || method === 'recipes.list') {
       respond(socket, requestId, { entries: [], offset: 0, total: 0, hasMore: false });
       return;
     }
     if (method === 'mods.list') {
-      respond(socket, requestId, { entries: [], total: 0 });
+      respond(socket, requestId, {
+        entries: [
+          { id: 'create', name: 'Create', version: 'fixture' },
+          { id: 'lootjs', name: 'LootJS', version: 'fixture' },
+        ],
+        total: 2,
+      });
       return;
     }
     if (method === 'workspace.files.list') {
@@ -109,11 +229,26 @@ server.on('connection', (socket, request) => {
     }
     if (method === 'workspace.files.read') {
       const entry = entries.get(params.path);
+      if (!entry) {
+        socket.send(
+          JSON.stringify({
+            type: 'error',
+            requestId,
+            code: 'FILE_NOT_FOUND',
+            message: 'Fixture file not found',
+          }),
+        );
+        return;
+      }
       respond(socket, requestId, {
         ...entryJson(params.path, entry),
         encoding: 'base64',
         data: entry.data.toString('base64'),
       });
+      return;
+    }
+    if (method === 'workspace.locks.status') {
+      respond(socket, requestId, { path: params.path, locked: false });
       return;
     }
     if (method === 'workspace.locks.acquire') {

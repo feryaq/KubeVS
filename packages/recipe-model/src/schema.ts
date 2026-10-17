@@ -90,7 +90,7 @@ export function parseRecipeSchema(input: unknown): RecipeSchemaDefinition {
       throw new Error(`${path}.multiple: the dynamic recipe type cannot be a list`);
     }
     const minItems = optionalInteger(field.minItems, `${path}.minItems`, required ? 1 : 0, 0, 100);
-    if (!multiple && field.minItems !== undefined) {
+    if (!multiple && field.minItems !== undefined && field.minItems !== 0) {
       throw new Error(`${path}.minItems: only valid when multiple is true`);
     }
     const options = kind === 'enum' ? enumOptions(field.options, `${path}.options`) : undefined;

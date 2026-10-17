@@ -2,7 +2,7 @@
   "name": "kubevs-extension",
   "displayName": "KubeVS",
   "description": "%extension.description%",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "publisher": "kubevs",
   "repository": {
@@ -52,18 +52,21 @@
     "build:test-replacement": "esbuild src/recipeReplacementCore.ts --bundle --platform=node --format=esm --outfile=dist/recipeReplacementCore.mjs",
     "package:vsix": "vsce package --no-dependencies",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "pnpm build && pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/addonRecipeCore.test.mjs test/addonRecipeWebview.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/craftGraphWebview.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs test/recipeImport.test.mjs && node ./test/run.mjs",
+    "test": "pnpm build && pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/addonRecipeCore.test.mjs test/addonRecipeWebview.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/craftGraphWebview.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs test/recipeImport.test.mjs && pnpm build:test-mcp && node --test test/mcpServer.test.mjs && node ./test/run.mjs",
     "test:live-vscode": "pnpm build && node ./test/run-live-vscode.mjs",
-    "test:unit": "pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/*.test.mjs",
+    "test:unit": "pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && pnpm build:test-mcp && node --test test/*.test.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "test:render": "node test/workbenchRender.mjs ../../artifacts/home-1.3.0",
-    "test:visual": "node test/workbenchVisual.mjs ../../artifacts/home-1.3.0 ../../artifacts/home-1.3.0/screenshots --strict"
+    "test:render": "node test/workbenchRender.mjs ../../artifacts/home-1.4.0",
+    "test:visual": "node test/workbenchVisual.mjs ../../artifacts/home-1.4.0 ../../artifacts/home-1.4.0/screenshots --strict",
+    "build:test-mcp": "esbuild src/mcpServer.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/mcpServer.mjs"
   },
   "dependencies": {
     "@kubevs/kubejs-parser": "workspace:*",
     "@kubevs/protocol": "workspace:*",
     "@kubevs/recipe-model": "workspace:*",
-    "ws": "^8.18.3"
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "ws": "^8.18.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
@@ -265,6 +268,36 @@
         "title": "Get KubeJS",
         "category": "KubeVS",
         "icon": "$(link-external)"
+      },
+      {
+        "command": "kubevs.mcp.manage",
+        "title": "MCP Server",
+        "category": "KubeVS",
+        "icon": "$(server)"
+      },
+      {
+        "command": "kubevs.mcp.start",
+        "title": "Start MCP Server",
+        "category": "KubeVS",
+        "icon": "$(play)"
+      },
+      {
+        "command": "kubevs.mcp.stop",
+        "title": "Stop MCP Server",
+        "category": "KubeVS",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "kubevs.mcp.copyConfig",
+        "title": "Copy MCP Configuration",
+        "category": "KubeVS",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "kubevs.mcp.rotateToken",
+        "title": "Replace MCP Access Key",
+        "category": "KubeVS",
+        "icon": "$(key)"
       }
     ],
     "viewsContainers": {
@@ -410,6 +443,20 @@
           "minimum": 100,
           "maximum": 50000,
           "description": "%config.logs.maxEntries.description%"
+        },
+        "kubevs.mcp.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Start the authenticated local MCP server when a trusted VS Code window loads. Grants configured AI clients access to KubeJS project files and the current Connector session."
+        },
+        "kubevs.mcp.port": {
+          "type": "integer",
+          "default": 32146,
+          "minimum": 0,
+          "maximum": 65535,
+          "scope": "application",
+          "description": "Local MCP HTTP port. Use 0 to select a free port. The server binds only to 127.0.0.1."
         }
       }
     },

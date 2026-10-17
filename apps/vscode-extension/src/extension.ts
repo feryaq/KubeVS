@@ -40,6 +40,8 @@ import { RegistryCatalog } from './registryCatalog.js';
 import { registerRegistryCompletion } from './registryCompletion.js';
 import { bootstrapConnectorWorkspace } from './workspaceBootstrap.js';
 import { fileCount, setRuntimeLocale, t } from './localization.js';
+import { McpController } from './mcpController.js';
+import { McpWorkspace } from './mcpWorkspace.js';
 
 type ConnectionState = 'offline' | 'connecting' | 'connected' | 'error';
 
@@ -333,6 +335,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       connectedHost: vscode.workspace.getConfiguration('kubevs.connector').get('host', '127.0.0.1'),
       canInspect: connectorHello?.session?.kind === 'player' && connectorHello.capabilities.inspect,
       canViewLocks: connectorHello?.capabilities.workspaceLocks === true,
+      mcp: mcp?.status ?? { running: false },
       ...(liveStats ? { stats: liveStats } : {}),
       ...(connectionLatency === undefined ? {} : { latency: connectionLatency }),
       recent: ordered.map((uri) => ({
@@ -343,6 +346,40 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     };
   };
   const dashboard = new DashboardController(context, dashboardSnapshot);
+  const mcpWorkspace = new McpWorkspace(connectorClient, () => connectionState === 'connected');
+  const mcp = new McpController(
+    context,
+    {
+      connector: connectorClient,
+      catalog: registryCatalog,
+      workspace: mcpWorkspace,
+      hello: () => (connectionState === 'connected' ? connectorHello : undefined),
+      status: dashboardSnapshot,
+      connect: async (code) => {
+        await connectToMinecraft(
+          false,
+          false,
+          code ? parseConnectorConnectionCode(code) : undefined,
+          true,
+          false,
+          true,
+        );
+        if (connectionState !== 'connected')
+          throw new Error(
+            connectionError ?? 'No saved Connector credentials. Provide a private /kvs join code.',
+          );
+      },
+      disconnect: () => disconnectFromMinecraft(false),
+      refresh: async () => {
+        registryCatalog.clearProjectCache();
+        await project.refresh(connectionState === 'connected');
+        dashboard.refresh();
+      },
+    },
+    () => dashboard.refresh(),
+    (message) => logs.main.info(message),
+  );
+  context.subscriptions.push(mcp);
   context.subscriptions.push(
     dashboard,
     project.onDidChangeTreeData(() => dashboard.refresh()),
@@ -468,6 +505,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   if (context.extensionMode === vscode.ExtensionMode.Test) {
+    register('kubevs.__test.mcpWorkspace', async (value) => {
+      const { operation, ...params } = value as { operation: string; [key: string]: unknown };
+      const methods = ['roots', 'list', 'read', 'write', 'delete', 'mkdir', 'move'] as const;
+      if (!methods.includes(operation as (typeof methods)[number]))
+        throw new Error('Unknown workspace test operation');
+      const call = mcpWorkspace[operation as (typeof methods)[number]].bind(mcpWorkspace) as (
+        args: unknown,
+      ) => Promise<unknown>;
+      return call(params);
+    });
     register('kubevs.__test.connectWithCode', async (value) => {
       if (typeof value !== 'string') throw new Error('Test connection code is required');
       await connectToMinecraft(false, false, parseConnectorConnectionCode(value), false, false);
@@ -546,6 +593,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     },
     allowStoredRemote = false,
     mountRemoteWorkspace = true,
+    headless = false,
   ): Promise<void> => {
     const attempt = ++connectionAttempt;
     const configuration = vscode.workspace.getConfiguration('kubevs.connector');
@@ -560,17 +608,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await updateConnectionUi();
         return;
       }
-      const choice = await vscode.window.showWarningMessage(
-        secure
-          ? t('Connect to secure server {0}:{1}?', host, port)
-          : t(
-              'Connect to {0}:{1} without TLS? Use a VPN or enable publicSecure behind a TLS proxy.',
-              host,
-              port,
-            ),
-        { modal: true },
-        t('Connect'),
-      );
+      const choice = headless
+        ? t('Connect')
+        : await vscode.window.showWarningMessage(
+            secure
+              ? t('Connect to secure server {0}:{1}?', host, port)
+              : t(
+                  'Connect to {0}:{1} without TLS? Use a VPN or enable publicSecure behind a TLS proxy.',
+                  host,
+                  port,
+                ),
+            { modal: true },
+            t('Connect'),
+          );
       if (attempt !== connectionAttempt) return;
       if (choice !== t('Connect')) {
         connectionState = 'offline';
@@ -666,10 +716,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         if (mountRemoteWorkspace) {
           await vscode.commands.executeCommand('kubevs.openServerWorkspace');
         } else {
-          void vscode.window.showInformationMessage(t('KubeVS Connector connected.'));
+          if (!headless)
+            void vscode.window.showInformationMessage(t('KubeVS Connector connected.'));
         }
         return;
       }
+      if (headless) return;
       try {
         const workspace = await bootstrapConnectorWorkspace(connectorHello, logs.connector);
         if (workspace.opened) return;
@@ -737,7 +789,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
   register('kubevs.changeConnectorToken', () => connectToMinecraft(true, true));
-  register('kubevs.disconnect', async () => {
+  const disconnectFromMinecraft = async (removeFolder = true): Promise<void> => {
     connectionAttempt++;
     connectorClient.disconnect();
     registryCatalog.clearLiveCache();
@@ -752,10 +804,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       vscode.workspace.workspaceFolders?.findIndex(
         (folder) => folder.uri.scheme === 'kubevs-remote',
       ) ?? -1;
-    if (remoteIndex >= 0) {
+    if (removeFolder && remoteIndex >= 0) {
       vscode.workspace.updateWorkspaceFolders(remoteIndex, 1);
     }
-  });
+  };
+  register('kubevs.disconnect', () => disconnectFromMinecraft());
   register('kubevs.checkConnection', async () => {
     if (connectionState !== 'connected') {
       await vscode.commands.executeCommand('kubevs.connectWithCode');
@@ -953,6 +1006,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   } else if (connectorSettings.get('autoConnect', false)) {
     void connectToMinecraft(false);
   }
+  void mcp
+    .startIfEnabled()
+    .catch((error) =>
+      logs.main.error(
+        `MCP startup failed: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    );
 }
 
 function isLoopbackHost(host: string): boolean {

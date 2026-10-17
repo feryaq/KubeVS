@@ -5,6 +5,7 @@ KubeVS включает или использует сторонние комп�
 
 ## Runtime components
 
+- `@modelcontextprotocol/sdk` and `zod` — MIT License; MCP transport, tool schemas, and validation in the VS Code extension.
 - `ws` — MIT License; WebSocket client used by the VS Code extension.
 - `Java-WebSocket` — MIT License; bundled into KubeVS Connector through NeoForge Jar-in-Jar.
 - Visual Studio Code Extension API — Microsoft license terms; provided by the host application.

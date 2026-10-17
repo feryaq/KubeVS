@@ -233,3 +233,19 @@ test('rejects schema combinations the visual editor cannot represent', () => {
     /root "\$" JSON field cannot be a list/u,
   );
 });
+
+test('parsed recipe schemas can be passed back through MCP without losing validation', () => {
+  const raw = {
+    version: 1,
+    id: 'kubevs:roundtrip',
+    label: 'Roundtrip',
+    recipeType: 'example:machine',
+    fields: [{ path: 'input', label: 'Input', kind: 'ingredient', required: true }],
+  };
+  const parsed = parseRecipeSchema(raw);
+  assert.deepEqual(parseRecipeSchema(JSON.parse(JSON.stringify(parsed))), parsed);
+  assert.throws(
+    () => parseRecipeSchema({ ...raw, fields: [{ ...raw.fields[0], minItems: 1 }] }),
+    /only valid when multiple/,
+  );
+});

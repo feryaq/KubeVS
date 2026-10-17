@@ -6,7 +6,7 @@
 
 ## Установка
 
-1. Установите `kubevs-1.3.0.vsix` командой VS Code **Install from VSIX…**.
+1. Установите `kubevs-1.4.0.vsix` командой VS Code **Install from VSIX…**.
 2. Поместите JAR Connector в папку `mods` сервера Minecraft.
 3. Выполните в игре `/kvs join`, затем в VS Code запустите **KubeVS: Connect with /kvs join code**.
 4. Откройте KubeVS значком куба на панели действий. Рабочая среда откроется автоматически; в боковой панели доступен тот же интерфейс.
@@ -15,8 +15,8 @@
 
 | Компонент          | Версия | Платформа                                        |
 | ------------------ | -----: | ------------------------------------------------ |
-| Расширение KubeVS  |  1.3.0 | VS Code 1.105+; проверен Code OSS                |
-| KubeVS Connector   |  1.3.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
+| Расширение KubeVS  |  1.4.0 | VS Code 1.105+; проверен Code OSS                |
+| KubeVS Connector   |  1.4.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
 | Протокол WebSocket |      2 | С аутентификацией; по умолчанию только localhost |
 
 ## Возможности
@@ -31,6 +31,7 @@
 - Импорт JSON рецептов и просмотр предмета в руке для личной сессии игрока.
 - Дополнение KubeJS, подсказки, Code Actions, лексическая диагностика и актуальные типы.
 - Удалённые файлы `kubejs` в Explorer, безопасная передача бинарных данных, контроль ревизий и блокировки для команды.
+- Встроенный локальный MCP-сервер для инструментов ИИ; запускается из VS Code и работает с текущим проектом и подключением.
 
 По умолчанию Connector требует аутентификацию и принимает соединения только на `127.0.0.1:32145`. Для удалённого сервера используйте VPN или TLS reverse proxy. Перезагрузка скриптов по сети изначально выключена: включите её в `config/kubevs-connector.toml` и назначьте подходящую роль.
 
@@ -45,7 +46,7 @@ pnpm --filter kubevs-extension package:vsix
 bash gradlew :mods:kubevs-connector:test :mods:kubevs-connector:build
 ```
 
-Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.3.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.3.0.jar`.
+Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.4.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.4.0.jar`.
 
 В релизах GitHub распространяется только расширение; Connector публикуется через Modrinth. Перед выпуском следуйте [инструкции по релизу](RELEASE.md). Сборка сама по себе не публикует новую версию.
 
@@ -53,6 +54,7 @@ bash gradlew :mods:kubevs-connector:test :mods:kubevs-connector:build
 
 - [Рабочая среда и проверка](docs/workbench.md)
 - [Настройка Connector и роли](mods/kubevs-connector/README.md)
+- [MCP-сервер и подключение клиентов](docs/mcp.md)
 - [Архитектура](ARCHITECTURE.md)
 - [Безопасность](SECURITY.md)
 
