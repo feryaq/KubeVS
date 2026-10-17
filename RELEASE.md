@@ -22,6 +22,9 @@ Confirm that the version and tag do not already exist, then update all release m
 - `README.md`
 - `mods/kubevs-connector/README.md`
 - `CHANGELOG.md`
+- `docs/releases/<version>.md` (prepared Russian release description)
+
+Keep the public README files and the release description in Russian. The extension UI remains English. The release workflow publishes the prepared Markdown file with `--notes-file`; do not substitute automatically generated English notes.
 
 ```powershell
 git fetch origin --tags

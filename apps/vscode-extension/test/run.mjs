@@ -9,7 +9,14 @@ import { WebSocketServer } from 'ws';
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const localExecutable = process.env.KUBEVS_VSCODE_EXECUTABLE_PATH;
 const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kubevs-vscode-test-'));
+const extensionDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kubevs-vscode-extensions-'));
+const fixtureDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kubevs-vscode-project-'));
+await fs.cp(path.resolve(directory, '../../../examples/basic-kubejs'), fixtureDir, {
+  recursive: true,
+});
 const token = 'T'.repeat(43);
+const missingKubeJsToken = 'M'.repeat(43);
+process.env.KUBEVS_TEST_MISSING_KUBEJS_TOKEN = missingKubeJsToken;
 const entries = new Map();
 let clock = Date.now();
 
@@ -45,7 +52,8 @@ const sendEvent = (socket, change, entryPath) =>
   );
 
 server.on('connection', (socket, request) => {
-  if (request.headers.authorization !== `Bearer ${token}`) {
+  const missingKubeJs = request.headers.authorization === `Bearer ${missingKubeJsToken}`;
+  if (!missingKubeJs && request.headers.authorization !== `Bearer ${token}`) {
     socket.close(1008, 'Authentication failed');
     return;
   }
@@ -55,12 +63,12 @@ server.on('connection', (socket, request) => {
       protocolVersion: 2,
       connectorVersion: 'test',
       minecraftVersion: '1.21.1',
-      kubejsVersion: 'test',
+      kubejsVersion: missingKubeJs ? null : 'test',
       session: {
         kind: 'player',
         displayName: 'IntegrationTest',
         sessionId: '123e4567-e89b-42d3-a456-426614174000',
-        role: 'editor',
+        role: missingKubeJs ? 'admin' : 'editor',
         permissionLevel: 2,
         permissions: ['kubevs.workspace.read', 'kubevs.workspace.write', 'kubevs.workspace.manage'],
       },
@@ -181,8 +189,14 @@ try {
     extensionDevelopmentPath: path.resolve(directory, '..'),
     extensionTestsPath: path.resolve(directory, 'suite', 'index.cjs'),
     launchArgs: [
-      path.resolve(directory, '../../../examples/basic-kubejs'),
+      fixtureDir,
       '--disable-extensions',
+      '--extensions-dir',
+      extensionDir,
+      '--disable-workspace-trust',
+      ...(process.env.KUBEVS_ISOLATED_DISPLAY === '1'
+        ? ['--ozone-platform=x11', '--disable-gpu']
+        : []),
       '--user-data-dir',
       userDataDir,
     ],
@@ -196,5 +210,7 @@ try {
 } finally {
   for (const socket of server.clients) socket.terminate();
   await new Promise((resolve) => server.close(resolve));
-  await fs.rm(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+  for (const temporary of [userDataDir, extensionDir, fixtureDir]) {
+    await fs.rm(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
+  }
 }

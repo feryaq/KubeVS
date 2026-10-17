@@ -169,6 +169,102 @@ suite('KubeVS Extension', () => {
     await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
   });
 
+  test('saves a mechanical crafting recipe through the production file writer', async () => {
+    const { runInNewContext } = require('node:vm');
+    const uriString = await vscode.commands.executeCommand('kubevs.__test.saveAddonRecipe', {
+      type: 'create:mechanical_crafting',
+      recipeId: 'kubevs:mechanical_save_test',
+      ingredients: [],
+      fluidInputs: [],
+      fluidOutputs: [],
+      outputs: [{ item: 'create:crushing_wheel', count: 2, chance: 1 }],
+      processingTime: 100,
+      experience: 0,
+      heat: 'none',
+      loops: 1,
+      transitionalItem: '',
+      tool: '',
+      sequence: [],
+      mechanical: {
+        pattern: [' AAA ', 'AAPAA', 'APSPA', 'AAPAA', ' AAA '],
+        key: { A: 'create:andesite_alloy', P: '#minecraft:planks', S: '#c:stones' },
+        acceptMirrored: false,
+      },
+    });
+    assert.equal(typeof uriString, 'string');
+    const uri = vscode.Uri.parse(uriString);
+    try {
+      assert.match(uri.path, /\/crafts\/create\/mechanical_save_test\.js$/);
+      const code = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+      let recipe, id;
+      runInNewContext(code, {
+        ServerEvents: {
+          recipes: (callback) =>
+            callback({
+              custom: (value) => {
+                recipe = value;
+                return {
+                  id: (value) => {
+                    id = value;
+                  },
+                };
+              },
+            }),
+        },
+      });
+      assert.equal(recipe.type, 'create:mechanical_crafting');
+      assert.equal(recipe.pattern.length, 5);
+      assert.equal(recipe.result.id, 'create:crushing_wheel');
+      assert.equal(recipe.result.count, 2);
+      assert.equal(recipe.key.S.tag, 'c:stones');
+      assert.equal(recipe.accept_mirrored, false);
+      assert.equal(id, 'kubevs:mechanical_save_test');
+    } finally {
+      await vscode.workspace.fs.delete(uri);
+    }
+  });
+
+  test('distinguishes a connected admin without KubeJS from a recipe-ready server', async () => {
+    const port = process.env.KUBEVS_TEST_CONNECTOR_PORT;
+    const missingToken = process.env.KUBEVS_TEST_MISSING_KUBEJS_TOKEN;
+    assert.ok(port && missingToken);
+    try {
+      await vscode.commands.executeCommand(
+        'kubevs.__test.connectWithCode',
+        `kubevs://127.0.0.1:${port}?token=${missingToken}`,
+      );
+      const missing = await vscode.commands.executeCommand('kubevs.__test.dashboardSnapshot');
+      assert.equal(missing.state, 'connected');
+      assert.equal(missing.role, 'admin');
+      assert.equal(missing.kubejsMissing, true);
+      assert.ok((await vscode.commands.getCommands(true)).includes('kubevs.openKubeJsSetup'));
+      await vscode.commands.executeCommand('kubevs.disconnect');
+      const offline = await vscode.commands.executeCommand('kubevs.__test.dashboardSnapshot');
+      assert.equal(offline.kubejsMissing, false);
+      await vscode.commands.executeCommand(
+        'kubevs.__test.connectWithCode',
+        `kubevs://127.0.0.1:${port}?token=${process.env.KUBEVS_TEST_CONNECTOR_TOKEN}`,
+      );
+      const ready = await vscode.commands.executeCommand('kubevs.__test.dashboardSnapshot');
+      assert.equal(ready.kubejsMissing, false);
+      for (const [command, title] of [
+        ['kubevs.createRecipe', 'KubeVS Recipe Editor'],
+        ['kubevs.createAddonRecipe', 'KubeVS — Mod Recipes'],
+      ]) {
+        await vscode.commands.executeCommand(command);
+        for (let attempt = 0; attempt < 80; attempt += 1) {
+          if (vscode.window.tabGroups.activeTabGroup.activeTab?.label === title) break;
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+        assert.equal(tab?.label, title);
+        await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+      }
+    } finally {
+      await vscode.commands.executeCommand('kubevs.disconnect');
+    }
+  });
+
   test('provides full binary-safe CRUD through the remote filesystem provider', async () => {
     const port = Number.parseInt(process.env.KUBEVS_TEST_CONNECTOR_PORT ?? '', 10);
     const token = process.env.KUBEVS_TEST_CONNECTOR_TOKEN;

@@ -168,3 +168,133 @@ test('retries one correlated rate-limit response after the configured delay', as
   client.disconnect();
   await new Promise((resolve) => server.close(resolve));
 });
+
+const validHello = {
+  type: 'hello',
+  protocolVersion: 2,
+  connectorVersion: 'test',
+  minecraftVersion: '1.21.1',
+  kubejsVersion: null,
+  capabilities: {
+    registries: true,
+    recipes: true,
+    logs: false,
+    reload: false,
+    inspect: false,
+    integrations: [],
+  },
+};
+async function fixture(onConnection) {
+  const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+  await new Promise((resolve) => server.once('listening', resolve));
+  server.on('connection', onConnection);
+  return { server, url: `ws://127.0.0.1:${server.address().port}` };
+}
+async function closeFixture(server, client) {
+  client.disconnect();
+  for (const socket of server.clients) socket.terminate();
+  await new Promise((resolve) => server.close(resolve));
+}
+
+test('a delayed close from the previous socket preserves the new session and requests', async () => {
+  const { server, url } = await fixture((socket) => {
+    socket.send(JSON.stringify(validHello));
+    socket.on('message', (data) => {
+      const request = JSON.parse(data.toString());
+      setTimeout(
+        () =>
+          socket.send(
+            JSON.stringify({
+              type: 'response',
+              requestId: request.requestId,
+              ok: true,
+              result: 'new session',
+            }),
+          ),
+        30,
+      );
+    });
+  });
+  const client = new ConnectorClient();
+  try {
+    await client.connect(url, 'token');
+    const oldSocket = client.socket;
+    const originalClose = oldSocket.close.bind(oldSocket);
+    oldSocket.close = () => {};
+    await client.connect(url, 'token');
+    const response = client.request('connector.status');
+    originalClose();
+    assert.equal(await response, 'new session');
+    assert.equal(client.capabilities.registries, true);
+  } finally {
+    await closeFixture(server, client);
+  }
+});
+
+test('disconnect settles an in-progress hello immediately', async () => {
+  const { server, url } = await fixture(() => {});
+  const client = new ConnectorClient();
+  try {
+    const connection = client.connect(url, 'token', 5000);
+    const rejection = assert.rejects(connection, /disconnected/);
+    client.disconnect();
+    await rejection;
+  } finally {
+    await closeFixture(server, client);
+  }
+});
+
+test('a rate-limit retry cannot run in a replacement session', async () => {
+  let received = 0;
+  const { server, url } = await fixture((socket) => {
+    socket.send(JSON.stringify(validHello));
+    socket.on('message', (data) => {
+      const request = JSON.parse(data.toString());
+      received++;
+      socket.send(
+        JSON.stringify({
+          type: 'error',
+          requestId: request.requestId,
+          code: 'RATE_LIMITED',
+          message: 'Wait',
+        }),
+      );
+    });
+  });
+  const client = new ConnectorClient(250);
+  try {
+    await client.connect(url, 'token');
+    const rateLimitProcessed = new Promise((resolve) => {
+      client.socket.on('message', (data) => {
+        if (JSON.parse(data.toString()).code === 'RATE_LIMITED') {
+          // Run after the client's message handler and its promise reactions enter the retry delay.
+          setImmediate(resolve);
+        }
+      });
+    });
+    // Handle rejection immediately; assertions below cannot leave an unhandled assertion promise.
+    const outcome = client.request('workspace.files.write').then(
+      (value) => ({ value }),
+      (error) => ({ error }),
+    );
+    await rateLimitProcessed;
+    await client.connect(url, 'token');
+    const result = await outcome;
+    assert.match(result.error?.message ?? '', /session changed/);
+    assert.equal(received, 1);
+  } finally {
+    await closeFixture(server, client);
+  }
+});
+
+test('rejects malformed capabilities before accepting a connection', async () => {
+  const { server, url } = await fixture((socket) =>
+    socket.send(JSON.stringify({ ...validHello, capabilities: {} })),
+  );
+  const client = new ConnectorClient();
+  try {
+    await assert.rejects(client.connect(url, 'token'), /Invalid protocol message/);
+  } finally {
+    await closeFixture(server, client);
+  }
+});

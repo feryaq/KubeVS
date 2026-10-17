@@ -1,3 +1,4 @@
+import { workbenchCss, editorUtilities, handleWorkbenchMessage } from './workbenchUi.js';
 import * as vscode from 'vscode';
 import { generatedLootRuleTarget } from './generatedTarget.js';
 import { generateLootRule, LOOT_RULE_PRESETS, type LootRuleDraft } from './lootRuleCore.js';
@@ -24,6 +25,7 @@ export function openLootRuleEditor(
   const nonce = createNonce();
   panel.webview.onDidReceiveMessage(
     async (value: unknown) => {
+      if (await handleWorkbenchMessage(value, panel.webview)) return;
       if (await handleRegistryPickMessage(value, panel.webview, registryCatalog)) return;
       if (!isLootRuleMessage(value)) return;
       try {
@@ -163,21 +165,22 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
     @media (max-width: 780px) { body { overflow: auto; } header { flex-wrap: wrap; } .status { order: 3; width: 100%; text-align: left; } main { display: block; height: auto; } section { min-height: 45vh; border-right: 0; border-bottom: 1px solid var(--vscode-panel-border); } }
     @media (max-width: 480px) { .action-fields, .add-action, .add-child { grid-template-columns: 1fr; } details.preview { right: 8px; bottom: 8px; width: calc(100vw - 16px); } }
     @media (forced-colors: active) { button, input, select, textarea, .action, .node, details.preview { border-color: CanvasText; } }
+    ${workbenchCss}
   </style>
 </head>
 <body>
   <header>
-    <div class="brand"><div class="cube" aria-hidden="true">K</div><div><h1>Loot rule</h1><div class="subtitle">LootJS · visual editor</div></div></div>
+    <div class="brand"><div class="cube" aria-hidden="true">K</div><div><h1>Loot rule</h1></div></div>
     <div id="status" class="status" role="status" aria-live="polite">Ready</div>
     <button id="save" class="primary">Save rule</button>
   </header>
   <main>
     <section>
-      <div class="section-head"><strong>Loot changes</strong><span>Choose a source and result</span></div>
+      <div class="section-head"><strong>Loot changes</strong></div>
       <div class="pane">
         <div class="group">
-          <h2>Where to change loot</h2>
-          <p class="group-intro">The chest, block, or entity whose loot should be changed.</p>
+          <h2>Source</h2>
+
           <div class="preset-row">
             <select id="preset" aria-label="LootJS preset">
               <option value="chest">Dungeon chest · rare emerald</option>
@@ -194,7 +197,7 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
           <div class="hint">For example: <code>minecraft:chests/simple_dungeon</code>. Block and entity tags can start with <code>#</code>.</div>
         </div>
         <div class="group">
-          <h2>What to do</h2>
+          <h2>Actions</h2>
           <p class="group-intro">Actions run from top to bottom.</p>
           <div class="add-action">
             <select id="actionKind" aria-label="New action">
@@ -210,7 +213,7 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
       </div>
     </section>
     <section>
-      <div class="section-head"><strong>When to apply</strong><span>Conditions can be grouped</span></div>
+      <div class="section-head"><strong>When to apply</strong></div>
       <div class="pane"><p class="group-intro">AND matches all conditions, OR matches any, and NOT inverts one. The root condition cannot be removed.</p><div id="tree"></div></div>
     </section>
     <details class="preview">
@@ -376,6 +379,7 @@ function lootRuleEditorHtml(webview: vscode.Webview, nonce: string): string {
       if (message.type === 'error') { setBusy(false); status(message.message, true); requestPreview(); }
     });
     render();
+    ${editorUtilities()}
   </script>
 </body>
 </html>`;

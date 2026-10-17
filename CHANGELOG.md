@@ -4,6 +4,55 @@ Notable KubeVS changes. This file records product decisions instead of repeating
 
 ## [Unreleased]
 
+## [1.3.0 / Connector 1.3.0] — 2026-10-17
+
+### Рецепты Create и улучшения рабочей среды
+
+- Добавлен визуальный редактор Create: mechanical crafting с сеткой до 9×9, ключами ингредиентов и обязательным булевым полем `accept_mirrored`.
+- Редактор формирует KubeJS `event.custom` с типом `create:mechanical_crafting` и полями `pattern`, `key` и `result`.
+- Включены накопленные улучшения версий 1.2.0–1.2.2: главная рабочая среда и поиск инструментов, браузер реестров и Craft Graph, импорт JSON рецептов, просмотр предмета в руке и диагностика Connector.
+- Улучшены подключение и восстановление после ошибок: безопасный ввод кода, понятные подсказки при отсутствии KubeJS, корректная работа разрешений одиночного мира и защиты удалённой рабочей папки.
+- Обновлены редакторы и проверки скриптов, устойчивость WebSocket-сессий, обработка файлов и адаптация интерфейса к узким панелям.
+
+Релиз описывает генерацию скриптов и возможности расширения. Работа созданного рецепта на запущенном сервере Minecraft отдельно не подтверждалась.
+
+## [1.2.2 / Connector 1.2.2] — 2026-10-17
+
+### Explain unavailable recipe creation
+
+- Show a persistent, actionable KubeJS installation notice when the connected server reports no KubeJS, with matching Minecraft/NeoForge download access and restart/reconnect instructions.
+- Explain that Connector administrator access does not supply the scripting runtime; keep registry inspection and graphs available.
+- Use the same recovery guidance for command-palette entry and guard schema creation consistently.
+- Cover missing-runtime, reconnect and offline transitions in the workbench checks.
+
+## [1.2.1 / Connector 1.2.1] — 2026-10-05
+
+### Primary workbench and simpler connection
+
+- Replaced the five legacy Activity Bar trees with a single searchable Home webview. Opening the KubeVS container automatically opens the full workbench from the preview; sidebar and editor share the same actions and state.
+- Added an inline private connection-code form, a saved/local token fallback and direct access to native VS Code settings, folder selection and existing tools.
+- Kept code editing, Explorer, diagnostics and diffs native; removed the obsolete menu providers.
+- Added actionable network/authentication recovery messages and credential-safe error text. Endpoint settings are saved only after a successful connection.
+- Fixed configured join permission levels 0/1, allowed the integrated singleplayer owner to join without cheats, and refreshed translated in-game messages and configuration guidance.
+- Added primary-entry, responsive sidebar, connection-form and mod localization regressions.
+
+## [1.2.0 / Connector 1.2.0] — 2026-10-05
+
+### Workbench redesign and reliable live sessions
+
+- Replaced the decorative dashboard with searchable tools, current connection data, recent project files and actionable diagnostics.
+- Unified all visual editors, removed repeated captions, fixed compressed icon pickers, and added exact JavaScript copying and Ctrl/Cmd+S.
+- Added a paginated Registry Browser with search, ID copying and tag membership.
+- Added recipe JSON import, personal held-item inspection, connection latency and Connector health diagnostics.
+- Improved Craft Graph layout using measured node heights, added resource copying with fluid units, and made resources and details accessible in narrow panels.
+- Kept project indexing current after file operations, preserved remote scripts when refreshing, and fenced overlapping connection attempts.
+- Isolated WebSocket requests/retries by session, tightened runtime protocol validation, and moved Minecraft request handling to its server thread.
+- Simplified in-game connection status actions and fixed the tag-members endpoint compatibility.
+- Replaced line-based script checks with lexical scanning for comments, strings, regular expressions and template substitutions, including script-kind warnings.
+- Added isolated installed-Code tests, actual generated-webview rendering and responsive interaction checks.
+
+The separate desktop prototype remains archived and is not part of this redesign.
+
 ---
 
 ## [1.1.12 / Connector 1.1.12] — 2026-08-12

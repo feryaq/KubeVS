@@ -1,22 +1,22 @@
 {
   "name": "kubevs",
-  "version": "1.1.12",
+  "version": "1.3.0",
   "private": true,
   "description": "Free KubeJS development, visually integrated into VS Code.",
   "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "check": "pnpm lint \u0026\u0026 pnpm typecheck \u0026\u0026 pnpm test \u0026\u0026 pnpm build \u0026\u0026 pnpm format:check",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm format:check",
     "lint": "eslint \"apps/**/*.ts\" \"packages/**/*.ts\"",
     "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm --filter @kubevs/protocol build \u0026\u0026 pnpm --filter @kubevs/recipe-model build \u0026\u0026 pnpm --filter @kubevs/kubejs-parser build \u0026\u0026 pnpm -r --if-present typecheck",
+    "typecheck": "pnpm --filter @kubevs/protocol build && pnpm --filter @kubevs/recipe-model build && pnpm --filter @kubevs/kubejs-parser build && pnpm -r --if-present typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "pnpm -r --if-present clean",
     "package:extension": "pnpm --filter kubevs-extension package:vsix",
     "verify:release": "node scripts/verify-release.mjs",
-    "check:release": "pnpm verify:release \u0026\u0026 pnpm check"
+    "check:release": "pnpm verify:release && pnpm check"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

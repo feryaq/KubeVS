@@ -14,6 +14,14 @@ export interface RegistrySuggestion extends NamedRegistryEntry {
   readonly source: 'minecraft' | 'project' | 'builtin' | 'tag';
 }
 
+export interface RegistryBrowsePage {
+  readonly entries: readonly RegistrySuggestion[];
+  readonly total: number;
+  readonly offset: number;
+  readonly hasMore: boolean;
+  readonly source: 'live' | 'offline';
+}
+
 interface CatalogEntry extends NamedRegistryEntry {
   readonly source: 'minecraft' | 'project' | 'builtin' | 'tag';
 }
@@ -133,6 +141,42 @@ export class RegistryCatalog {
   clearProjectCache(): void {
     this.projectCache = undefined;
     this.projectCacheRevision++;
+  }
+
+  async browseChoices(): Promise<readonly { readonly id: string; readonly label: string }[]> {
+    return (await this.registryChoices()).map((entry) => ({
+      id: entry.registry,
+      label: entry.label,
+    }));
+  }
+
+  async browse(
+    query: string,
+    registry: string,
+    offset = 0,
+    tagsOnly = false,
+  ): Promise<RegistryBrowsePage> {
+    const values = await this.entries(registry, true);
+    const normalized = query.trim().toLocaleLowerCase('en-US');
+    const entries = values
+      .map((entry) => ({ ...entry, registry }))
+      .filter(
+        (entry) =>
+          (!tagsOnly || entry.id.startsWith('#')) &&
+          matches(entry, normalized) &&
+          (entry.source === 'minecraft' ||
+            entry.source === 'tag' ||
+            inferRegistry(entry.id) === registry),
+      );
+    return {
+      entries: entries.slice(offset, offset + 60),
+      total: entries.length,
+      offset,
+      hasMore: offset + 60 < entries.length,
+      source: values.some((entry) => entry.source === 'minecraft' || entry.source === 'tag')
+        ? 'live'
+        : 'offline',
+    };
   }
 
   async suggestions(query: string): Promise<readonly RegistrySuggestion[]> {

@@ -20,7 +20,6 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 
 final class ConnectorAuthCommands {
-    private static final int OP_PERMISSION_LEVEL = 2;
     private static final int ADMIN_PERMISSION_LEVEL = 4;
     private static final String LATEST_RELEASE_URL =
             "https://github.com/Feryaq/KubeVS/releases/latest";
@@ -47,9 +46,10 @@ final class ConnectorAuthCommands {
             Supplier<ConnectorConfig> configSupplier,
             Supplier<KubeVSSocketServer> serverSupplier) {
         return literal(root)
-                .requires(source -> source.hasPermission(OP_PERMISSION_LEVEL))
                 .executes(context -> showStatus(
                         context.getSource(), configSupplier.get(), serverSupplier.get()))
+                .then(literal("status").executes(context -> showStatus(
+                        context.getSource(), configSupplier.get(), serverSupplier.get())))
                 .then(literal("join").executes(context -> join(
                         context.getSource(), configSupplier.get(), serverSupplier.get())))
                 .then(literal("users")
@@ -106,71 +106,26 @@ final class ConnectorAuthCommands {
         if (!isRunning(config, server, source)) return 0;
 
         source.sendSuccess(
-                () -> Component.literal("KubeVS")
-                        .withStyle(BRAND, ChatFormatting.BOLD)
-                        .append(Component.literal("  CONNECTOR").withStyle(VALUE, ChatFormatting.BOLD))
-                        .append(Component.literal("  ONLINE").withStyle(SUCCESS, ChatFormatting.BOLD)),
+                () -> Component.literal("KubeVS  ").withStyle(BRAND, ChatFormatting.BOLD)
+                        .append(tr("status.online").withStyle(SUCCESS))
+                        .append(tr("status.clients", server.connectedClientCount()).withStyle(LABEL)),
                 false);
         source.sendSuccess(
-                () -> Component.literal("Address  ")
-                        .withStyle(LABEL)
-                        .append(Component.literal(config.publicHost() + ":" + config.publicPort())
-                                .withStyle(VALUE))
-                        .append(Component.literal("    VS Code clients  ").withStyle(MUTED))
-                        .append(Component.literal(Integer.toString(server.connectedClientCount()))
-                                .withStyle(server.connectedClientCount() > 0 ? SUCCESS : VALUE)),
+                () -> Component.literal(config.publicHost() + ":" + config.publicPort()).withStyle(VALUE)
+                        .append(tr(config.allowReload() ? "status.reload_enabled" : "status.reload_disabled")
+                                .withStyle(MUTED)),
                 false);
-        source.sendSuccess(
-                () -> Component.literal("VS Code extension  ")
-                        .withStyle(LABEL)
-                        .append(Component.literal("REQUIRED  ")
-                                .withStyle(WARNING, ChatFormatting.BOLD))
-                        .append(actionButton(
-                                "[Install latest release]",
-                                BRAND,
-                                ClickEvent.Action.OPEN_URL,
-                                LATEST_RELEASE_URL,
-                                "Open the latest KubeVS extension release")),
-                false);
-
-        if (!source.hasPermission(ADMIN_PERMISSION_LEVEL)) {
-            source.sendSuccess(
-                    () -> Component.literal("Connect VS Code  ")
-                            .withStyle(LABEL)
-                            .append(commandHint("/kvs join", "Create a personal connection code")),
-                    false);
-            return 1;
+        MutableComponent actions = actionButton("action.connect", BRAND, ClickEvent.Action.RUN_COMMAND,
+                "/kvs join", "hover.connect")
+                .append(Component.literal("  "))
+                .append(actionButton("action.extension", BRAND, ClickEvent.Action.OPEN_URL,
+                        LATEST_RELEASE_URL, "hover.extension"));
+        if (source.hasPermission(ADMIN_PERMISSION_LEVEL)) {
+            actions.append(Component.literal("  "))
+                    .append(actionButton("action.manage", BRAND, ClickEvent.Action.RUN_COMMAND,
+                            "/kvs users", "hover.manage"));
         }
-
-        source.sendSuccess(
-                () -> Component.literal("Accounts  ")
-                        .withStyle(LABEL)
-                        .append(Component.literal(Integer.toString(config.playerTokens().size()))
-                                .withStyle(VALUE))
-                        .append(Component.literal("    "))
-                        .append(actionButton(
-                                "[Manage]",
-                                BRAND,
-                                ClickEvent.Action.RUN_COMMAND,
-                                "/kvs users",
-                                "Open roles and access")),
-                false);
-        if (source.getEntity() instanceof ServerPlayer) {
-            source.sendSuccess(
-                    () -> Component.literal("Administrator  ")
-                            .withStyle(LABEL)
-                            .append(copyAccessButton(config, server.authenticationToken()))
-                            .append(Component.literal("    "))
-                            .append(rotateButton()),
-                    false);
-        } else {
-            source.sendSuccess(
-                    () -> Component.literal("Admin token  ")
-                            .withStyle(LABEL)
-                            .append(Component.literal(config.tokenFile().toAbsolutePath().normalize().toString())
-                                    .withStyle(VALUE)),
-                    false);
-        }
+        source.sendSuccess(() -> actions, false);
         return 1;
     }
 
@@ -178,15 +133,13 @@ final class ConnectorAuthCommands {
             CommandSourceStack source, ConnectorConfig config, KubeVSSocketServer server) {
         if (!isRunning(config, server, source)) return 0;
         if (!(source.getEntity() instanceof ServerPlayer player)) {
-            source.sendFailure(Component.literal(
-                    "/kvs join is player-only. From the console, use the admin token stored in "
-                            + config.tokenFile()));
+            source.sendFailure(tr("join.player_only", config.tokenFile()));
             return 0;
         }
-        if (!source.hasPermission(config.joinPermissionLevel())) {
-            source.sendFailure(Component.literal(
-                    "Insufficient permission: command level " + config.joinPermissionLevel()
-                            + " is required. Contact a server administrator."));
+        boolean ownsSingleplayerWorld = source.getServer().isSingleplayer()
+                && source.getServer().isSingleplayerOwner(player.getGameProfile());
+        if (!source.hasPermission(config.joinPermissionLevel()) && !ownsSingleplayerWorld) {
+            source.sendFailure(tr("join.permission", config.joinPermissionLevel()));
             return 0;
         }
 
@@ -197,38 +150,25 @@ final class ConnectorAuthCommands {
                     config.defaultJoinRole());
             server.disconnectPlayer(player.getUUID(), "A new KubeVS token was issued");
             source.sendSuccess(
-                    () -> Component.literal("KUBEVS ACCESS READY")
-                            .withStyle(SUCCESS, ChatFormatting.BOLD),
-                    false);
-            source.sendSuccess(
-                    () -> Component.literal("Account  ")
-                            .withStyle(LABEL)
-                            .append(Component.literal(credential.playerName()).withStyle(VALUE))
-                            .append(Component.literal("    Role  ").withStyle(MUTED))
-                            .append(Component.literal(credential.role().displayName())
+                    () -> tr("join.ready", Component.literal(credential.playerName()).withStyle(VALUE))
+                            .withStyle(SUCCESS, ChatFormatting.BOLD)
+                            .append(roleName(credential.role())
                                     .withStyle(roleColor(credential.role()), ChatFormatting.BOLD)),
                     false);
             source.sendSuccess(
-                    () -> Component.literal("1. Copy the code  ")
-                            .withStyle(LABEL)
+                    () -> tr("join.step_copy").withStyle(LABEL)
                             .append(copyAccessButton(config, credential.token())),
                     false);
             source.sendSuccess(
-                    () -> Component.literal("2. In VS Code, run  ")
-                            .withStyle(LABEL)
-                            .append(Component.literal("KubeVS: Connect with /kvs join code")
-                                    .withStyle(BRAND)),
+                    () -> tr("join.step_extension").withStyle(LABEL),
                     false);
             source.sendSuccess(
-                    () -> Component.literal(
-                                    "This private code is shown once. Running /kvs join again disconnects the previous session.")
+                    () -> tr("join.once")
                             .withStyle(MUTED),
                     false);
             return 1;
         } catch (IOException exception) {
-            source.sendFailure(Component.literal(
-                    "Could not create a KubeVS code: " + exception.getMessage()
-                            + ". Run /kvs join again or contact an administrator."));
+            source.sendFailure(tr("join.failed", exception.getMessage()));
             return 0;
         }
     }
@@ -239,39 +179,38 @@ final class ConnectorAuthCommands {
         var accounts = config.playerTokens().list();
         if (accounts.isEmpty()) {
             source.sendSuccess(
-                    () -> Component.literal("No player accounts yet. A player can create one with ")
+                    () -> tr("users.empty")
                             .withStyle(LABEL)
-                            .append(commandHint("/kvs join", "Create a personal connection code")),
+                            .append(commandHint("/kvs join", "hover.connect")),
                     false);
             return 1;
         }
         source.sendSuccess(
                 () -> Component.literal("KubeVS")
                         .withStyle(BRAND, ChatFormatting.BOLD)
-                        .append(Component.literal("  ACCESS  ").withStyle(VALUE, ChatFormatting.BOLD))
-                        .append(Component.literal(Integer.toString(accounts.size())).withStyle(SUCCESS)),
+                        .append(tr("users.count", accounts.size()).withStyle(VALUE)),
                 false);
         for (PlayerTokenStore.Account account : accounts) {
             source.sendSuccess(
                     () -> Component.literal(account.playerName())
                             .withStyle(VALUE)
                             .append(Component.literal("    "))
-                            .append(Component.literal(account.role().displayName())
+                            .append(roleName(account.role())
                                     .withStyle(roleColor(account.role()), ChatFormatting.BOLD))
                             .append(Component.literal("    "))
                             .append(actionButton(
-                                    "[Change role]",
+                                    "action.role",
                                     BRAND,
                                     ClickEvent.Action.SUGGEST_COMMAND,
                                     "/kvs role " + account.playerName() + " ",
-                                    "Choose viewer, editor, operator, or admin"))
+                                    "hover.role"))
                             .append(Component.literal("  "))
                             .append(actionButton(
-                                    "[Revoke]",
+                                    "action.revoke",
                                     DANGER,
                                     ClickEvent.Action.SUGGEST_COMMAND,
                                     "/kvs revoke " + account.playerName(),
-                                    "Disconnect the session and delete its token")),
+                                    "hover.revoke")),
                     false);
         }
         return 1;
@@ -289,19 +228,18 @@ final class ConnectorAuthCommands {
             PlayerTokenStore.Account account =
                     config.playerTokens().setRole(playerName, role).orElse(null);
             if (account == null) {
-                source.sendFailure(Component.literal(
-                        "Account " + playerName + " was not found. Check /kvs users; the player can create access with /kvs join."));
+                source.sendFailure(tr("users.not_found", playerName));
                 return 0;
             }
             server.disconnectPlayer(account.playerId(), "KubeVS role changed");
             source.sendSuccess(
-                    () -> Component.literal("Role updated: " + account.playerName() + "  ")
+                    () -> tr("role.updated", account.playerName())
                             .withStyle(SUCCESS, ChatFormatting.BOLD)
-                            .append(Component.literal(role.displayName()).withStyle(roleColor(role))),
+                            .append(roleName(role).withStyle(roleColor(role))),
                     true);
             return 1;
         } catch (IllegalArgumentException | IOException exception) {
-            source.sendFailure(Component.literal("Could not change the role: " + exception.getMessage() + ". Check the player name and role with /kvs users."));
+            source.sendFailure(tr("role.failed", exception.getMessage()));
             return 0;
         }
     }
@@ -317,19 +255,19 @@ final class ConnectorAuthCommands {
                 .findFirst()
                 .orElse(null);
         if (account == null) {
-            source.sendFailure(Component.literal("Account " + playerName + " was not found. Check the player name with /kvs users."));
+            source.sendFailure(tr("users.not_found", playerName));
             return 0;
         }
         try {
             config.playerTokens().revoke(account.playerId());
             server.disconnectPlayer(account.playerId(), "KubeVS access revoked");
             source.sendSuccess(
-                    () -> Component.literal("Access revoked: " + account.playerName())
+                    () -> tr("revoke.done", account.playerName())
                             .withStyle(SUCCESS, ChatFormatting.BOLD),
                     true);
             return 1;
         } catch (IOException exception) {
-            source.sendFailure(Component.literal("Could not revoke access: " + exception.getMessage() + ". Run the command again or check the account file."));
+            source.sendFailure(tr("revoke.failed", exception.getMessage()));
             return 0;
         }
     }
@@ -338,12 +276,11 @@ final class ConnectorAuthCommands {
             CommandSourceStack source, ConnectorConfig config, KubeVSSocketServer server) {
         if (!isRunning(config, server, source)) return 0;
         if (!(source.getEntity() instanceof ServerPlayer)) {
-            source.sendFailure(Component.literal(
-                    "Secrets are not printed to the console. Copy the admin token from " + config.tokenFile()));
+            source.sendFailure(tr("auth.console", config.tokenFile()));
             return 0;
         }
         source.sendSuccess(
-                () -> Component.literal("Admin access  ")
+                () -> tr("auth.admin")
                         .withStyle(LABEL)
                         .append(copyAccessButton(config, server.authenticationToken())),
                 false);
@@ -352,9 +289,9 @@ final class ConnectorAuthCommands {
 
     private static int requestRotation(CommandSourceStack source, String root) {
         source.sendSuccess(
-                () -> Component.literal("Rotating the token disconnects every admin session. ")
+                () -> tr("auth.rotate_warning")
                         .withStyle(WARNING)
-                        .append(Component.literal("[Confirm rotation]").withStyle(style -> style
+                        .append(tr("action.confirm_rotation").withStyle(style -> style
                                 .withColor(DANGER)
                                 .withBold(true)
                                 .withClickEvent(new ClickEvent(
@@ -362,7 +299,7 @@ final class ConnectorAuthCommands {
                                         "/" + root + " auth rotate confirm"))
                                 .withHoverEvent(new HoverEvent(
                                         HoverEvent.Action.SHOW_TEXT,
-                                        Component.literal("Disconnect current admin sessions and create a new token"))))),
+                                        tr("hover.confirm_rotation"))))),
                 false);
         return 1;
     }
@@ -374,17 +311,16 @@ final class ConnectorAuthCommands {
             String token = TokenStore.rotate(config.tokenFile());
             server.replaceAuthenticationToken(token);
             source.sendSuccess(
-                    () -> Component.literal("Admin token rotated  ")
+                    () -> tr("auth.rotated")
                             .withStyle(SUCCESS, ChatFormatting.BOLD)
                             .append(source.getEntity() instanceof ServerPlayer
                                     ? copyAccessButton(config, token)
-                                    : Component.literal("File: " + config.tokenFile())
+                                    : tr("auth.file", config.tokenFile())
                                             .withStyle(VALUE)),
                     false);
             return 1;
         } catch (IOException exception) {
-            source.sendFailure(Component.literal(
-                    "Could not rotate the admin token: " + exception.getMessage() + ". Check write access to " + config.tokenFile()));
+            source.sendFailure(tr("auth.rotate_failed", exception.getMessage(), config.tokenFile()));
             return 0;
         }
     }
@@ -396,47 +332,45 @@ final class ConnectorAuthCommands {
         String code = "kubevs://" + host + ":" + config.publicPort()
                 + "?token=" + token
                 + (config.advertisedSecure() ? "&secure=true" : "");
-        return Component.literal("[Copy code]").withStyle(style -> style
+        return tr("action.copy").withStyle(style -> style
                 .withColor(BRAND)
                 .withBold(true)
                 .withUnderlined(true)
                 .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, code))
                 .withHoverEvent(new HoverEvent(
                         HoverEvent.Action.SHOW_TEXT,
-                        Component.literal("Copy the private code for VS Code: KubeVS: Connect with /kvs join code"))));
+                        tr("hover.copy"))));
     }
 
-    private static MutableComponent rotateButton() {
-        return Component.literal("[Rotate token]").withStyle(style -> style
-                .withColor(WARNING)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/kvs auth rotate"))
-                .withHoverEvent(new HoverEvent(
-                        HoverEvent.Action.SHOW_TEXT,
-                        Component.literal("Create a new token after confirmation"))));
-    }
-
-    private static MutableComponent commandHint(String command, String hoverText) {
-        return actionButton(
-                        command,
-                        BRAND,
-                        ClickEvent.Action.SUGGEST_COMMAND,
-                        command,
-                        hoverText)
-                .withStyle(ChatFormatting.BOLD);
+    private static MutableComponent commandHint(String command, String hoverKey) {
+        return Component.literal(command).withStyle(style -> style
+                .withColor(BRAND)
+                .withBold(true)
+                .withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, command))
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, tr(hoverKey))));
     }
 
     private static MutableComponent actionButton(
-            String label,
+            String labelKey,
             ChatFormatting color,
             ClickEvent.Action clickAction,
             String clickValue,
-            String hoverText) {
-        return Component.literal(label).withStyle(style -> style
+            String hoverKey) {
+        return tr(labelKey).withStyle(style -> style
                 .withColor(color)
                 .withClickEvent(new ClickEvent(clickAction, clickValue))
                 .withHoverEvent(new HoverEvent(
                         HoverEvent.Action.SHOW_TEXT,
-                        Component.literal(hoverText).withStyle(VALUE))));
+                        tr(hoverKey).withStyle(VALUE))));
+    }
+    private static MutableComponent tr(String key, Object... args) {
+        String fullKey = "command.kubevs." + key;
+        return Component.translatableWithFallback(
+                fullKey, ConnectorTranslations.englishFallback(fullKey), args);
+    }
+
+    private static MutableComponent roleName(ConnectorRole role) {
+        return tr("role." + role.id());
     }
     private static ChatFormatting roleColor(ConnectorRole role) {
         return switch (role) {
@@ -450,7 +384,7 @@ final class ConnectorAuthCommands {
     private static boolean isRunning(
             ConnectorConfig config, KubeVSSocketServer server, CommandSourceStack source) {
         if (Objects.nonNull(config) && Objects.nonNull(server)) return true;
-        source.sendFailure(Component.literal("KubeVS Connector is unavailable. Check the server and config/kubevs-connector.toml."));
+        source.sendFailure(tr("unavailable"));
         return false;
     }
 }

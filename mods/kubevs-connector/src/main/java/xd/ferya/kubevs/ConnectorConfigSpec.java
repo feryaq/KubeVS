@@ -32,7 +32,8 @@ final class ConnectorConfigSpec {
                 builder.comment(
                                 "Address to listen on.",
                                 "Keep 127.0.0.1 for a local game.",
-                                "For a dedicated server use its bind address or 0.0.0.0 and enable allowRemote.")
+                                "For a dedicated server use its bind address or 0.0.0.0 and enable allowRemote.",
+                                "A bind address is not the address copied to players; set publicHost for that.")
                         .define("host", DEFAULT_HOST, ConnectorConfigSpec::isValidHost);
         PORT =
                 builder.comment("WebSocket port used by KubeVS and the VS Code extension.")
@@ -40,37 +41,42 @@ final class ConnectorConfigSpec {
         PUBLIC_HOST =
                 builder.comment(
                                 "Public hostname copied by /kvs join.",
-                                "Required when host is 0.0.0.0 or a TLS reverse proxy is used.")
+                                "Required when host is 0.0.0.0 or a TLS reverse proxy is used.",
+                                "Use a hostname or IP that players can reach; do not include a scheme or port.")
                         .define("publicHost", DEFAULT_PUBLIC_HOST, ConnectorConfigSpec::isValidPublicHost);
         PUBLIC_PORT =
-                builder.comment("Public proxy port. 0 uses the listening port.")
+                builder.comment("Port copied into connection codes. 0 uses network.port.")
                         .defineInRange("publicPort", DEFAULT_PUBLIC_PORT, 0, 65535);
         PUBLIC_SECURE =
                 builder.comment(
                                 "Generate connection codes for wss://.",
-                                "Enable only when a TLS reverse proxy terminates this endpoint.")
+                                "Enable only when a TLS reverse proxy terminates this endpoint.",
+                                "This setting changes connection codes; it does not enable TLS in the Connector.")
                         .define("publicSecure", false);
         ALLOW_REMOTE =
                 builder.comment(
                                 "Allow listening on a non-loopback address.",
-                                "Remote connections use ws://, so expose this port only to trusted networks.")
+                                "Remote connections use ws:// unless you provide a TLS reverse proxy.",
+                                "Expose this port only to trusted networks.")
                         .define("allowRemote", DEFAULT_ALLOW_REMOTE);
         builder.pop();
 
         builder.comment("Authentication and server action settings.").push("permissions");
         ALLOW_RELOAD =
-                builder.comment("Allow authenticated clients to reload server_scripts.")
+                builder.comment("Allow operator/admin clients to request a server_scripts reload.")
                         .define("allowReload", DEFAULT_ALLOW_RELOAD);
         JOIN_PERMISSION_LEVEL =
                 builder.comment(
                                 "Minimum Minecraft command permission level required for /kvs join.",
-                                "0 = everyone, 2 = operators, 4 = administrators.")
+                                "0 = everyone, 2 = operators, 4 = administrators.",
+                                "The singleplayer world owner can use /kvs join without cheats.")
                         .defineInRange(
                                 "joinPermissionLevel", DEFAULT_JOIN_PERMISSION_LEVEL, 0, 4);
         DEFAULT_JOIN_ROLE =
                 builder.comment(
                                 "Role assigned when a player first uses /kvs join.",
-                                "An administrator can change it with /kvs role <player> <role>.")
+                                "An administrator can change it with /kvs role <player> <role>.",
+                                "Existing player accounts keep their assigned roles.")
                         .defineEnum("defaultRole", DEFAULT_ROLE);
         builder.pop();
 

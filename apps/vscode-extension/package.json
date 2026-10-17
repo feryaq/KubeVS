@@ -2,7 +2,7 @@
   "name": "kubevs-extension",
   "displayName": "KubeVS",
   "description": "%extension.description%",
-  "version": "1.1.12",
+  "version": "1.3.0",
   "private": true,
   "publisher": "kubevs",
   "repository": {
@@ -32,7 +32,7 @@
     "onFileSystem:kubevs-remote",
     "onStartupFinished",
     "onCommand:kubevs.openDashboard",
-    "onView:kubevs.project"
+    "onView:kubevs.home"
   ],
   "main": "./dist/extension.cjs",
   "scripts": {
@@ -52,10 +52,12 @@
     "build:test-replacement": "esbuild src/recipeReplacementCore.ts --bundle --platform=node --format=esm --outfile=dist/recipeReplacementCore.mjs",
     "package:vsix": "vsce package --no-dependencies",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "pnpm build \u0026\u0026 pnpm build:test-addon \u0026\u0026 pnpm build:test-webview \u0026\u0026 pnpm build:test-loot \u0026\u0026 pnpm build:test-auth \u0026\u0026 pnpm build:test-client \u0026\u0026 pnpm build:test-removal \u0026\u0026 pnpm build:test-graph \u0026\u0026 pnpm build:test-graph-webview \u0026\u0026 pnpm build:test-target \u0026\u0026 pnpm build:test-content \u0026\u0026 pnpm build:test-replacement \u0026\u0026 node --test test/addonRecipeCore.test.mjs test/addonRecipeWebview.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/craftGraphWebview.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs \u0026\u0026 node ./test/run.mjs",
-    "test:live-vscode": "pnpm build \u0026\u0026 node ./test/run-live-vscode.mjs",
-    "test:unit": "pnpm build:test-addon \u0026\u0026 pnpm build:test-webview \u0026\u0026 pnpm build:test-loot \u0026\u0026 pnpm build:test-auth \u0026\u0026 pnpm build:test-client \u0026\u0026 pnpm build:test-removal \u0026\u0026 pnpm build:test-graph \u0026\u0026 pnpm build:test-graph-webview \u0026\u0026 pnpm build:test-target \u0026\u0026 pnpm build:test-content \u0026\u0026 pnpm build:test-replacement \u0026\u0026 node --test test/*.test.mjs",
-    "clean": "node -e \"require(\u0027fs\u0027).rmSync(\u0027dist\u0027,{recursive:true,force:true})\""
+    "test": "pnpm build && pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/addonRecipeCore.test.mjs test/addonRecipeWebview.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/craftGraphWebview.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs test/recipeImport.test.mjs && node ./test/run.mjs",
+    "test:live-vscode": "pnpm build && node ./test/run-live-vscode.mjs",
+    "test:unit": "pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/*.test.mjs",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "test:render": "node test/workbenchRender.mjs ../../artifacts/home-1.3.0",
+    "test:visual": "node test/workbenchVisual.mjs ../../artifacts/home-1.3.0 ../../artifacts/home-1.3.0/screenshots --strict"
   },
   "dependencies": {
     "@kubevs/kubejs-parser": "workspace:*",
@@ -245,6 +247,24 @@
         "command": "kubevs.generateTypings",
         "title": "%command.generateTypings%",
         "category": "KubeVS"
+      },
+      {
+        "command": "kubevs.checkConnection",
+        "title": "Check Connection",
+        "category": "KubeVS",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "kubevs.openSettings",
+        "title": "Settings",
+        "category": "KubeVS",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "kubevs.openKubeJsSetup",
+        "title": "Get KubeJS",
+        "category": "KubeVS",
+        "icon": "$(link-external)"
       }
     ],
     "viewsContainers": {
@@ -259,89 +279,24 @@
     "views": {
       "kubevs": [
         {
-          "id": "kubevs.project",
-          "name": "%view.project%",
-          "icon": "$(files)"
-        },
-        {
-          "id": "kubevs.recipes",
-          "name": "%view.recipes%",
-          "icon": "$(beaker)"
-        },
-        {
-          "id": "kubevs.lootjs",
-          "name": "%view.lootjs%",
-          "icon": "$(symbol-event)"
-        },
-        {
-          "id": "kubevs.registries",
-          "name": "%view.registries%",
-          "icon": "$(database)"
-        },
-        {
-          "id": "kubevs.connection",
-          "name": "%view.connection%",
-          "icon": "$(plug)"
+          "id": "kubevs.home",
+          "name": "Home",
+          "type": "webview",
+          "icon": "$(dashboard)"
         }
       ]
     },
-    "viewsWelcome": [
-      {
-        "view": "kubevs.project",
-        "contents": "%viewWelcome.project%"
-      }
-    ],
     "menus": {
       "view/title": [
         {
           "command": "kubevs.openDashboard",
-          "when": "view =~ /kubevs\\..*/",
+          "when": "view == kubevs.home",
           "group": "navigation@1"
         },
         {
-          "command": "kubevs.refreshProject",
-          "when": "view == kubevs.project",
+          "command": "kubevs.openSettings",
+          "when": "view == kubevs.home",
           "group": "navigation@2"
-        },
-        {
-          "command": "kubevs.createAddonRecipe",
-          "when": "view == kubevs.recipes",
-          "group": "navigation@2"
-        },
-        {
-          "command": "kubevs.deleteRecipe",
-          "when": "view == kubevs.recipes",
-          "group": "navigation@3"
-        },
-        {
-          "command": "kubevs.createLootRule",
-          "when": "view == kubevs.lootjs",
-          "group": "navigation@2"
-        },
-        {
-          "command": "kubevs.searchRegistry",
-          "when": "view == kubevs.registries",
-          "group": "navigation@2"
-        },
-        {
-          "command": "kubevs.connectWithCode",
-          "when": "view == kubevs.connection \u0026\u0026 !kubevs.connected",
-          "group": "navigation@1"
-        },
-        {
-          "command": "kubevs.connect",
-          "when": "view == kubevs.connection \u0026\u0026 !kubevs.connected",
-          "group": "navigation@2"
-        },
-        {
-          "command": "kubevs.disconnect",
-          "when": "view == kubevs.connection \u0026\u0026 kubevs.connected",
-          "group": "navigation@2"
-        },
-        {
-          "command": "kubevs.changeConnectorToken",
-          "when": "view == kubevs.connection",
-          "group": "navigation@3"
         }
       ]
     },

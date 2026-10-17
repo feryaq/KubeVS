@@ -22,6 +22,37 @@ export function isConnectorAuthenticationError(error: unknown): boolean {
   return /(?:\b401\b|unauthori[sz]ed|authentication|invalid token|forbidden)/iu.test(message);
 }
 
+/** Recovery text for the current endpoint; never echoes a pasted connection code. */
+export function describeConnectorConnectionError(
+  error: unknown,
+  host: string,
+  port: number,
+): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (isConnectorAuthenticationError(error)) {
+    return 'Access was rejected. Run /kvs join again and paste the new code. Ask a server operator to check your role if access is still denied.';
+  }
+  if (/ECONNREFUSED/iu.test(message)) {
+    return `No Connector is listening at ${host}:${port}. Open a Minecraft world or start the server, then check network.port in kubevs-connector.toml.`;
+  }
+  if (/ENOTFOUND|EAI_AGAIN/iu.test(message)) {
+    return `Could not resolve ${host}. Check the server address and network.publicHost in kubevs-connector.toml.`;
+  }
+  if (/timeout|ETIMEDOUT|did not send hello/iu.test(message)) {
+    return `Connector at ${host}:${port} did not respond. Check the server is running and its separate Connector port is reachable.`;
+  }
+  if (/protocol mismatch/iu.test(message)) {
+    return 'The extension and Connector use different protocols. Install matching KubeVS versions, restart Minecraft, and reconnect.';
+  }
+  if (/certificate|TLS|SSL/iu.test(message)) {
+    return 'The secure connection failed. Check the TLS proxy certificate and network.publicSecure before requesting a new /kvs join code.';
+  }
+  return message
+    .replace(/kubevs:\/\/[^\s]+/giu, '[connection code]')
+    .replace(/token=[A-Za-z0-9_-]+/giu, 'token=[hidden]')
+    .slice(0, 500);
+}
+
 export interface ConnectorConnectionCode {
   readonly host: string;
   readonly port: number;

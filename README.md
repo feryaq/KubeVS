@@ -1,72 +1,63 @@
 # KubeVS
 
-**A professional KubeJS development environment inside Visual Studio Code.**
+**Бесплатная рабочая среда для KubeJS в Visual Studio Code.**
 
-KubeVS combines a Visual Studio Code extension with a secure NeoForge server bridge. Build recipes visually, browse the live Minecraft registry, understand production chains, and edit the server's KubeJS workspace without leaving your editor.
+Создавайте рецепты в редакторах, пишите скрипты, просматривайте реестры Minecraft и изучайте цепочки производства. KubeVS объединяет расширение VS Code и защищённый NeoForge Connector. Подписки, платные функции и лицензионные ключи не нужны.
 
-**KubeVS is free to download and use. There are no subscriptions, paid features, license keys, or usage fees.**
+## Установка
 
-## Release matrix
+1. Установите `kubevs-1.3.0.vsix` командой VS Code **Install from VSIX…**.
+2. Поместите JAR Connector в папку `mods` сервера Minecraft.
+3. Выполните в игре `/kvs join`, затем в VS Code запустите **KubeVS: Connect with /kvs join code**.
+4. Откройте KubeVS значком куба на панели действий. Рабочая среда откроется автоматически; в боковой панели доступен тот же интерфейс.
 
-| Component          | Version | Platform                                 |
-| ------------------ | ------: | ---------------------------------------- |
-| KubeVS Extension   |  1.1.12 | Visual Studio Code 1.105+                |
-| KubeVS Connector   |  1.1.12 | Minecraft 1.21.1, NeoForge 21.x, Java 21 |
-| WebSocket protocol |       2 | Localhost-only by default                |
+Расширение работает и без подключения к игре. Чтобы создавать рецепты и применять скрипты, установите [KubeJS для Minecraft 1.21.1 NeoForge](https://modrinth.com/mod/kubejs/versions?g=1.21.1&l=neoforge) и перечисленные для этой версии зависимости на сервере или в игре, затем перезапустите Minecraft и подключитесь заново. Одних Create, Farmer’s Delight и прав администратора Connector недостаточно: необходима среда выполнения KubeJS. Connector для локального редактирования необязателен.
 
-## What KubeVS gives you
+| Компонент          | Версия | Платформа                                        |
+| ------------------ | -----: | ------------------------------------------------ |
+| Расширение KubeVS  |  1.3.0 | VS Code 1.105+; проверен Code OSS                |
+| KubeVS Connector   |  1.3.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
+| Протокол WebSocket |      2 | С аутентификацией; по умолчанию только localhost |
 
-- A focused Dashboard and dedicated Project, Recipes, LootJS, Registries, and Connection views.
-- KubeJS completion, hover information, diagnostics, Code Actions, project indexing, and live typings.
-- Visual editors for Vanilla, Create, Oritech, Farmer's Delight, Sequenced Assembly, and custom-schema recipes.
-- LootJS, item, and block builders with readable generated scripts.
-- A live Registry Browser with names, IDs, tags, and Minecraft item icons.
-- Craft Graph with movable nodes, recipe alternatives, and totals for items, fluids, time, energy, chances, and by-products.
-- The server's complete `kubejs` directory mounted in VS Code Explorer, including binary files, revisions, external change tracking, and team locks.
-- Per-player `viewer`, `editor`, `operator`, and `admin` roles with one-time `/kvs join` connection codes.
-- English-only runtime UI across local and remote workspaces.
-- A complete Offline Mode for editing and diagnostics without a running Minecraft instance.
+## Возможности
 
-## Two-part installation
+- Главная вкладка с поиском, файлами проекта, диагностикой и состоянием подключения.
+- Редакторы рецептов Vanilla, Create, Oritech, Farmer’s Delight и схем с пользовательскими полями.
+- Рецепты Create: mechanical crafting с сеткой до 9×9, ключами ингредиентов и параметром `accept_mirrored`.
+- Редакторы условий и действий LootJS, а также конструкторы стартовых предметов и блоков.
+- Элементы управления с поддержкой темы, копирование готового кода и сохранение через Ctrl/Cmd+S.
+- Поиск по реестрам, копирование ID, постраничная навигация и содержимое тегов.
+- Craft Graph с перемещаемыми узлами, вариантами рецептов, списком ресурсов, объёмами жидкостей и адаптивными панелями.
+- Импорт JSON рецептов и просмотр предмета в руке для личной сессии игрока.
+- Дополнение KubeJS, подсказки, Code Actions, лексическая диагностика и актуальные типы.
+- Удалённые файлы `kubejs` в Explorer, безопасная передача бинарных данных, контроль ревизий и блокировки для команды.
 
-1. Install `kubevs-1.1.12.vsix` in Visual Studio Code.
-2. Place `kubevs-connector-1.1.12.jar` in the NeoForge server's `mods` directory.
-3. Start Minecraft, run `/kvs join`, and paste the copied code into **KubeVS: Connect with /kvs join code**.
+По умолчанию Connector требует аутентификацию и принимает соединения только на `127.0.0.1:32145`. Для удалённого сервера используйте VPN или TLS reverse proxy. Перезагрузка скриптов по сети изначально выключена: включите её в `config/kubevs-connector.toml` и назначьте подходящую роль.
 
-The Modrinth download contains the Minecraft Connector JAR. The required VS Code extension is distributed through the [latest GitHub Release](https://github.com/Feryaq/KubeVS/releases/latest).
+## Сборка и проверка
 
-## Security by default
+Нужны Node.js 22+, pnpm 11.9.0 и Java 21.
 
-Connector listens on `127.0.0.1:32145`, requires authentication, and rejects remote clients until remote access is explicitly enabled. Use a VPN or a TLS reverse proxy for a remote server. Tokens are stored in VS Code SecretStorage; the server stores only SHA-256 digests for player credentials. See [SECURITY.md](SECURITY.md).
-
-## Build and verify
-
-Requires Node.js 22+, pnpm 11.9.0, and Java 21.
-
-```powershell
+```sh
 pnpm install --frozen-lockfile
-pnpm audit --prod
 pnpm check:release
 pnpm --filter kubevs-extension package:vsix
-.\gradlew.bat :mods:kubevs-connector:test :mods:kubevs-connector:build --no-daemon
+bash gradlew :mods:kubevs-connector:test :mods:kubevs-connector:build
 ```
 
-Expected artifacts:
+Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.3.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.3.0.jar`.
 
-- `apps/vscode-extension/kubevs-extension-1.1.12.vsix`
-- `mods/kubevs-connector/build/libs/kubevs-1.1.12.jar`
+В релизах GitHub распространяется только расширение; Connector публикуется через Modrinth. Перед выпуском следуйте [инструкции по релизу](RELEASE.md). Сборка сама по себе не публикует новую версию.
 
-Tagging a verified commit as `v1.1.12` runs the production release workflow and publishes only the VS Code extension VSIX to GitHub Releases. The Connector JAR remains distributed through Modrinth. Follow [the release checklist](docs/release-checklist.md).
+## Документация
 
-## Documentation
+- [Рабочая среда и проверка](docs/workbench.md)
+- [Настройка Connector и роли](mods/kubevs-connector/README.md)
+- [Архитектура](ARCHITECTURE.md)
+- [Безопасность](SECURITY.md)
 
-- [Connector installation and dedicated servers](docs/kubevs-connector-guide-ru.md) — Russian
-- [Team access and player tokens](docs/team-auth-ru.md) — Russian
-- [Craft Graph](docs/craft-graph-ru.md) — Russian
-- [Recipe Editor](docs/recipe-editor.md)
-- [Architecture](ARCHITECTURE.md)
-- [Modrinth listing copy](MODRINTH.md)
+Отдельный прототип для рабочего стола на Rust/Slint остаётся в архиве; он не заменяет расширение VS Code.
 
-## License
+## Лицензия
 
-KubeVS is distributed under the [KubeVS Community Source License 1.0](LICENSE). Your generated KubeJS files remain yours. See the license for source-use and distribution terms, and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled components.
+KubeVS распространяется по лицензии [KubeVS Community Source License 1.0](LICENSE). Созданные файлы KubeJS остаются вашими. Подробности — в [уведомлениях о сторонних компонентах](THIRD_PARTY_NOTICES.md).

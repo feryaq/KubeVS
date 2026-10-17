@@ -24,6 +24,7 @@ interface PendingRequest {
   readonly resolve: (value: unknown) => void;
   readonly reject: (error: Error) => void;
   readonly timer: NodeJS.Timeout;
+  readonly socket: WebSocket;
 }
 
 export class ConnectorClient {
@@ -32,6 +33,7 @@ export class ConnectorClient {
   private readonly pending = new Map<string, PendingRequest>();
   private nextRequestId = 1;
   private hello: ConnectorHello | undefined;
+  private cancelConnect: (() => void) | undefined;
   private readonly eventListeners = new Set<(event: ConnectorEvent) => void>();
   private readonly disconnectListeners = new Set<(error: Error) => void>();
   private readonly expectedCloses = new WeakSet<WebSocket>();
@@ -74,6 +76,7 @@ export class ConnectorClient {
         }
       };
 
+      this.cancelConnect = () => failInitial(new Error('Connector disconnected'));
       const helloTimer = setTimeout(() => {
         failInitial(new Error('Connector did not send hello within the connection timeout'));
         this.expectedCloses.add(socket);
@@ -81,6 +84,7 @@ export class ConnectorClient {
       }, helloTimeoutMs);
 
       socket.on('message', (data, isBinary) => {
+        if (this.socket !== socket) return;
         if (isBinary) {
           socket.close(1003, 'Text messages required');
           return;
@@ -109,6 +113,7 @@ export class ConnectorClient {
           if (!settled) {
             settled = true;
             if (helloTimer) clearTimeout(helloTimer);
+            this.cancelConnect = undefined;
             resolve(value);
           }
           return;
@@ -129,7 +134,7 @@ export class ConnectorClient {
           `Connector closed (${code})${reason.length > 0 ? `: ${reason.toString()}` : ''}`,
         );
         failInitial(error);
-        this.rejectPending(error);
+        this.rejectPending(error, socket);
         if (!this.expectedCloses.has(socket)) {
           for (const listener of this.disconnectListeners) listener(error);
         }
@@ -138,11 +143,13 @@ export class ConnectorClient {
   }
 
   async request<T>(method: string, params: Readonly<Record<string, unknown>> = {}): Promise<T> {
+    const socket = this.socket;
     try {
       return await this.requestOnce<T>(method, params);
     } catch (error) {
       if (!(error instanceof ConnectorRequestError) || error.code !== 'RATE_LIMITED') throw error;
       await new Promise((resolve) => setTimeout(resolve, this.rateLimitRetryMs));
+      if (this.socket !== socket) throw new Error('Connector session changed before retry');
       return await this.requestOnce<T>(method, params);
     }
   }
@@ -166,6 +173,7 @@ export class ConnectorClient {
         resolve: (value) => resolve(value as T),
         reject,
         timer,
+        socket,
       });
       socket.send(JSON.stringify(message), (error) => {
         if (error) {
@@ -182,11 +190,14 @@ export class ConnectorClient {
 
   disconnect(): void {
     const socket = this.socket;
+    this.cancelConnect?.();
+    this.cancelConnect = undefined;
     this.socket = undefined;
     this.hello = undefined;
     if (socket) {
       this.expectedCloses.add(socket);
-      socket.close(1000, 'Extension disconnected');
+      if (socket.readyState === WebSocket.CONNECTING) socket.terminate();
+      else socket.close(1000, 'Extension disconnected');
     }
     this.rejectPending(new Error('Connector disconnected'));
   }
@@ -205,11 +216,12 @@ export class ConnectorClient {
     }
   }
 
-  private rejectPending(error: Error): void {
-    for (const pending of this.pending.values()) {
+  private rejectPending(error: Error, socket?: WebSocket): void {
+    for (const [requestId, pending] of this.pending) {
+      if (socket && pending.socket !== socket) continue;
       clearTimeout(pending.timer);
       pending.reject(error);
+      this.pending.delete(requestId);
     }
-    this.pending.clear();
   }
 }

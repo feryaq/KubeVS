@@ -56,6 +56,7 @@ final class KubeVSSocketServer extends WebSocketServer {
     private static final int MAX_PAGE_SIZE = 500;
 
     private final MinecraftServer minecraftServer;
+    private final long startedAtNanos = System.nanoTime();
     private final ConnectorConfig config;
     private volatile String authenticationToken;
     private final Map<WebSocket, RateLimiter> rateLimiters = new ConcurrentHashMap<>();
@@ -103,8 +104,13 @@ final class KubeVSSocketServer extends WebSocketServer {
             connection.close(1008, "Loopback clients only");
             return;
         }
-        Optional<SessionIdentity> identity =
-                authenticate(handshake.getFieldValue("Authorization"));
+        String authorization = handshake.getFieldValue("Authorization");
+        minecraftServer.execute(() -> openAuthenticated(connection, authorization));
+    }
+
+    private void openAuthenticated(WebSocket connection, String authorization) {
+        if (!connection.isOpen()) return;
+        Optional<SessionIdentity> identity = authenticate(authorization);
         if (identity.isEmpty()) {
             connection.close(1008, "Authentication failed");
             appendLog("warning", "auth", "Rejected an unauthenticated connection");
@@ -156,7 +162,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             return;
         }
 
-        String requestId = string(request, "requestId");
+        String requestId = RequestEnvelope.requestId(request);
         RateLimiter limiter = rateLimiters.get(connection);
         if (limiter == null) {
             connection.close(1008, "Authentication required");
@@ -166,18 +172,22 @@ final class KubeVSSocketServer extends WebSocketServer {
             connection.send(error(requestId, "RATE_LIMITED", "Too many requests").toString());
             return;
         }
-        try {
-            if (!"request".equals(string(request, "type")) || string(request, "requestId") == null) {
-                connection.send(error(null, "INVALID_MESSAGE", "Expected a request envelope").toString());
-                return;
-            }
-            handleRequest(connection, request);
-        } catch (IllegalArgumentException exception) {
-            connection.send(error(requestId, "INVALID_MESSAGE", exception.getMessage()).toString());
-        } catch (RuntimeException exception) {
-            LOGGER.warn("KubeVS Connector request failed: {}", exception.getMessage());
-            connection.send(error(requestId, "INTERNAL_ERROR", "Connector request failed").toString());
+        if (!RequestEnvelope.isValid(request)) {
+            connection.send(error(RequestEnvelope.requestId(request), "INVALID_MESSAGE", "Expected a request envelope").toString());
+            return;
         }
+        SessionIdentity identity = identities.get(connection);
+        minecraftServer.execute(() -> {
+            if (!connection.isOpen() || identity == null || identities.get(connection) != identity) return;
+            try {
+                handleRequest(connection, request);
+            } catch (IllegalArgumentException exception) {
+                connection.send(error(requestId, "INVALID_MESSAGE", exception.getMessage()).toString());
+            } catch (RuntimeException exception) {
+                LOGGER.warn("KubeVS Connector request failed: {}", exception.getMessage());
+                connection.send(error(requestId, "INTERNAL_ERROR", "Connector request failed").toString());
+            }
+        });
     }
 
     @Override
@@ -205,6 +215,8 @@ final class KubeVSSocketServer extends WebSocketServer {
     void replaceAuthenticationToken(String token) {
         authenticationToken = token;
         for (WebSocket connection : getConnections()) {
+            SessionIdentity identity = identities.remove(connection);
+            if (identity != null) workspaceLocks.releaseAll(identity.lockOwner());
             connection.close(1008, "Authentication token rotated");
         }
         appendLog("info", "auth", "Authentication token rotated");
@@ -216,13 +228,17 @@ final class KubeVSSocketServer extends WebSocketServer {
     }
 
     int connectedClientCount() {
-        return getConnections().size();
+        return identities.size();
     }
 
     void disconnectPlayer(UUID playerId, String reason) {
         identities.entrySet().stream()
                 .filter(entry -> playerId.equals(entry.getValue().playerId()))
-                .forEach(entry -> entry.getKey().close(1008, reason));
+                .forEach(entry -> {
+                    identities.remove(entry.getKey());
+                    workspaceLocks.releaseAll(entry.getValue().lockOwner());
+                    entry.getKey().close(1008, reason);
+                });
     }
 
     private void handleRequest(WebSocket connection, JsonObject request) {
@@ -239,6 +255,8 @@ final class KubeVSSocketServer extends WebSocketServer {
         }
 
         switch (method) {
+            case "connector.status" -> connection.send(response(requestId, status(connection)).toString());
+            case "player.inspectHeldItem" -> inspectHeldItem(connection, requestId);
             case "registry.list" -> connection.send(
                     response(requestId, registryList()).toString());
             case "registry.entries" -> connection.send(
@@ -255,7 +273,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                     response(requestId, pagedItems(params)).toString());
             case "registry.tags" -> connection.send(
                     response(requestId, genericRegistryTags(params)).toString());
-            case "registry.tagValues" -> connection.send(
+            case "registry.tagValues", "registry.tagEntries" -> connection.send(
                     response(requestId, genericTagValues(params)).toString());
             case "recipes.list" -> connection.send(
                     response(requestId, pagedRecipes(params)).toString());
@@ -282,6 +300,39 @@ final class KubeVSSocketServer extends WebSocketServer {
             default -> connection.send(
                     error(requestId, "INVALID_MESSAGE", "Unsupported method: " + method).toString());
         }
+    }
+
+    private void inspectHeldItem(WebSocket connection, String requestId) {
+        if (!requirePermission(connection, requestId, ConnectorPermissions.INSPECT)) return;
+        SessionIdentity identity = identity(connection);
+        if (identity.playerId() == null) {
+            connection.send(error(requestId, "INVALID_MESSAGE", "Held item inspection requires a personal /kvs join connection").toString());
+            return;
+        }
+        var player = minecraftServer.getPlayerList().getPlayer(identity.playerId());
+        if (player == null) {
+            connection.send(error(requestId, "INVALID_MESSAGE", "Your player must be online to inspect a held item").toString());
+            return;
+        }
+        var stack = player.getMainHandItem();
+        JsonObject result = new JsonObject();
+        result.addProperty("id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+        result.addProperty("count", stack.getCount());
+        result.addProperty("name", stack.getHoverName().getString());
+        connection.send(response(requestId, result).toString());
+    }
+
+    private JsonObject status(WebSocket connection) {
+        JsonObject result = new JsonObject();
+        result.addProperty("uptimeSeconds", (System.nanoTime() - startedAtNanos) / 1_000_000_000L);
+        result.addProperty("players", minecraftServer.getPlayerList().getPlayerCount());
+        result.addProperty("maxPlayers", minecraftServer.getPlayerList().getMaxPlayers());
+        result.addProperty("clients", connectedClientCount());
+        SessionIdentity identity = identities.get(connection);
+        result.addProperty("reloadAllowed", config.allowReload() && identity != null
+                && ConnectorPermissions.allows(identity.role(), ConnectorPermissions.RELOAD_SERVER));
+        result.addProperty("kubejsVersion", optionalModVersion("kubejs"));
+        return result;
     }
 
     private JsonObject hello(SessionIdentity identity) {
@@ -315,6 +366,7 @@ final class KubeVSSocketServer extends WebSocketServer {
         hello.add("workspace", workspace);
 
         JsonObject capabilities = new JsonObject();
+        capabilities.addProperty("status", true);
         capabilities.addProperty("registries", true);
         capabilities.addProperty("recipes", true);
         capabilities.addProperty(

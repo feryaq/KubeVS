@@ -1,3 +1,4 @@
+import { workbenchCss, editorUtilities, handleWorkbenchMessage } from './workbenchUi.js';
 import * as vscode from 'vscode';
 import {
   generateContentScript,
@@ -29,6 +30,7 @@ export function openContentBuilder(
   const nonce = createNonce();
   panel.webview.onDidReceiveMessage(
     async (value: unknown) => {
+      if (await handleWorkbenchMessage(value, panel.webview)) return;
       if (await handleRegistryPickMessage(value, panel.webview, registryCatalog)) return;
       if (await handleRegistryIconMessage(value, panel.webview, registryCatalog)) return;
       if (!isContentBuilderMessage(value)) return;
@@ -101,7 +103,7 @@ function contentBuilderHtml(
     `script-src 'nonce-${nonce}'`,
   ].join('; ');
   return `<!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -153,11 +155,12 @@ function contentBuilderHtml(
     @media (max-width: 820px) { main { display: block; } .editor { border-right: 0; border-bottom: 1px solid var(--vscode-panel-border); } }
     @media (max-width: 520px) { header { align-items: stretch; flex-direction: column; } .save { margin-left: 0; } .primary-fields, .row { grid-template-columns: 1fr; } }
     @media (forced-colors: active) { button, input, select, textarea, .slot, pre { border: 1px solid CanvasText; } }
+    ${workbenchCss}
   </style>
 </head>
 <body>
   <header>
-    <div class="identity"><h1>Content Builder</h1><div class="muted">KubeJS · startup_scripts</div></div>
+    <div class="identity"><h1>Content</h1></div>
     <div class="kind-switch" role="group" aria-label="Content type">
       <button type="button" data-kind="item" aria-pressed="${initialKind === 'item'}">Item</button>
       <button type="button" data-kind="block" aria-pressed="${initialKind === 'block'}">Block</button>
@@ -167,17 +170,17 @@ function contentBuilderHtml(
   <main>
     <section class="editor">
       <div class="primary-fields">
-        <label>In-game Name<input id="displayName" value="${initialKind === 'item' ? 'Test Component' : 'Test Block'}" maxlength="120" autofocus><span class="help">The ID is generated automatically.</span></label>
-        <label>Technical ID<span class="inline"><input id="contentId" readonly><button id="editId" type="button">Edit</button></span><span class="help">You normally do not need to enter it.</span></label>
+        <label>In-game Name<input id="displayName" value="${initialKind === 'item' ? 'New Component' : 'New Block'}" maxlength="120"></label>
+        <label>Technical ID<span class="inline"><input id="contentId" readonly><button id="editId" title="Override the automatic ID" type="button">Edit</button></span></label>
       </div>
       <div class="section">
         <h2>Appearance</h2>
-        <label>Sample icon from an existing <span id="textureKind">item</span>
+        <label>Preview icon<span id="textureKind" hidden>item</span>
           <span class="texture-picker"><img id="textureIcon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="textureItem" value="${initialKind === 'item' ? 'minecraft:iron_ingot' : 'minecraft:iron_block'}" spellcheck="false"><button id="pickTexture" type="button" title="Find by name or ID">⌕</button></span>
           <span class="help">Used for preview only. Complex in-game models are not copied as invalid texture paths.</span>
         </label>
       </div>
-      <div class="section" id="itemOptions">
+      <div class="section" id="itemOptions" ${initialKind === 'item' ? '' : 'hidden'}>
         <h2>Item Properties</h2>
         <div class="row">
           <label>Stack size<input id="maxStackSize" type="number" min="1" max="64" value="64"></label>
@@ -188,7 +191,7 @@ function contentBuilderHtml(
           <label class="checkbox"><input id="glow" type="checkbox"> Always show enchantment glint</label>
         </div>
       </div>
-      <div class="section" id="blockOptions" hidden>
+      <div class="section" id="blockOptions" ${initialKind === 'block' ? '' : 'hidden'}>
         <h2>Block Properties</h2>
         <div class="row">
           <label>Hardness<input id="hardness" type="number" min="0" step="0.1" value="2"></label>
@@ -206,7 +209,7 @@ function contentBuilderHtml(
         <div class="slot"><img id="specimenIcon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden></div>
         <div><div class="game-name" id="specimenName"></div><div class="game-id" id="specimenId"></div><div class="muted" id="specimenMeta"></div></div>
       </div>
-      <h2>Generated KubeJS</h2>
+      <h2>JavaScript</h2>
       <pre id="code"></pre>
       <p class="status" id="status" role="status">Preview updates automatically.</p>
     </section>
@@ -349,6 +352,7 @@ function slug(value) {
       }
     });
     updateAutomaticId(); scheduleIcon(); preview();
+    ${editorUtilities()}
   </script>
 </body>
 </html>`;

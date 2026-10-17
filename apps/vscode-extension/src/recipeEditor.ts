@@ -1,3 +1,4 @@
+import { workbenchCss, editorUtilities, handleWorkbenchMessage } from './workbenchUi.js';
 import * as vscode from 'vscode';
 import { generateKubeJs, importRecipeJson } from '@kubevs/recipe-model';
 import type { RegistryCatalog } from './registryCatalog.js';
@@ -30,6 +31,7 @@ export function openRecipeEditor(
   const nonce = createNonce();
   panel.webview.onDidReceiveMessage(
     async (value: unknown) => {
+      if (await handleWorkbenchMessage(value, panel.webview)) return;
       if (await handleRegistryPickMessage(value, panel.webview, registryCatalog)) return;
       if (await handleRegistryIconMessage(value, panel.webview, registryCatalog)) return;
       if (!isRecipeEditorMessage(value)) return;
@@ -179,7 +181,7 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
     `script-src 'nonce-${nonce}'`,
   ].join('; ');
   return `<!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -248,11 +250,12 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
       .crafting, .slot, pre, input { border: 1px solid CanvasText; }
       .types button[aria-pressed="true"] { color: HighlightText; background: Highlight; forced-color-adjust: none; }
     }
+    ${workbenchCss}
   </style>
 </head>
 <body>
   <header>
-    <div class="identity"><h1>Vanilla Recipe</h1><div class="subtitle">Visual grid · readable KubeJS · safe diff</div></div>
+    <div class="identity"><h1>Vanilla Recipe</h1></div>
     <div class="types" role="group" aria-label="Recipe type">
       <button type="button" data-kind="shaped" aria-pressed="true">Crafting Table</button>
       <button type="button" data-kind="shapeless" aria-pressed="false">Shapeless</button>
@@ -265,8 +268,8 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
   </header>
   <main>
     <aside>
-      <h2>Recipe Settings</h2>
-      <label>Recipe ID <span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="pick" type="button">Edit</button></span><span class="hint">Generated from the output, process, and primary ingredient.</span></label>
+
+      <label>Recipe ID <span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" title="Override the automatic recipe ID" class="pick" type="button">Edit</button></span></label>
       <div class="row">
         <label>Output <span class="picker has-icon"><img id="outputIcon" class="item-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="output" value="minecraft:diamond" spellcheck="false"><button id="pickOutput" class="pick" type="button" title="Find an item by name or ID">⌕</button></span></label>
         <label>Count <input id="count" type="number" min="1" max="64" value="1"></label>
@@ -281,13 +284,13 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
       <div>
         <div class="ingredient-toolbar"><h2 id="ingredientsTitle">Ingredients</h2><button id="pickIngredient" class="pick" type="button">⌕ Find for selected slot</button></div>
         <div class="crafting" id="grid">
-          ${Array.from({ length: 9 }, (_, index) => `<span class="slot-frame"><img class="slot-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input class="slot" aria-label="Ingredient, slot ${index + 1}" placeholder="${index === 0 ? 'minecraft:stone' : 'empty'}" spellcheck="false"></span>`).join('')}
+          ${Array.from({ length: 9 }, (_, index) => `<span class="slot-frame"><img class="slot-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input class="slot" aria-label="Ingredient, slot ${index + 1}" placeholder="${index === 0 ? 'minecraft:stone' : ''}" spellcheck="false"></span>`).join('')}
         </div>
       </div>
-      <div class="result"><div class="result-mark" aria-hidden="true">→</div><div><strong id="resultName">minecraft:diamond</strong><div class="hint">Recipe output</div></div></div>
+      <div class="result"><div class="result-mark" aria-hidden="true">→</div><div><strong id="resultName">minecraft:diamond</strong></div></div>
     </section>
     <section class="preview">
-      <h2>Generated KubeJS</h2>
+      <h2>JavaScript</h2>
       <pre id="code"></pre>
       <p class="status" id="status" role="status" aria-live="polite">Recipe is ready for review.</p>
     </section>
@@ -478,6 +481,7 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
     slots.forEach(scheduleIcon);
     scheduleIcon(output);
     preview();
+    ${editorUtilities()}
   </script>
 </body>
 </html>`;

@@ -55,4 +55,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $asset = (Resolve-Path "artifacts/kubevs-$env:EXTENSION_VERSION.vsix").Path
-          gh release create $env:GITHUB_REF_NAME $asset --verify-tag --generate-notes --title "KubeVS $env:GITHUB_REF_NAME"
+          $notes = (Resolve-Path "docs/releases/$env:EXTENSION_VERSION.md").Path
+          gh release create $env:GITHUB_REF_NAME $asset --verify-tag --notes-file $notes --title "KubeVS $env:GITHUB_REF_NAME"

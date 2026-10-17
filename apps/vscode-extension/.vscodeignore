@@ -13,3 +13,6 @@ dist/connectorClient.*
 dist/connectorAuthCore.*
 artifacts/**
 media/pixel/**
+
+dist/**
+!dist/extension.cjs

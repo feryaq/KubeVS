@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { generateAddonRecipe } from '../dist/addonRecipeCore.mjs';
 
 const base = {
@@ -16,6 +18,94 @@ const base = {
   tool: '#minecraft:axes',
   sequence: [],
 };
+
+// Reference from Create mc1.21.1/dev, src/generated/resources/data/create/recipe/
+// mechanical_crafting/crushing_wheel.json (MIT), retrieved 2026-10-17.
+const wheel = JSON.parse(
+  readFileSync(new URL('./fixtures/create-crushing-wheel-1.21.1.json', import.meta.url), 'utf8'),
+);
+const mechanicalDraft = {
+  ...base,
+  type: 'create:mechanical_crafting',
+  ingredients: [],
+  outputs: [{ item: 'create:crushing_wheel', count: 2, chance: 1 }],
+  mechanical: {
+    pattern: wheel.pattern,
+    key: { A: 'create:andesite_alloy', P: '#minecraft:planks', S: '#c:stones' },
+    acceptMirrored: false,
+  },
+};
+
+function executeRecipe(draft) {
+  let recipe, id;
+  runInNewContext(generateAddonRecipe(draft), {
+    ServerEvents: {
+      recipes: (callback) =>
+        callback({
+          custom: (value) => {
+            recipe = value;
+            return {
+              id: (value) => {
+                id = value;
+              },
+            };
+          },
+        }),
+    },
+  });
+  return { recipe: JSON.parse(JSON.stringify(recipe)), id };
+}
+
+test('mechanical crafting matches the actual Create 1.21.1 crushing wheel JSON', () => {
+  const { recipe, id } = executeRecipe(mechanicalDraft);
+  const { category, show_notification, ...expected } = wheel;
+  assert.deepEqual(recipe, expected);
+  assert.equal(id, 'kubevs:test');
+  assert.equal(recipe.pattern.flatMap((row) => [...row]).filter((c) => c === 'A').length, 16);
+});
+
+test('mechanical crafting supports 9×9 and an explicit mirrored recipe', () => {
+  const { recipe } = executeRecipe({
+    ...mechanicalDraft,
+    mechanical: {
+      ...mechanicalDraft.mechanical,
+      pattern: Array(9).fill('A'.repeat(9)),
+      acceptMirrored: true,
+    },
+  });
+  assert.equal(recipe.pattern.length, 9);
+  assert.equal(recipe.pattern[0].length, 9);
+  assert.equal(recipe.accept_mirrored, true);
+  assert.deepEqual(recipe.key, { A: { item: 'create:andesite_alloy' } });
+  assert.equal(recipe.ingredients, undefined);
+  assert.equal(recipe.results, undefined);
+});
+
+test('mechanical crafting rejects incomplete, empty and malformed patterns', () => {
+  for (const mechanical of [
+    undefined,
+    { ...mechanicalDraft.mechanical, pattern: [] },
+    { ...mechanicalDraft.mechanical, pattern: ['   '] },
+    { ...mechanicalDraft.mechanical, pattern: ['AA', 'A'] },
+    { ...mechanicalDraft.mechanical, pattern: ['AAAAAAAAAA'] },
+    { ...mechanicalDraft.mechanical, pattern: ['#'] },
+    { ...mechanicalDraft.mechanical, pattern: ['X'] },
+    { ...mechanicalDraft.mechanical, acceptMirrored: 'false' },
+  ]) {
+    assert.throws(() => generateAddonRecipe({ ...mechanicalDraft, mechanical }));
+  }
+});
+
+test('mechanical crafting rejects fluid, probabilistic and multiple outputs', () => {
+  for (const patch of [
+    { fluidInputs: [{ fluid: 'minecraft:water', amount: 1000 }] },
+    { fluidOutputs: [{ fluid: 'minecraft:water', amount: 1000 }] },
+    { outputs: [] },
+    { outputs: [...mechanicalDraft.outputs, ...mechanicalDraft.outputs] },
+    { outputs: [{ ...mechanicalDraft.outputs[0], chance: 0.5 }] },
+  ])
+    assert.throws(() => generateAddonRecipe({ ...mechanicalDraft, ...patch }));
+});
 
 test('generates a readable Create recipe', () => {
   const code = generateAddonRecipe({ ...base, type: 'create:pressing' });

@@ -6,6 +6,7 @@ export type AddonRecipeType =
   | 'create:compacting'
   | 'create:cutting'
   | 'create:deploying'
+  | 'create:mechanical_crafting'
   | 'create:sequenced_assembly'
   | 'oritech:assembler'
   | 'oritech:pulverizer'
@@ -49,7 +50,17 @@ export interface AddonRecipeDraft {
   readonly transitionalItem: string;
   readonly tool: string;
   readonly sequence: readonly CreateSequenceStep[];
+  readonly mechanical?: MechanicalCraftingDraft;
 }
+
+export interface MechanicalCraftingDraft {
+  readonly pattern: readonly string[];
+  readonly key: Readonly<Record<string, string>>;
+  readonly acceptMirrored: boolean;
+}
+
+/** Editor limit; larger Create recipes may not fit recipe viewers. */
+export const MAX_MECHANICAL_SIZE = 9;
 
 const RESOURCE_LOCATION = /^[a-z0-9_.-]+:[a-z0-9_./-]+$/;
 const RECIPE_TYPES = new Set<AddonRecipeType>([
@@ -60,6 +71,7 @@ const RECIPE_TYPES = new Set<AddonRecipeType>([
   'create:compacting',
   'create:cutting',
   'create:deploying',
+  'create:mechanical_crafting',
   'create:sequenced_assembly',
   'oritech:assembler',
   'oritech:pulverizer',
@@ -74,6 +86,9 @@ const RECIPE_TYPES = new Set<AddonRecipeType>([
 export function generateAddonRecipe(draft: AddonRecipeDraft): string {
   validateDraftShape(draft);
   const recipeId = requireResource(draft.recipeId, 'Recipe ID');
+  if (draft.type === 'create:mechanical_crafting') {
+    return wrapRecipe(createMechanicalCrafting(draft), recipeId);
+  }
   const ingredients = draft.ingredients
     .map((ingredient) => ingredient.trim())
     .filter(Boolean)
@@ -139,8 +154,48 @@ export function generateAddonRecipe(draft: AddonRecipeDraft): string {
     }
   }
 
+  return wrapRecipe(recipe, recipeId);
+}
+
+function wrapRecipe(recipe: Record<string, unknown>, recipeId: string): string {
   const json = JSON.stringify(recipe, null, 2);
   return `ServerEvents.recipes(event => {\n  event.custom(${indent(json, 2)}).id(${JSON.stringify(recipeId)})\n})\n`;
+}
+
+function createMechanicalCrafting(draft: AddonRecipeDraft): Record<string, unknown> {
+  const mechanical = draft.mechanical;
+  if (!mechanical) throw new Error('Add a mechanical crafting pattern.');
+  const width = mechanical.pattern[0]?.length ?? 0;
+  if (
+    width < 1 ||
+    width > MAX_MECHANICAL_SIZE ||
+    mechanical.pattern.length < 1 ||
+    mechanical.pattern.length > MAX_MECHANICAL_SIZE ||
+    mechanical.pattern.some((row) => row.length !== width)
+  ) {
+    throw new Error('Use a rectangular mechanical crafting pattern from 1×1 to 9×9.');
+  }
+  const symbols = new Set(mechanical.pattern.join('').replaceAll(' ', ''));
+  if (symbols.size === 0) throw new Error('Place at least one ingredient in the crafting grid.');
+  const key: Record<string, unknown> = {};
+  for (const symbol of symbols) {
+    const ingredient = mechanical.key[symbol];
+    if (!ingredient?.trim()) throw new Error(`Assign an item or #tag to symbol ${symbol}.`);
+    key[symbol] = parseIngredient(ingredient.trim());
+  }
+  if (draft.fluidInputs.length || draft.fluidOutputs.length) {
+    throw new Error('Mechanical crafting accepts item ingredients, not fluids.');
+  }
+  if (draft.outputs.length !== 1 || draft.outputs[0]?.chance !== 1) {
+    throw new Error('Mechanical crafting requires exactly one guaranteed item output.');
+  }
+  return {
+    type: draft.type,
+    pattern: mechanical.pattern,
+    key,
+    result: stripChance(parseOutput(draft.outputs[0])),
+    accept_mirrored: mechanical.acceptMirrored,
+  };
 }
 
 export function isAddonRecipeDraft(value: unknown): value is AddonRecipeDraft {
@@ -149,6 +204,7 @@ export function isAddonRecipeDraft(value: unknown): value is AddonRecipeDraft {
   return (
     typeof draft.type === 'string' &&
     RECIPE_TYPES.has(draft.type as AddonRecipeType) &&
+    (draft.type !== 'create:mechanical_crafting' || isMechanicalCraftingDraft(draft.mechanical)) &&
     typeof draft.recipeId === 'string' &&
     draft.recipeId.length <= 300 &&
     Array.isArray(draft.ingredients) &&
@@ -189,6 +245,28 @@ export function isAddonRecipeDraft(value: unknown): value is AddonRecipeDraft {
         typeof (step as Partial<CreateSequenceStep>).ingredient === 'string' &&
         ((step as Partial<CreateSequenceStep>).ingredient?.length ?? 301) <= 300,
     )
+  );
+}
+
+function isMechanicalCraftingDraft(value: unknown): value is MechanicalCraftingDraft {
+  if (typeof value !== 'object' || value === null) return false;
+  const mechanical = value as Partial<MechanicalCraftingDraft>;
+  return (
+    Array.isArray(mechanical.pattern) &&
+    mechanical.pattern.length <= MAX_MECHANICAL_SIZE &&
+    mechanical.pattern.every(
+      (row) =>
+        typeof row === 'string' && row.length <= MAX_MECHANICAL_SIZE && /^[A-Z0-9 ]*$/.test(row),
+    ) &&
+    typeof mechanical.key === 'object' &&
+    mechanical.key !== null &&
+    !Array.isArray(mechanical.key) &&
+    Object.entries(mechanical.key).length <= 36 &&
+    Object.entries(mechanical.key).every(
+      ([symbol, ingredient]) =>
+        /^[A-Z0-9]$/.test(symbol) && typeof ingredient === 'string' && ingredient.length <= 300,
+    ) &&
+    typeof mechanical.acceptMirrored === 'boolean'
   );
 }
 

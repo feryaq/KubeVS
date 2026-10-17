@@ -1,13 +1,23 @@
-# KubeVS for Visual Studio Code
+# KubeVS для Visual Studio Code
 
-KubeVS turns Visual Studio Code into a focused KubeJS workspace. It provides project indexing, completion, hover information, diagnostics, Code Actions, live typings, and visual editors for recipes, LootJS rules, items, and blocks.
+KubeVS превращает Visual Studio Code в рабочую среду для KubeJS. Расширение индексирует проект, предлагает дополнение кода, подсказки, диагностику и Code Actions, а также предоставляет визуальные редакторы рецептов, правил LootJS, предметов и блоков.
 
-**KubeVS is free to download and use. There are no subscriptions, paid features, license keys, or usage fees.**
+Расширение бесплатно: подписки, платных функций, лицензионных ключей и платы за использование нет.
 
-Connect KubeVS Connector to browse live registries and recipes, inspect production chains in Craft Graph, and mount the server's complete `kubejs` folder directly in Explorer. Team editing supports roles, file locks, revision checks, and safe binary round-trips.
+Подключите KubeVS Connector, чтобы просматривать реестры и рецепты игры, разбирать производственные цепочки в Craft Graph и открывать всю серверную папку `kubejs` в Explorer. Совместная работа учитывает роли, блокировки файлов и ревизии; файлы передаются с сохранением бинарных данных.
 
-Run `/kvs join` in Minecraft, then use **KubeVS: Connect with /kvs join code**. The KubeVS interface is English-only. Without Minecraft, Offline Mode keeps local editors and diagnostics available.
+В Minecraft выполните `/kvs join`, затем в VS Code запустите **KubeVS: Connect with /kvs join code**. Интерфейс расширения пока доступен на английском. В автономном режиме остаются доступны локальные редакторы и диагностика.
 
-For remote servers, use a VPN or WSS through a TLS reverse proxy. Connector remains localhost-only by default, and credentials are stored in VS Code SecretStorage.
+Для удалённого сервера используйте VPN или WSS через TLS reverse proxy. По умолчанию Connector принимает подключения только с localhost, а учётные данные расширение хранит в VS Code SecretStorage.
 
-KubeVS is distributed under the [KubeVS Community Source License 1.0](LICENSE). Your generated project files remain yours; see the license for source-use and distribution terms.
+KubeVS распространяется по лицензии [KubeVS Community Source License 1.0](../../LICENSE). Созданные файлы проекта остаются вашими; условия использования исходного кода и распространения описаны в лицензии.
+
+## Рабочая среда 1.3
+
+Главная вкладка объединяет визуальные редакторы, поиск инструментов, последние файлы проекта и состояние подключения к Minecraft. В редакторах можно копировать готовый JavaScript и сохранять его сочетанием Ctrl/Cmd+S.
+
+Редактор Create: mechanical crafting позволяет задать шаблон размером до 9×9, сопоставить символы с предметами или тегами ингредиентов и выбрать значение обязательного булева поля `accept_mirrored`. Результат формируется как событие KubeJS `event.custom` с типом `create:mechanical_crafting` и полями `pattern`, `key` и `result`.
+
+Браузер реестров поддерживает постраничный поиск, копирование ID и просмотр элементов тегов. Craft Graph показывает копируемый список ресурсов с единицами жидкостей и адаптирует панели ресурсов и сведений к ширине окна. Импорт JSON рецепта создаёт читаемый KubeJS-код и показывает различия при перезаписи; просмотр предмета в руке копирует его ID из личной сессии Connector. Проверка подключения измеряет задержку и, если доступно, запрашивает состояние Connector.
+
+Статическая проверка учитывает комментарии, строки, регулярные выражения и подстановки в шаблонных строках. Она выполняет полезный лексический анализ, но не проверяет корректность полного выполнения JavaScript.

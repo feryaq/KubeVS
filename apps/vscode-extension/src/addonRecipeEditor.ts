@@ -1,9 +1,11 @@
+import { workbenchCss, editorUtilities, handleWorkbenchMessage } from './workbenchUi.js';
 import * as vscode from 'vscode';
 import {
   generateAddonRecipe,
   isAddonRecipeDraft,
   type AddonRecipeDraft,
   type AddonRecipeType,
+  MAX_MECHANICAL_SIZE,
 } from './addonRecipeCore.js';
 import type { RegistryCatalog } from './registryCatalog.js';
 import { generatedCraftTarget } from './generatedTarget.js';
@@ -30,6 +32,7 @@ export function openAddonRecipeEditor(
   const nonce = createNonce();
   panel.webview.onDidReceiveMessage(
     async (value: unknown) => {
+      if (await handleWorkbenchMessage(value, panel.webview)) return;
       if (await handleRegistryPickMessage(value, panel.webview, registryCatalog)) return;
       if (await handleRegistryIconMessage(value, panel.webview, registryCatalog)) return;
       if (!isAddonRecipeMessage(value)) return;
@@ -45,17 +48,8 @@ export function openAddonRecipeEditor(
           await panel.webview.postMessage({ type: 'preview', revision: value.revision, code });
           return;
         }
-        const target = await generatedCraftTarget(
-          value.draft.recipeId,
-          value.draft.type,
-          'addon_recipe',
-        );
-        const written = await writeFileWithDiff(context, target, code, {
-          diffTitle: 'KubeVS: current file ↔ new mod recipe',
-          confirmation: `Overwrite ${vscode.workspace.asRelativePath(target)}? Review the open diff first.`,
-          confirmButton: 'Overwrite',
-        });
-        if (!written) {
+        const target = await saveAddonRecipeDraft(context, value.draft, availableIntegrations);
+        if (!target) {
           await panel.webview.postMessage({ type: 'cancelled' });
           return;
         }
@@ -75,6 +69,27 @@ export function openAddonRecipeEditor(
     context.subscriptions,
   );
   panel.webview.html = addonRecipeEditorHtml(panel.webview, nonce, availableIntegrations);
+}
+
+export async function saveAddonRecipeDraft(
+  context: vscode.ExtensionContext,
+  draft: AddonRecipeDraft,
+  availableIntegrations?: ReadonlySet<string>,
+): Promise<vscode.Uri | undefined> {
+  const code = generateAddonRecipe(draft);
+  const namespace = draft.type.split(':', 1)[0] ?? '';
+  if (availableIntegrations && !availableIntegrations.has(namespace)) {
+    throw new Error(
+      `Mod ${namespace} is not installed on the connected server. This recipe cannot be saved.`,
+    );
+  }
+  const target = await generatedCraftTarget(draft.recipeId, draft.type, 'addon_recipe');
+  const written = await writeFileWithDiff(context, target, code, {
+    diffTitle: 'KubeVS: current file ↔ new mod recipe',
+    confirmation: `Overwrite ${vscode.workspace.asRelativePath(target)}? Review the open diff first.`,
+    confirmButton: 'Overwrite',
+  });
+  return written ? target : undefined;
 }
 
 function isAddonRecipeMessage(value: unknown): value is AddonRecipeMessage {
@@ -170,11 +185,13 @@ export function addonRecipeEditorHtml(
     @media (max-width: 980px) { main { grid-template-columns: 210px 1fr; } .preview { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--vscode-panel-border); } }
     @media (max-width: 680px) { header { flex-wrap: wrap; } .save { margin-left: 0; } main { display: block; } nav { border-right: 0; border-bottom: 1px solid var(--vscode-panel-border); } .fields, .options { grid-template-columns: 1fr; } .output-row { grid-template-columns: 1fr 64px 76px 32px; } .fluid-row { grid-template-columns: 1fr 96px 32px; } .row-legend { display: none; } .step { grid-template-columns: 30px 1fr 32px 32px 32px; } .step input { grid-column: 2 / -1; } }
     @media (forced-colors: active) { input, select, textarea, pre, .step-index { border: 1px solid CanvasText; } .timeline::before { background: CanvasText; } }
+    ${workbenchCss}
+    .mechanical-grid{display:grid;gap:4px;max-width:100%;margin:16px 0}.mechanical-grid input{min-width:0;width:100%;height:auto;aspect-ratio:1;text-align:center;padding:0;font-weight:650;font-family:var(--vscode-editor-font-family);text-transform:uppercase}.grid-size{display:flex;align-items:center;gap:7px}.grid-size input{width:52px;min-width:0}.mechanical-key{display:grid;grid-template-columns:24px minmax(0,1fr) 30px;gap:7px;align-items:center;margin:7px 0}.mechanical-key>span:first-child{font-family:var(--vscode-editor-font-family);font-weight:650;text-align:center}.mechanical-mirror{display:flex;align-items:center;gap:8px;margin:14px 0}.mechanical-mirror input{width:auto}.mechanical-mode .output-row{grid-template-columns:minmax(0,1fr) 70px}.mechanical-mode [data-field="chance"],.mechanical-mode [data-remove-output],.mechanical-mode #outputLegend,.mechanical-mode #addOutput{display:none}
   </style>
 </head>
 <body>
   <header>
-    <div><h1>Mod Recipes</h1><div class="subtitle">Create · Oritech · Farmer’s Delight</div></div>
+    <div><h1>Mod Recipes</h1></div>
     <button class="save" id="save" type="button">Save Recipe</button>
   </header>
   <main>
@@ -189,6 +206,7 @@ export function addonRecipeEditorHtml(
             ['create:compacting', 'Basin Compacting'],
             ['create:cutting', 'Mechanical Cutting'],
             ['create:deploying', 'Deploying'],
+            ['create:mechanical_crafting', 'Mechanical Crafting'],
             ['create:sequenced_assembly', 'Sequenced Assembly'],
           ],
           availableIntegrations,
@@ -219,12 +237,20 @@ export function addonRecipeEditorHtml(
     </nav>
     <section class="workspace">
       <div class="fields">
-        <label>Recipe ID<span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="mini" type="button">Edit</button></span><span class="help">Generated from the output, process, and primary ingredient.</span></label>
+        <label>Recipe ID<span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" class="mini" type="button">Edit</button></span></label>
         <label>Machine type<input id="selectedType" value="create:pressing" readonly></label>
       </div>
-      <div class="section">
+      <div class="section" id="itemIngredientsSection">
         <div class="section-head"><div><h2>Item Ingredients</h2><span class="help">One item ID or #tag per line</span></div><button class="secondary" data-pick-for="ingredients" data-pick-mode="append" data-include-tags="true" type="button">⌕ Add Item</button></div>
         <textarea id="ingredients" aria-label="Item Ingredients, one per line" spellcheck="false">minecraft:iron_ingot</textarea>
+      </div>
+      <div class="section" id="mechanicalSection" hidden>
+        <div class="section-head"><h2>Crafting grid</h2><div class="grid-size"><input id="mechanicalWidth" type="number" min="1" max="${MAX_MECHANICAL_SIZE}" value="5" aria-label="Grid width" title="Grid width (1–9)"><span aria-hidden="true">×</span><input id="mechanicalHeight" type="number" min="1" max="${MAX_MECHANICAL_SIZE}" value="5" aria-label="Grid height" title="Grid height (1–9)"></div></div>
+        <div id="mechanicalGrid" class="mechanical-grid" role="group" aria-label="Mechanical crafting pattern"></div>
+        <div id="mechanicalKeys"></div>
+        <button id="addMechanicalKey" class="secondary" type="button">Add ingredient</button>
+        <label class="mechanical-mirror"><input id="acceptMirrored" type="checkbox">Allow mirrored recipes</label>
+        <button id="crushingWheelPreset" class="secondary" type="button" title="Load Create’s 5×5 crushing wheel recipe">Crushing wheels</button>
       </div>
       <div class="section" id="fluidInputsSection" hidden>
         <div class="section-head"><div><h2>Fluid Ingredients</h2><span class="help">Amounts use millibuckets: 1 bucket = 1000 mB</span></div><button class="secondary" id="addFluidInput" type="button">Add Fluid</button></div>
@@ -233,7 +259,7 @@ export function addonRecipeEditorHtml(
       </div>
       <div class="section">
         <div class="section-head"><h2>Item Outputs</h2><button class="secondary" id="addOutput" type="button">Add Item</button></div>
-        <div class="row-legend"><span>Item</span><span>Count</span><span>Chance / Weight</span><span></span></div>
+        <div class="row-legend" id="outputLegend"><span>Item</span><span>Count</span><span>Chance / Weight</span><span></span></div>
         <div id="outputs"></div>
       </div>
       <div class="section" id="fluidOutputsSection" hidden>
@@ -260,7 +286,7 @@ export function addonRecipeEditorHtml(
       </div>
     </section>
     <section class="preview">
-      <h2>Generated KubeJS</h2>
+      <h2>JavaScript</h2>
       <pre id="code"></pre>
       <p class="status" id="status" role="status">Preview updates automatically.</p>
     </section>
@@ -276,6 +302,10 @@ export function addonRecipeEditorHtml(
     const recipeId = document.getElementById('recipeId');
     const status = document.getElementById('status');
     const code = document.getElementById('code');
+    const mechanicalGrid = document.getElementById('mechanicalGrid');
+    const mechanicalKeysEl = document.getElementById('mechanicalKeys');
+    let mechanicalPattern = [' AAA ', 'AAPAA', 'APSPA', 'AAPAA', ' AAA '];
+    let mechanicalKeys = { A: 'create:andesite_alloy', P: '#minecraft:planks', S: '#c:stones' };
     let recipeType = 'create:pressing';
     let revision = 0;
     let appliedRevision = -1;
@@ -288,6 +318,8 @@ export function addonRecipeEditorHtml(
     const iconTimers = new WeakMap();
     const iconById = new Map();
     let outputs = [{ item: 'minecraft:iron_plate', count: 1, chance: 1 }];
+    let mechanicalOutputs = [{ item: 'create:crushing_wheel', count: 2, chance: 1 }];
+    let processingOutputs = outputs;
     let fluidInputs = [];
     let fluidOutputs = [];
     let steps = [
@@ -306,6 +338,33 @@ export function addonRecipeEditorHtml(
     function renderFluids(container, entries, output) {
       container.innerHTML = entries.map((entry, index) => '<div class="fluid-row" data-fluid="' + index + '"><span class="picker with-icon">' + iconMarkup(entry.fluid) + '<input aria-label="' + (output ? 'Fluid output ID' : 'Fluid ingredient ID or tag') + '" data-fluid-field="fluid" data-registry="minecraft:fluid" value="' + esc(entry.fluid) + '" spellcheck="false"><button class="mini" data-pick-input="true" data-registry="minecraft:fluid" data-include-tags="' + (!output) + '" type="button" title="Find a fluid by name or ID">⌕</button></span><input aria-label="Amount in millibuckets" data-fluid-field="amount" type="number" min="1" step="1" value="' + entry.amount + '"><button class="mini" data-remove-fluid="' + index + '" data-fluid-output="' + output + '" title="Remove fluid" type="button">×</button></div>').join('');
       container.querySelectorAll('.with-icon input').forEach(scheduleIcon);
+    }
+    function renderMechanicalGrid() {
+      const width = mechanicalPattern[0].length;
+      mechanicalGrid.style.gridTemplateColumns = 'repeat(' + width + ', minmax(0, 1fr))';
+      mechanicalGrid.style.width = (width * 40) + 'px';
+      mechanicalGrid.innerHTML = mechanicalPattern.flatMap((row, y) => [...row].map((symbol, x) => '<input data-cell="' + (y * width + x) + '" aria-label="Row ' + (y + 1) + ', column ' + (x + 1) + '" title="Ingredient symbol; clear for an empty slot" maxlength="1" placeholder="·" spellcheck="false" value="' + esc(symbol.trim()) + '">')).join('');
+    }
+    function readMechanical() {
+      const width = mechanicalPattern[0].length;
+      const cells = [...mechanicalGrid.querySelectorAll('[data-cell]')];
+      mechanicalPattern = mechanicalPattern.map((row, y) => [...row].map((_, x) => cells[y * width + x].value.toUpperCase() || ' ').join(''));
+      mechanicalKeys = Object.fromEntries([...mechanicalKeysEl.querySelectorAll('[data-symbol]')].map(row => [row.dataset.symbol, row.querySelector('input').value]));
+    }
+    function renderMechanicalKeys() {
+      mechanicalKeysEl.innerHTML = Object.entries(mechanicalKeys).map(([symbol, ingredient]) => '<div class="mechanical-key" data-symbol="' + symbol + '"><span>' + symbol + '</span><span class="picker with-icon">' + iconMarkup(ingredient) + '<input aria-label="Ingredient ' + symbol + '" value="' + esc(ingredient) + '" spellcheck="false"><button class="mini" data-pick-input="true" data-include-tags="true" type="button" title="Find an item or tag for ' + symbol + '">⌕</button></span><button class="mini" data-remove-key="' + symbol + '" type="button" aria-label="Remove ingredient ' + symbol + '" title="Remove ingredient">×</button></div>').join('');
+      mechanicalKeysEl.querySelectorAll('input').forEach(scheduleIcon);
+    }
+    function resizeMechanicalGrid() {
+      readMechanical();
+      const widthInput = document.getElementById('mechanicalWidth');
+      const heightInput = document.getElementById('mechanicalHeight');
+      const width = Math.min(${MAX_MECHANICAL_SIZE}, Math.max(1, Math.floor(Number(widthInput.value) || mechanicalPattern[0].length)));
+      const height = Math.min(${MAX_MECHANICAL_SIZE}, Math.max(1, Math.floor(Number(heightInput.value) || mechanicalPattern.length)));
+      widthInput.value = String(width); heightInput.value = String(height);
+      // Preserve overlapping cells as the grid dimensions change.
+      mechanicalPattern = Array.from({length:height}, (_, y) => (mechanicalPattern[y] || '').padEnd(width, ' ').slice(0, width));
+      renderMechanicalGrid();
     }
     function renderSteps() {
       timeline.innerHTML = steps.map((step, index) => '<div class="step" data-step="' + index + '"><span class="step-index">' + (index + 1) + '</span><select data-step-field="type" aria-label="Step operation ' + (index + 1) + '"><option value="create:deploying"' + (step.type === 'create:deploying' ? ' selected' : '') + '>Deploying</option><option value="create:pressing"' + (step.type === 'create:pressing' ? ' selected' : '') + '>Pressing</option><option value="create:cutting"' + (step.type === 'create:cutting' ? ' selected' : '') + '>Cutting</option></select><span class="picker"><input data-step-field="ingredient" aria-label="Additional ingredient for step ' + (index + 1) + '" value="' + esc(step.ingredient) + '" placeholder="Additional ingredient" spellcheck="false"' + (step.type === 'create:deploying' ? '' : ' disabled') + '><button class="mini" data-pick-input="true" type="button" title="Find item"' + (step.type === 'create:deploying' ? '' : ' disabled') + '>⌕</button></span><button class="mini" data-move="-1" aria-label="Move step ' + (index + 1) + ' up" title="Up" type="button">↑</button><button class="mini" data-move="1" aria-label="Move step ' + (index + 1) + ' down" title="Down" type="button">↓</button><button class="mini" data-remove-step="' + index + '" aria-label="Remove step ' + (index + 1) + '" title="Remove step" type="button">×</button></div>').join('');
@@ -331,13 +390,15 @@ export function addonRecipeEditorHtml(
     }
     function draft() {
       readRows();
+      readMechanical();
+      const mechanical = recipeType === 'create:mechanical_crafting';
       return {
         type: recipeType,
         recipeId: recipeId.value,
-        ingredients: document.getElementById('ingredients').value.split(/\\r?\\n/),
-        fluidInputs,
+        ingredients: mechanical ? [] : document.getElementById('ingredients').value.split(/\\r?\\n/),
+        fluidInputs: mechanical ? [] : fluidInputs,
         outputs,
-        fluidOutputs,
+        fluidOutputs: mechanical ? [] : fluidOutputs,
         processingTime: Number(document.getElementById('processingTime').value),
         experience: Number(document.getElementById('experience').value),
         heat: document.getElementById('heat').value,
@@ -345,6 +406,7 @@ export function addonRecipeEditorHtml(
         transitionalItem: document.getElementById('transitionalItem').value,
         tool: document.getElementById('tool').value,
         sequence: steps,
+        ...(mechanical ? {mechanical:{pattern:mechanicalPattern,key:mechanicalKeys,acceptMirrored:document.getElementById('acceptMirrored').checked}} : {}),
       };
     }
     function preview() {
@@ -364,7 +426,7 @@ export function addonRecipeEditorHtml(
       readRows();
       const output = outputsEl.querySelector('[data-field="item"]')?.value.trim() || outputs[0]?.item || '';
       const ingredients = document.getElementById('ingredients').value.split(/\\r?\\n/).map(value => value.trim()).filter(Boolean);
-      const primaryIngredient = ingredients[0] || fluidInputs[0]?.fluid || '';
+      const primaryIngredient = recipeType === 'create:mechanical_crafting' ? Object.values(mechanicalKeys)[0] || '' : ingredients[0] || fluidInputs[0]?.fluid || '';
       const outputPart = canonicalPart(output, 'new_recipe');
       const inputPart = canonicalPart(primaryIngredient, 'material');
       const processPart = recipeType.split(':').at(-1).replaceAll('/', '_');
@@ -408,7 +470,20 @@ export function addonRecipeEditorHtml(
       if (!next) { save.disabled = false; renderSteps(); }
     }
     function selectType(next) {
+      readRows();
+      const wasMechanical = recipeType === 'create:mechanical_crafting';
       recipeType = next;
+      const mechanical = next === 'create:mechanical_crafting';
+      document.querySelector('.workspace').classList.toggle('mechanical-mode', mechanical);
+      document.getElementById('mechanicalSection').hidden = !mechanical;
+      document.getElementById('itemIngredientsSection').hidden = mechanical;
+      document.getElementById('optionsSection').hidden = mechanical;
+      if (mechanical !== wasMechanical) {
+        if (wasMechanical) mechanicalOutputs = outputs;
+        else processingOutputs = outputs;
+        outputs = mechanical ? mechanicalOutputs : processingOutputs;
+        renderOutputs();
+      }
       updateRecipeId();
       document.getElementById('selectedType').value = next;
       types.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.type === next)));
@@ -423,6 +498,23 @@ export function addonRecipeEditorHtml(
       preview();
     }
     document.addEventListener('click', event => {
+      if (event.target.id === 'addMechanicalKey') {
+        readMechanical();
+        const symbol = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'].find(value => !(value in mechanicalKeys));
+        if (!symbol) return;
+        mechanicalKeys[symbol] = ''; renderMechanicalKeys();
+        mechanicalKeysEl.querySelector('[data-symbol="' + symbol + '"] input').focus(); preview(); return;
+      }
+      if (event.target.dataset.removeKey) {
+        readMechanical(); delete mechanicalKeys[event.target.dataset.removeKey]; renderMechanicalKeys(); preview(); return;
+      }
+      if (event.target.id === 'crushingWheelPreset') {
+        mechanicalPattern = [' AAA ', 'AAPAA', 'APSPA', 'AAPAA', ' AAA '];
+        mechanicalKeys = {A:'create:andesite_alloy',P:'#minecraft:planks',S:'#c:stones'};
+        document.getElementById('mechanicalWidth').value = '5'; document.getElementById('mechanicalHeight').value = '5'; document.getElementById('acceptMirrored').checked = false;
+        outputs = [{item:'create:crushing_wheel',count:2,chance:1}];
+        renderMechanicalGrid(); renderMechanicalKeys(); renderOutputs(); preview(); return;
+      }
       if (event.target.id === 'editRecipeId') {
         recipeIdAutomatic = !recipeIdAutomatic;
         recipeId.readOnly = recipeIdAutomatic;
@@ -467,13 +559,14 @@ export function addonRecipeEditorHtml(
     });
     document.addEventListener('input', event => {
       const input = event.target;
+      if (input.hasAttribute('data-cell')) input.value = input.value.toUpperCase();
       if (input instanceof HTMLInputElement) {
         const icon = input.closest('.picker')?.querySelector('.field-icon');
         if (icon) scheduleIcon(input);
       }
       preview();
     });
-    document.addEventListener('change', event => { if (event.target.matches('[data-step-field="type"]')) { readRows(); renderSteps(); } preview(); });
+    document.addEventListener('change', event => { if (event.target.matches('[data-step-field="type"]')) { readRows(); renderSteps(); } if (event.target.id === 'mechanicalWidth' || event.target.id === 'mechanicalHeight') resizeMechanicalGrid(); preview(); });
     save.addEventListener('click', () => {
       if (busy) return; const snapshot = draft(); setBusy(true); save.textContent = 'Saving…'; status.textContent = 'Saving to kubevs/crafts/' + recipeType.split(':')[0] + '…';
       vscode.postMessage({ type: 'save', revision: ++revision, draft: snapshot });
@@ -503,10 +596,11 @@ export function addonRecipeEditorHtml(
       else if (message.type === 'error') { setBusy(false); save.textContent = 'Save Recipe'; status.className = 'status error'; status.textContent = message.message; preview(); }
       else if (message.type === 'cancelled') { setBusy(false); save.textContent = 'Save Recipe'; status.className = 'status'; status.textContent = 'Save cancelled; no files were changed.'; preview(); }
     });
-    renderOutputs(); renderFluids(fluidInputsEl, fluidInputs, false); renderFluids(fluidOutputsEl, fluidOutputs, true); renderSteps();
+    renderOutputs(); renderFluids(fluidInputsEl, fluidInputs, false); renderFluids(fluidOutputsEl, fluidOutputs, true); renderSteps(); renderMechanicalGrid(); renderMechanicalKeys();
     document.querySelectorAll('.with-icon input').forEach(scheduleIcon);
     updateRecipeId();
     selectType(recipeType);
+    ${editorUtilities()}
   </script>
 </body>
 </html>`;

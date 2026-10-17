@@ -1,22 +1,24 @@
-# KubeVS Connector 1.1.12
+# KubeVS Connector 1.3.0
 
-KubeVS Connector is the secure NeoForge bridge between a Minecraft 1.21.1 server and the KubeVS Visual Studio Code extension.
+KubeVS Connector — защищённый мост NeoForge между сервером Minecraft 1.21.1 и расширением KubeVS для Visual Studio Code.
 
-KubeVS is free to download and use. There are no subscriptions, paid features, license keys, or usage fees.
+KubeVS бесплатен: подписки, платные функции, лицензионные ключи и плата за использование не требуются.
 
-It exposes live registries, recipes, tags, mods, and logs, then mounts the server's `kubejs` directory in VS Code with player roles, team locks, revision protection, and binary-safe file operations. The connected player's Minecraft language is sent to KubeVS so each editor session uses the matching English or Russian UI.
+Connector предоставляет расширению реестры, рецепты, теги, список модов и журналы игры, а также подключает серверную папку `kubejs` в VS Code. Поддерживаются роли игроков, командные блокировки файлов, проверка ревизий и безопасная передача бинарных данных. Доступны диагностика состояния без личных данных и просмотр предмета в руке подключённого игрока.
 
-## Installation
+## Установка
 
-1. Place the production JAR in the server's `mods` directory.
-2. Start and stop the server once to create `config/kubevs-connector.toml`.
-3. Review the network and permission settings.
-4. Start the server and run `/kvs join` in game.
-5. Install the required extension from the [latest GitHub Release](https://github.com/Feryaq/KubeVS/releases/latest), then run **KubeVS: Connect with /kvs join code** in VS Code.
+1. Поместите production JAR в папку `mods` сервера.
+2. Один раз запустите и остановите сервер, чтобы создать `config/kubevs-connector.toml`.
+3. Проверьте сетевые параметры и права, затем перезапустите сервер: Connector читает конфигурацию при запуске.
+4. Установите расширение из [последнего релиза GitHub](https://github.com/Feryaq/KubeVS/releases/latest).
+5. В Minecraft выполните `/kvs join` и нажмите **Copy code**. В VS Code откройте **KubeVS → Connect** и вставьте код. Он показывается один раз; повторный `/kvs join` выдаст новый код и отключит прежнюю сессию.
 
-KubeJS is optional for registry inspection but required for creating and applying KubeJS scripts.
+KubeJS не требуется для просмотра реестров, но нужен для создания и применения KubeJS-скриптов. Установите KubeJS для Minecraft 1.21.1 NeoForge и указанные для него зависимости в игру или на сервер, перезапустите Minecraft и подключитесь снова. Расширение подсказывает об этом требовании рядом с недоступными инструментами создания. Create, Farmer’s Delight и права администратора Connector не заменяют среду выполнения KubeJS.
 
-## Default configuration
+В одиночном мире сначала откройте мир, затем выполните `/kvs join`. Владелец мира может получить личный код даже при выключенных читах. Остальным игрокам нужен настроенный уровень доступа к команде. Значение `joinPermissionLevel = 0` разрешает получать код любому игроку в этом мире.
+
+## Конфигурация по умолчанию
 
 ```toml
 [network]
@@ -33,20 +35,35 @@ defaultRole = "EDITOR"
 allowReload = false
 ```
 
-For a dedicated server, use a VPN or a TLS reverse proxy. `publicHost`, `publicPort`, and `publicSecure` define the address placed in connection codes; they do not add TLS to the Java server itself.
+Для локальной игры Connector по умолчанию слушает только `127.0.0.1`. Для выделенного сервера выделите ему отдельный TCP-порт: использовать порт Minecraft нельзя. Укажите адрес привязки в `host` (либо `0.0.0.0`), включите `allowRemote = true` и задайте в `publicHost` адрес, доступный игрокам. Если `publicPort = 0`, Connector использует значение `port`; иначе — указанный порт прокси. Для удалённого доступа используйте VPN или TLS reverse proxy. Параметр `publicSecure = true` заставляет коды подключения использовать только `wss://`, если настроен TLS reverse proxy; TLS на самом Connector он не включает.
 
-## Commands
+На выделенном сервере `joinPermissionLevel` задаёт, кто может получить личный код: `0` разрешает это всем игрокам, значение по умолчанию `2` требует права оператора. Владелец одиночного мира всегда может создать собственный код. `defaultRole` назначает роль при первом подключении; его изменение не затрагивает уже существующие учётные записи. `allowReload` разрешает операторам и администраторам отправлять запрос на перезагрузку скриптов сервера. Администратор Minecraft с уровнем прав 4 управляет ролями и токенами командами `/kvs users`, `/kvs role`, `/kvs revoke` и `/kvs auth`.
+
+| Роль       | Доступ                                                             |
+| ---------- | ------------------------------------------------------------------ |
+| `viewer`   | Просмотр реестров, рецептов и файлов рабочей папки                 |
+| `editor`   | Права `viewer`, редактирование рабочей папки и блокировки файлов   |
+| `operator` | Права `editor`, журналы и перезагрузка скриптов, если она включена |
+| `admin`    | Права `operator`, просмотр сведений и управление учётными записями |
+
+Закрытый токен администратора хранится в `config/kubevs-connector-token.txt`, токены игроков — в `config/kubevs-player-tokens.tsv`. Не раскрывайте эти файлы. Администратор консоли может использовать файл с токеном администратора. Команда `/kvs auth copy` выдаёт игровому администратору код подключения; `/kvs auth rotate` меняет токен администратора и отключает его текущие сессии.
+
+## Команды
 
 ```text
 /kvs join
+/kvs status
 /kvs users
 /kvs role <player> <viewer|editor|operator|admin>
 /kvs revoke <player>
 /kvs auth
+/kvs auth copy
 /kvs auth rotate
 ```
 
-Build with Java 21:
+Если `/kvs status` сообщает, что Connector недоступен, проверьте журнал сервера и `config/kubevs-connector.toml`, затем перезапустите сервер. Частые причины: указан адрес не loopback без `allowRemote = true`, не задан `publicHost` при `host = "0.0.0.0"` или выбран порт Minecraft. Если личный код потерян или отклонён, повторите `/kvs join` и вставьте новый код. После смены роли или отзыва доступа сессия отключается; если доступ разрешён, игрок может подключиться снова и получить новый код.
+
+Сборка требует Java 21:
 
 ```powershell
 .\gradlew.bat :mods:kubevs-connector:test :mods:kubevs-connector:build --no-daemon

@@ -13,6 +13,7 @@ export type ConnectorPermission =
   | 'kubevs.accounts.manage';
 
 export interface ConnectorCapabilities {
+  readonly status?: boolean;
   readonly registries: boolean;
   readonly recipes: boolean;
   readonly logs: boolean;
@@ -51,6 +52,27 @@ export interface ConnectorSession {
 export interface ConnectorWorkspace {
   readonly instancePath: string;
   readonly kubejsPath: string;
+}
+
+export interface ConnectorStatus {
+  readonly uptimeSeconds: number;
+  readonly players: number;
+  readonly maxPlayers: number;
+  readonly clients: number;
+  readonly reloadAllowed: boolean;
+  readonly kubejsVersion: string | null;
+}
+
+export function isConnectorStatus(value: unknown): value is ConnectorStatus {
+  return (
+    isRecord(value) &&
+    ['uptimeSeconds', 'players', 'maxPlayers', 'clients'].every(
+      (key) =>
+        typeof value[key] === 'number' && Number.isSafeInteger(value[key]) && value[key] >= 0,
+    ) &&
+    typeof value.reloadAllowed === 'boolean' &&
+    (typeof value.kubejsVersion === 'string' || value.kubejsVersion === null)
+  );
 }
 
 export interface ConnectorError {
@@ -160,8 +182,10 @@ export function isConnectorMessage(value: unknown): value is ConnectorMessage {
     return false;
   }
   if (value.type === 'hello') {
+    if (!isRecord(value.capabilities)) return false;
+    const capabilities = value.capabilities;
     return (
-      typeof value.protocolVersion === 'number' &&
+      Number.isSafeInteger(value.protocolVersion) &&
       typeof value.connectorVersion === 'string' &&
       typeof value.minecraftVersion === 'string' &&
       (typeof value.kubejsVersion === 'string' || value.kubejsVersion === null) &&
@@ -170,6 +194,16 @@ export function isConnectorMessage(value: unknown): value is ConnectorMessage {
           (value.session.kind === 'admin' || value.session.kind === 'player') &&
           typeof value.session.displayName === 'string' &&
           value.session.displayName.length <= 64 &&
+          (value.session.locale === undefined ||
+            (typeof value.session.locale === 'string' && value.session.locale.length <= 64)) &&
+          (value.session.role === undefined ||
+            (typeof value.session.role === 'string' &&
+              ['viewer', 'editor', 'operator', 'admin'].includes(value.session.role))) &&
+          (value.session.permissions === undefined ||
+            (Array.isArray(value.session.permissions) &&
+              value.session.permissions.every(
+                (permission) => typeof permission === 'string' && permissions.has(permission),
+              ))) &&
           (value.session.sessionId === undefined ||
             (typeof value.session.sessionId === 'string' &&
               value.session.sessionId.length >= 16 &&
@@ -190,11 +224,22 @@ export function isConnectorMessage(value: unknown): value is ConnectorMessage {
           value.workspace.instancePath.length <= 4096 &&
           typeof value.workspace.kubejsPath === 'string' &&
           value.workspace.kubejsPath.length <= 4096)) &&
-      isRecord(value.capabilities)
+      isRecord(value.capabilities) &&
+      ['registries', 'recipes', 'logs', 'reload', 'inspect'].every(
+        (key) => typeof capabilities[key] === 'boolean',
+      ) &&
+      ['status', 'workspaceFiles', 'workspaceLocks', 'workspaceWrite', 'workspaceManage'].every(
+        (key) => capabilities[key] === undefined || typeof capabilities[key] === 'boolean',
+      ) &&
+      Array.isArray(value.capabilities.integrations) &&
+      value.capabilities.integrations.every((item) => typeof item === 'string') &&
+      (value.capabilities.workspaceMaxFileBytes === undefined ||
+        (Number.isSafeInteger(value.capabilities.workspaceMaxFileBytes) &&
+          Number(value.capabilities.workspaceMaxFileBytes) > 0))
     );
   }
   if (value.type === 'response') {
-    return typeof value.requestId === 'string' && value.ok === true && 'result' in value;
+    return validRequestId(value.requestId) && value.ok === true && 'result' in value;
   }
   if (value.type === 'event') {
     return (
@@ -203,10 +248,47 @@ export function isConnectorMessage(value: unknown): value is ConnectorMessage {
     );
   }
   return (
-    value.type === 'error' && typeof value.code === 'string' && typeof value.message === 'string'
+    value.type === 'error' &&
+    typeof value.code === 'string' &&
+    errorCodes.has(value.code) &&
+    typeof value.message === 'string' &&
+    (value.requestId === undefined || validRequestId(value.requestId)) &&
+    (value.actualRevision === undefined || typeof value.actualRevision === 'string')
   );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+const errorCodes = new Set([
+  'AUTH_REQUIRED',
+  'AUTH_FAILED',
+  'PERMISSION_DENIED',
+  'PROTOCOL_MISMATCH',
+  'INVALID_MESSAGE',
+  'RATE_LIMITED',
+  'FILE_ERROR',
+  'FILE_NOT_FOUND',
+  'FILE_EXISTS',
+  'DIRECTORY_NOT_EMPTY',
+  'LOCK_REQUIRED',
+  'REVISION_CONFLICT',
+  'INTERNAL_ERROR',
+]);
+function validRequestId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 128;
+}
+
+const permissions = new Set([
+  'kubevs.connect',
+  'kubevs.registry.read',
+  'kubevs.recipes.read',
+  'kubevs.logs.read',
+  'kubevs.reload',
+  'kubevs.inspect',
+  'kubevs.workspace.read',
+  'kubevs.workspace.write',
+  'kubevs.workspace.manage',
+  'kubevs.accounts.manage',
+]);

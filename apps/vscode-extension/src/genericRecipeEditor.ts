@@ -1,3 +1,4 @@
+import { workbenchCss, editorUtilities, handleWorkbenchMessage } from './workbenchUi.js';
 import * as vscode from 'vscode';
 import {
   buildRecipeFromSchema,
@@ -78,6 +79,7 @@ export async function openGenericRecipeEditor(
   });
   panel.webview.onDidReceiveMessage(
     async (value: unknown) => {
+      if (await handleWorkbenchMessage(value, panel.webview)) return;
       if (await handleRegistryPickMessage(value, panel.webview, registryCatalog)) return;
       if (await handleRegistryIconMessage(value, panel.webview, registryCatalog)) return;
       if (!isGenericRecipeEditorMessage(value)) return;
@@ -290,7 +292,9 @@ function genericRecipeEditorHtml(
     .kind { color: var(--vscode-descriptionForeground); font: 11px var(--vscode-editor-font-family); }
     .list { display: grid; gap: 7px; }
     .list-row { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 7px; }
-    .input-picker { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 7px; align-items: center; }
+    .input-picker { display: grid; grid-template-columns: minmax(0, 1fr) 32px; gap: 7px; align-items: center; }
+    .input-picker:has(.field-icon:not([hidden])) { grid-template-columns: 30px minmax(0, 1fr) 32px; }
+    .input-picker > button { width: 32px; }
     .field-icon { width: 30px; height: 30px; object-fit: contain; image-rendering: pixelated; }
     .field-icon[hidden] { display: none; }
     .pick-id { min-width: 34px; padding-inline: 8px; }
@@ -319,11 +323,12 @@ function genericRecipeEditorHtml(
       select, input, textarea, pre, .origin, .empty { border: 1px solid CanvasText; }
       .origin::before { background: Highlight; forced-color-adjust: none; }
     }
+    ${workbenchCss}
   </style>
 </head>
 <body>
   <header>
-    <div class="identity"><h1>Schema Recipe</h1><div class="subtitle">Typed custom JSON · safe generated file</div></div>
+    <div class="identity"><h1>Schema Recipe</h1></div>
     <label class="schema-switcher"><span class="muted">Recipe schema</span><select id="schema"></select></label>
     <button type="button" id="reload">Reload schemas</button>
     <button class="primary" type="button" id="save">Save recipe</button>
@@ -353,7 +358,7 @@ function genericRecipeEditorHtml(
       <div class="form" id="form"></div>
     </section>
     <section class="preview">
-      <h2>Canonical KubeJS preview</h2>
+      <h2>JavaScript</h2>
       <pre id="code"></pre>
       <p class="status" id="status" role="status" aria-live="polite">Ready.</p>
     </section>
@@ -830,6 +835,7 @@ function genericRecipeEditorHtml(
       }
     });
     setCatalog(catalog);
+    ${editorUtilities()}
   </script>
 </body>
 </html>`;

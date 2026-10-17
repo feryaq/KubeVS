@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   connectorCredentialKey,
   isConnectorAuthenticationError,
+  describeConnectorConnectionError,
   parseConnectorConnectionCode,
   parseConnectorToken,
 } from '../dist/connectorAuthCore.mjs';
@@ -53,4 +54,42 @@ test('parses one-click KubeVS connection codes', () => {
     () => parseConnectorConnectionCode('kubevs://example.net?token=short'),
     /32 to 256/u,
   );
+});
+
+test('connection failures give actionable recovery without exposing pasted credentials', () => {
+  assert.match(
+    describeConnectorConnectionError(new Error('ECONNREFUSED'), 'localhost', 32145),
+    /Open a Minecraft world/u,
+  );
+  assert.match(
+    describeConnectorConnectionError(
+      new Error('Unexpected server response: 401'),
+      'localhost',
+      32145,
+    ),
+    /\/kvs join/u,
+  );
+  assert.match(
+    describeConnectorConnectionError(new Error('ENOTFOUND'), 'game.example', 32145),
+    /network.publicHost/u,
+  );
+  assert.match(
+    describeConnectorConnectionError(new Error('ETIMEDOUT'), 'game.example', 32145),
+    /separate Connector port/u,
+  );
+  assert.match(
+    describeConnectorConnectionError(new Error('Protocol mismatch'), 'localhost', 32145),
+    /matching KubeVS versions/u,
+  );
+  assert.match(
+    describeConnectorConnectionError(new Error('TLS certificate failure'), 'game.example', 443),
+    /TLS proxy/u,
+  );
+  const secret = 'A'.repeat(43);
+  const message = describeConnectorConnectionError(
+    new Error(`Failed kubevs://localhost?token=${secret} and token=${secret}`),
+    'localhost',
+    32145,
+  );
+  assert.equal(message.includes(secret), false);
 });

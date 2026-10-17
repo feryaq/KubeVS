@@ -68,6 +68,8 @@ const visit = (directory) => {
 };
 visit(extensionRoot);
 for (const path of extensionTextFiles) {
+  // Product UI remains English; published documentation may be Russian.
+  if (path.endsWith('.md')) continue;
   const content = readFileSync(path, 'utf8');
   if (/[А-Яа-яЁё]/u.test(content)) {
     errors.push(
@@ -94,6 +96,12 @@ if (/ProGuard|obfuscatedJar|guardsquare/u.test(connectorBuild)) {
 }
 const heading = `## [${extensionPackage.version} / Connector ${connectorVersion}]`;
 if (!changelog.includes(heading)) errors.push(`CHANGELOG is missing ${heading}`);
+const releaseNotesPath = resolve(root, `docs/releases/${extensionPackage.version}.md`);
+if (!existsSync(releaseNotesPath)) {
+  errors.push(`Russian release notes are missing: docs/releases/${extensionPackage.version}.md`);
+} else if (!/[А-Яа-яЁё]/u.test(readFileSync(releaseNotesPath, 'utf8'))) {
+  errors.push('Release notes must be written in Russian');
+}
 
 if (errors.length) {
   for (const error of errors) console.error(`ERROR: ${error}`);
