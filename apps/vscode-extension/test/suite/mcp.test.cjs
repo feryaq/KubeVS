@@ -65,6 +65,7 @@ suite('KubeVS MCP in installed Code', () => {
         'kubevs_delete_file',
         'kubevs_generate_recipe',
         'kubevs_generate_mod_recipe',
+        'kubevs_generate_gregtech_recipe',
         'kubevs_generate_loot',
         'kubevs_generate_content',
         'kubevs_diagnostics',
@@ -137,6 +138,34 @@ suite('KubeVS MCP in installed Code', () => {
         },
       });
       assert.match(remember(mechanical).content, /mechanical_crafting/);
+
+      const gt = await call('kubevs_generate_gregtech_recipe', {
+        root,
+        save: true,
+        machine: 'assembler',
+        recipeId: `kubevs:${testId}_gregtech`,
+        itemInputs: ['2x minecraft:iron_ingot'],
+        itemOutputs: [{ item: 'minecraft:iron_block', count: 1 }],
+        nonConsumableItems: ['minecraft:stick'],
+        circuit: 2,
+        duration: 200,
+        eut: 30,
+        path: `server_scripts/${testId}_gregtech.js`,
+      });
+      const gtFile = remember(gt);
+      assert.match(gtFile.content, /event\.recipes\.gtceu\.assembler/);
+      assert.match(gtFile.content, /notConsumableItem/);
+      assert.match(gtFile.content, /\.EUt\(30, 1\)/);
+      await expectToolError(
+        'kubevs_generate_gregtech_recipe',
+        {
+          machine: 'assembler); malicious()',
+          recipeId: `kubevs:${testId}_unsafe`,
+          duration: 20,
+          eut: 30,
+        },
+        /machine|invalid|regex/i,
+      );
 
       const loot = await call('kubevs_generate_loot', {
         root,

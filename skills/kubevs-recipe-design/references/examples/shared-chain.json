@@ -1,0 +1,28 @@
+{
+  "target": { "item": "example:module", "count": 1 },
+  "mode": "guaranteed",
+  "recipes": {
+    "example:module": {
+      "output": { "count": 1 },
+      "ingredients": [
+        { "item": "example:left", "count": 1 },
+        { "item": "example:right", "count": 1 }
+      ]
+    },
+    "example:left": {
+      "output": { "count": 1 },
+      "ingredients": [{ "item": "example:plate", "count": 1 }]
+    },
+    "example:right": {
+      "output": { "count": 1 },
+      "ingredients": [{ "item": "example:plate", "count": 1 }]
+    },
+    "example:plate": {
+      "output": { "count": 3 },
+      "ingredients": [{ "item": "example:ingot", "count": 2 }],
+      "ticks": 40,
+      "eu_per_tick": 16,
+      "parallel_per_machine": 2
+    }
+  }
+}

@@ -1,3 +1,9 @@
+import {
+  generateGregtechRecipe,
+  isGregtechRecipeDraft,
+  type GregtechRecipeDraft,
+} from './gregtechRecipeCore.js';
+export { generateGregtechRecipe, isGregtechRecipeDraft } from './gregtechRecipeCore.js';
 export type AddonRecipeType =
   | 'create:pressing'
   | 'create:crushing'
@@ -15,7 +21,8 @@ export type AddonRecipeType =
   | 'oritech:foundry'
   | 'oritech:atomic_forge'
   | 'farmersdelight:cooking'
-  | 'farmersdelight:cutting';
+  | 'farmersdelight:cutting'
+  | 'gtceu:machine';
 
 export type CreateSequenceStepType = 'create:pressing' | 'create:deploying' | 'create:cutting';
 
@@ -51,6 +58,7 @@ export interface AddonRecipeDraft {
   readonly tool: string;
   readonly sequence: readonly CreateSequenceStep[];
   readonly mechanical?: MechanicalCraftingDraft;
+  readonly gregtech?: GregtechRecipeDraft;
 }
 
 export interface MechanicalCraftingDraft {
@@ -81,10 +89,16 @@ const RECIPE_TYPES = new Set<AddonRecipeType>([
   'oritech:atomic_forge',
   'farmersdelight:cooking',
   'farmersdelight:cutting',
+  'gtceu:machine',
 ]);
 
 export function generateAddonRecipe(draft: AddonRecipeDraft): string {
   validateDraftShape(draft);
+  if (draft.type === 'gtceu:machine') {
+    if (!draft.gregtech || draft.gregtech.recipeId !== draft.recipeId)
+      throw new Error('Invalid GregTech recipe details.');
+    return generateGregtechRecipe(draft.gregtech);
+  }
   const recipeId = requireResource(draft.recipeId, 'Recipe ID');
   if (draft.type === 'create:mechanical_crafting') {
     return wrapRecipe(createMechanicalCrafting(draft), recipeId);
@@ -205,6 +219,7 @@ export function isAddonRecipeDraft(value: unknown): value is AddonRecipeDraft {
     typeof draft.type === 'string' &&
     RECIPE_TYPES.has(draft.type as AddonRecipeType) &&
     (draft.type !== 'create:mechanical_crafting' || isMechanicalCraftingDraft(draft.mechanical)) &&
+    (draft.type !== 'gtceu:machine' || isGregtechRecipeDraft(draft.gregtech)) &&
     typeof draft.recipeId === 'string' &&
     draft.recipeId.length <= 300 &&
     Array.isArray(draft.ingredients) &&

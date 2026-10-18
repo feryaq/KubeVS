@@ -2,6 +2,13 @@
 
 Notable KubeVS changes. This file records product decisions instead of repeating commit history.
 
+## [1.5.0 / Connector 1.5.0] — 2026-10-18
+
+- GregTech CEu Modern для Minecraft 1.21.1: редактор машинных рецептов и MCP-генератор с предметами, жидкостями, шансами, катализаторами, схемой, временем и EU/t.
+- Craft Graph понимает capability maps рецептов GTCEu; Connector сообщает об установленной интеграции.
+- Добавлен навык проектирования крафтов с проверкой прогрессии, реализма, сложности и лишнего гринда; калькулятор сырья, энергии и производительности.
+- GitHub Releases теперь содержат и расширение VSIX, и production JAR Connector.
+
 ## [Unreleased]
 
 ## [1.4.0 / Connector 1.4.0] — 2026-10-18

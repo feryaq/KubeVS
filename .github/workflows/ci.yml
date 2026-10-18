@@ -34,6 +34,11 @@ jobs:
         run: pnpm audit --prod
       - name: Verify and test extension
         run: pnpm check:release
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test recipe design calculator
+        run: python -m unittest discover -s skills/kubevs-recipe-design/scripts -p "test_*.py"
       - name: Package production VSIX
         run: |
           $version = node -p "require('./apps/vscode-extension/package.json').version"

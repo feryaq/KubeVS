@@ -26,3 +26,25 @@ test('generated Mod Recipes webview script is valid JavaScript', () => {
   assert.match(html, /<html lang="en">/u);
   assert.match(script, /split\(\/\\r\?\\n\/\)/u);
 });
+
+test('GregTech editor exposes machine-specific fields and forwards a structured draft', () => {
+  const html = addonRecipeEditorHtml(
+    { cspSource: 'test-webview' },
+    'test-nonce',
+    new Set(['gtceu']),
+  );
+  assert.match(html, /data-type="gtceu:machine"/u);
+  for (const field of [
+    'gtMachine',
+    'gtEUt',
+    'gtCircuit',
+    'gtReusableItems',
+    'gtReusableFluids',
+    'gtYMin',
+    'gtYMax',
+  ]) {
+    assert.match(html, new RegExp('id="' + field + '"'));
+  }
+  assert.match(html, /machine:document\.getElementById\('gtMachine'\)/u);
+  assert.match(html, /document\.getElementById\('gregtechSection'\)\.hidden = !gregtech/u);
+});

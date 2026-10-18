@@ -2,7 +2,7 @@
   "name": "kubevs-extension",
   "displayName": "KubeVS",
   "description": "%extension.description%",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "publisher": "kubevs",
   "repository": {
@@ -52,12 +52,12 @@
     "build:test-replacement": "esbuild src/recipeReplacementCore.ts --bundle --platform=node --format=esm --outfile=dist/recipeReplacementCore.mjs",
     "package:vsix": "vsce package --no-dependencies",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "pnpm build && pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/addonRecipeCore.test.mjs test/addonRecipeWebview.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/craftGraphWebview.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs test/recipeImport.test.mjs && pnpm build:test-mcp && node --test test/mcpServer.test.mjs && node ./test/run.mjs",
+    "test": "pnpm build && pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && node --test test/addonRecipeCore.test.mjs test/addonRecipeWebview.test.mjs test/lootRuleCore.test.mjs test/connectorAuthCore.test.mjs test/connectorClient.test.mjs test/recipeRemovalCore.test.mjs test/craftGraphCore.test.mjs test/craftGraphWebview.test.mjs test/generatedTargetCore.test.mjs test/contentBuilderCore.test.mjs test/recipeReplacementCore.test.mjs test/recipeImport.test.mjs test/gregtechRecipeCore.test.mjs && pnpm build:test-mcp && node --test test/mcpServer.test.mjs && node ./test/run.mjs",
     "test:live-vscode": "pnpm build && node ./test/run-live-vscode.mjs",
     "test:unit": "pnpm build:test-addon && pnpm build:test-webview && pnpm build:test-loot && pnpm build:test-auth && pnpm build:test-client && pnpm build:test-removal && pnpm build:test-graph && pnpm build:test-graph-webview && pnpm build:test-target && pnpm build:test-content && pnpm build:test-replacement && pnpm build:test-mcp && node --test test/*.test.mjs",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "test:render": "node test/workbenchRender.mjs ../../artifacts/home-1.4.0",
-    "test:visual": "node test/workbenchVisual.mjs ../../artifacts/home-1.4.0 ../../artifacts/home-1.4.0/screenshots --strict",
+    "test:render": "node test/workbenchRender.mjs ../../artifacts/home-1.5.0",
+    "test:visual": "node test/workbenchVisual.mjs ../../artifacts/home-1.5.0 ../../artifacts/home-1.5.0/screenshots --strict",
     "build:test-mcp": "esbuild src/mcpServer.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/mcpServer.mjs"
   },
   "dependencies": {

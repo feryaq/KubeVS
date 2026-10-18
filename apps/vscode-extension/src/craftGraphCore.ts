@@ -62,6 +62,9 @@ const OUTPUT_KEYS = ['result', 'results', 'output', 'outputs'];
 export function normalizeRecipe(entry: RecipeSnapshotEntry): CraftRecipe | undefined {
   const raw = asRecord(entry.json);
   if (!raw) return undefined;
+  if (entry.recipeType.startsWith('gtceu:') && asRecord(raw.inputs) && asRecord(raw.outputs)) {
+    return normalizeGregtechRecipe(entry, raw);
+  }
   const inputs =
     Array.isArray(raw.pattern) && asRecord(raw.key)
       ? shapedInputs(raw.pattern, asRecord(raw.key) ?? {})
@@ -81,6 +84,67 @@ export function normalizeRecipe(entry: RecipeSnapshotEntry): CraftRecipe | undef
     ),
     energy: positiveNumber(raw.energy ?? raw.energyCost ?? raw.energy_cost, 0),
   };
+}
+
+function normalizeGregtechRecipe(
+  entry: RecipeSnapshotEntry,
+  raw: Readonly<Record<string, unknown>>,
+): CraftRecipe | undefined {
+  const inputs = asRecord(raw.inputs) ?? {};
+  const outputs = asRecord(raw.outputs) ?? {};
+  const itemInputs = gtContents(inputs.item, 'item');
+  const fluidInputs = gtContents(inputs.fluid, 'fluid');
+  const itemOutputs = gtContents(outputs.item, 'item');
+  const fluidOutputs = gtContents(outputs.fluid, 'fluid');
+  if (itemOutputs.length + fluidOutputs.length === 0) return undefined;
+  const consumables = [...itemInputs, ...fluidInputs].filter((stack) => stack.chance > 0);
+  const catalysts = [...itemInputs, ...fluidInputs].filter((stack) => stack.chance === 0);
+  const duration = positiveNumber(raw.duration, 0);
+  const tickInputs = asRecord(raw.tickInputs) ?? {};
+  const euContent = asRecord(Array.isArray(tickInputs.eu) ? tickInputs.eu[0] : undefined);
+  const eu = euContent?.content;
+  const euStack = asRecord(eu);
+  const eut =
+    typeof eu === 'number'
+      ? eu
+      : positiveNumber(euStack?.voltage, 0) * positiveNumber(euStack?.amperage, 1);
+  return {
+    id: entry.id,
+    recipeType: entry.recipeType,
+    label: canonicalRecipeLabel(entry.recipeType),
+    inputs: mergeStacks(consumables),
+    outputs: mergeStacks([...itemOutputs, ...fluidOutputs]),
+    catalysts,
+    workstations: workstationStacks(entry.recipeType),
+    duration,
+    energy: eut * duration,
+  };
+}
+
+function gtContents(value: unknown, kind: 'item' | 'fluid'): FlowStack[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const wrapper = asRecord(entry);
+    const content = asRecord(wrapper?.content);
+    if (!content) return [];
+    const ingredient = asRecord(content.ingredient);
+    const id =
+      kind === 'fluid'
+        ? (content.fluid ?? content.id ?? ingredient?.fluid ?? ingredient?.id)
+        : (ingredient?.item ?? ingredient?.id ?? ingredient?.tag ?? content.item ?? content.id);
+    if (typeof id !== 'string' || !isResourceId(id)) return [];
+    const rawChance = typeof wrapper?.chance === 'number' ? wrapper.chance : 1;
+    const maxChance = positiveNumber(wrapper?.maxChance, rawChance > 1 ? 10000 : 1);
+    const chance = maxChance > 0 ? rawChance / maxChance : 1;
+    return [
+      {
+        kind: kind === 'item' && typeof ingredient?.tag === 'string' ? ('tag' as const) : kind,
+        id,
+        count: positiveNumber(content.count ?? content.amount, 1),
+        chance,
+      },
+    ];
+  });
 }
 
 export function buildCraftTree(

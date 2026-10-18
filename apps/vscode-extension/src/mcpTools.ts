@@ -20,6 +20,7 @@ import {
   LOOT_RULE_PRESETS,
   type LootConditionNode,
 } from './lootRuleCore.js';
+import { generateGregtechRecipe } from './gregtechRecipeCore.js';
 import { generatedArtifactStem, craftCategory } from './generatedTargetCore.js';
 import {
   buildCraftTree,
@@ -428,6 +429,52 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
         args,
         generateAddonRecipe(args.draft),
         recipePath(args.draft.recipeId, args.draft.type),
+      );
+    },
+    false,
+  );
+  tool(
+    'kubevs_generate_gregtech_recipe',
+    'Preview or save a GTCEu Modern 1.21.1 machine recipe using its native KubeJS builder. machine is the recipe type path, e.g. assembler or chemical_reactor; use live recipe types to verify it. Item inputs accept count prefixes and #tags; fluid amounts are mB. duration is ticks; eut is signed EU/t (negative for generators). No implicit overclocking. Startup registration of new machines is outside this tool.',
+    {
+      machine: z
+        .string()
+        .regex(/^[a-z0-9_]+$/)
+        .max(80),
+      recipeId: id,
+      itemInputs: z.array(z.string().max(300)).max(64).default([]),
+      fluidInputs: z.array(fluid).max(64).default([]),
+      itemOutputs: z
+        .array(
+          z.object({
+            item: id,
+            count: z.number().int().positive().default(1),
+            chance: z.number().positive().max(1).default(1),
+          }),
+        )
+        .max(64)
+        .default([]),
+      fluidOutputs: z.array(fluid).max(64).default([]),
+      nonConsumableItems: z.array(z.string().max(300)).max(64).default([]),
+      nonConsumableFluids: z.array(fluid).max(64).default([]),
+      circuit: z.number().int().min(0).max(32).nullable().default(null),
+      duration: z.number().int().positive(),
+      eut: z
+        .number()
+        .int()
+        .refine((value) => value !== 0, 'EU/t must not be zero'),
+      posY: z.object({ min: z.number().int(), max: z.number().int() }).nullable().default(null),
+      ...saveArgs,
+    },
+    async (args) => {
+      if (args.save && ctx.hello() && !ctx.hello()?.capabilities.integrations.includes('gtceu'))
+        throw new Error(
+          'GTCEu integration is unavailable. Install GTCEu and update Connector to 1.5.0 or later.',
+        );
+      return saveCode(
+        args,
+        generateGregtechRecipe(args),
+        recipePath(args.recipeId, 'gtceu:' + args.machine),
       );
     },
     false,

@@ -6,7 +6,7 @@
 
 ## Установка
 
-1. Установите `kubevs-1.4.0.vsix` командой VS Code **Install from VSIX…**.
+1. Установите `kubevs-1.5.0.vsix` командой VS Code **Install from VSIX…**.
 2. Поместите JAR Connector в папку `mods` сервера Minecraft.
 3. Выполните в игре `/kvs join`, затем в VS Code запустите **KubeVS: Connect with /kvs join code**.
 4. Откройте KubeVS значком куба на панели действий. Рабочая среда откроется автоматически; в боковой панели доступен тот же интерфейс.
@@ -15,8 +15,8 @@
 
 | Компонент          | Версия | Платформа                                        |
 | ------------------ | -----: | ------------------------------------------------ |
-| Расширение KubeVS  |  1.4.0 | VS Code 1.105+; проверен Code OSS                |
-| KubeVS Connector   |  1.4.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
+| Расширение KubeVS  |  1.5.0 | VS Code 1.105+; проверен Code OSS                |
+| KubeVS Connector   |  1.5.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
 | Протокол WebSocket |      2 | С аутентификацией; по умолчанию только localhost |
 
 ## Возможности
@@ -46,9 +46,9 @@ pnpm --filter kubevs-extension package:vsix
 bash gradlew :mods:kubevs-connector:test :mods:kubevs-connector:build
 ```
 
-Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.4.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.4.0.jar`.
+Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.5.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.5.0.jar`.
 
-В релизах GitHub распространяется только расширение; Connector публикуется через Modrinth. Перед выпуском следуйте [инструкции по релизу](RELEASE.md). Сборка сама по себе не публикует новую версию.
+В релизах GitHub распространяются расширение VSIX и Connector JAR; Connector также доступен через Modrinth. Перед выпуском следуйте [инструкции по релизу](RELEASE.md). Сборка сама по себе не публикует новую версию.
 
 ## Документация
 
@@ -63,3 +63,11 @@ bash gradlew :mods:kubevs-connector:test :mods:kubevs-connector:build
 ## Лицензия
 
 KubeVS распространяется по лицензии [KubeVS Community Source License 1.0](LICENSE). Созданные файлы KubeJS остаются вашими. Подробности — в [уведомлениях о сторонних компонентах](THIRD_PARTY_NOTICES.md).
+
+### Продуманные рецепты для ИИ
+
+Навык [kubevs-recipe-design](skills/kubevs-recipe-design/SKILL.md) проверяет рецепты по живым данным MCP, учитывает прогрессию и автоматизацию, отделяет смысловую сложность от лишнего гринда. В комплекте калькулятор цепочек: сырьё, катализаторы, время, EU и производительность при явно заданных предположениях. Навык устанавливается в каталог skills вашего Codex; расширение не меняет настройки ИИ-клиента автоматически.
+
+### GregTech CEu Modern · Minecraft 1.21.1
+
+В редакторе **Mod recipe → GregTech CEu** создавайте машинные рецепты: предметы, жидкости, шансы выхода, повторно используемые компоненты, схема, время, EU/t и условие по высоте. Для ИИ доступен инструмент `kubevs_generate_gregtech_recipe`. Craft Graph разбирает capability maps GTCEu. Обновите Connector до 1.5.0 для обнаружения мода. Генератор использует KubeJS API ветки 1.21; собственные машины и дополнительные research/cleanroom-условия требуют ручной настройки по документации установленной версии.

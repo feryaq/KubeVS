@@ -99,7 +99,7 @@ server.on('connection', (socket, request) => {
         logs: true,
         reload: false,
         inspect: true,
-        integrations: ['create', 'farmersdelight', 'lootjs'],
+        integrations: ['create', 'farmersdelight', 'lootjs', 'gtceu'],
         workspaceFiles: true,
         workspaceLocks: true,
         workspaceWrite: true,

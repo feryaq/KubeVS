@@ -92,3 +92,54 @@ test('keeps canonical names and machines without an external recipe viewer', () 
     'create:basin',
   ]);
 });
+
+test('normalizes GTCEu capability maps with catalysts and chanced byproducts', () => {
+  const recipe = normalizeRecipe({
+    id: 'kubevs:gt_assembler',
+    recipeType: 'gtceu:assembler',
+    json: {
+      duration: 200,
+      inputs: {
+        item: [
+          {
+            content: {
+              type: 'gtceu:sized',
+              count: 2,
+              ingredient: { item: 'minecraft:iron_ingot' },
+            },
+            chance: 1,
+          },
+          {
+            content: { type: 'gtceu:sized', count: 1, ingredient: { item: 'minecraft:bucket' } },
+            chance: 0,
+          },
+        ],
+        fluid: [{ content: { amount: 250, fluid: 'minecraft:water' }, chance: 1 }],
+      },
+      outputs: {
+        item: [
+          {
+            content: { type: 'gtceu:sized', count: 1, ingredient: { item: 'minecraft:diamond' } },
+            chance: 1,
+          },
+          {
+            content: { type: 'gtceu:sized', count: 1, ingredient: { item: 'minecraft:gravel' } },
+            chance: 1250,
+            maxChance: 10000,
+          },
+        ],
+      },
+      tickInputs: { eu: [{ content: { voltage: 30, amperage: 1 }, chance: 1 }] },
+    },
+  });
+  assert.deepEqual(
+    recipe.inputs.map((x) => [x.id, x.count]),
+    [
+      ['minecraft:iron_ingot', 2],
+      ['minecraft:water', 250],
+    ],
+  );
+  assert.equal(recipe.catalysts[0].id, 'minecraft:bucket');
+  assert.equal(recipe.outputs[1].chance, 0.125);
+  assert.equal(recipe.energy, 6000);
+});

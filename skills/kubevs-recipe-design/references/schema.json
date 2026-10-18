@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["target"],
+  "additionalProperties": false,
+  "properties": {
+    "target": {
+      "type": "object",
+      "required": ["item", "count"],
+      "additionalProperties": false,
+      "properties": {
+        "item": { "type": "string", "minLength": 1 },
+        "count": { "type": "integer", "minimum": 1 },
+        "items_per_second": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "mode": { "enum": ["expected", "guaranteed"], "default": "guaranteed" },
+    "recipes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/recipe" }
+    }
+  },
+  "$defs": {
+    "recipe": {
+      "type": "object",
+      "required": ["output"],
+      "additionalProperties": false,
+      "properties": {
+        "output": {
+          "type": "object",
+          "required": ["count"],
+          "additionalProperties": false,
+          "properties": {
+            "count": { "type": "integer", "minimum": 1 },
+            "chance": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 1 }
+          }
+        },
+        "ingredients": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["item", "count"],
+            "additionalProperties": false,
+            "properties": {
+              "item": { "type": "string", "minLength": 1 },
+              "count": { "type": "integer", "minimum": 1 },
+              "kind": { "enum": ["consumed", "catalyst"], "default": "consumed" }
+            }
+          }
+        },
+        "ticks": { "type": "integer", "minimum": 1 },
+        "eu_per_tick": { "type": "integer", "minimum": 1 },
+        "parallel_per_machine": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

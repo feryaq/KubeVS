@@ -7,9 +7,9 @@ This is the required procedure for ChatGPT, Codex, and human maintainers publish
 - Versions use Semantic Versioning: `major.minor.patch`.
 - The root package, VS Code extension, Connector, README, and changelog use the same version.
 - Pushing a new `v<version>` tag starts `.github/workflows/release.yml`.
-- GitHub Releases distribute only the VS Code extension.
-- A completed release must contain exactly one asset named `kubevs-<version>.vsix`.
-- The Connector JAR is tested by CI but distributed through Modrinth, never through GitHub Releases.
+- GitHub Releases distribute both the VS Code extension and the Connector.
+- A completed release must contain exactly two assets named `kubevs-<version>.vsix` and `kubevs-connector-<version>.jar`.
+- The Connector JAR must be tested and built from the tagged commit; Modrinth distribution is optional.
 - Published tags are immutable. Never reuse, move, or delete one.
 
 ## 1. Choose and synchronize the version
@@ -43,6 +43,7 @@ pnpm audit --prod
 pnpm check:release
 .\gradlew.bat :mods:kubevs-connector:test :mods:kubevs-connector:build --no-daemon
 pnpm --filter kubevs-extension exec vsce package --no-dependencies --out "../../artifacts/kubevs-<version>.vsix"
+Copy-Item "mods/kubevs-connector/build/libs/kubevs-<version>.jar" "artifacts/kubevs-connector-<version>.jar"
 ```
 
 Do not claim success from compilation alone. All checks must pass. Inspect `git status --short` and preserve unrelated user changes.
@@ -87,11 +88,11 @@ The final verification must confirm:
 - the workflow conclusion is `success`;
 - the release is public, not a draft or prerelease unless explicitly requested;
 - the tag is `v<version>`;
-- there is exactly one asset;
-- its name is `kubevs-<version>.vsix`;
-- no JAR is attached.
+- there are exactly two assets;
+- their names are `kubevs-<version>.vsix` and `kubevs-connector-<version>.jar`;
+- SHA-256 digests are verified for both assets.
 
-Report the release page, direct VSIX download link, workflow result, commit SHA, and asset SHA-256 digest.
+Report the release page, direct VSIX and JAR download links, workflow result, commit SHA, and SHA-256 digest of each asset.
 
 ## Failed tagged release
 

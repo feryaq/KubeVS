@@ -49,7 +49,7 @@ export const dashboardActions = [
   {
     command: 'kubevs.createAddonRecipe',
     title: 'Mod recipe',
-    hint: 'Create · Oritech · Farmer’s Delight',
+    hint: 'Create · GregTech · more',
     icon: 'layers',
     group: 'create',
   },

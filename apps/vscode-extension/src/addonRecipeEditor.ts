@@ -225,6 +225,9 @@ export function addonRecipeEditorHtml(
           availableIntegrations,
         )}
       </div>
+      <div class="mod-group"><div class="mod-name">GREGTECH CEU</div>
+        ${typeButtons([['gtceu:machine', 'Machine recipe']], availableIntegrations)}
+      </div>
       <div class="mod-group"><div class="mod-name">FARMER’S DELIGHT</div>
         ${typeButtons(
           [
@@ -274,6 +277,20 @@ export function addonRecipeEditorHtml(
           <label>Cooking experience<input id="experience" type="number" min="0" step="0.1" value="0"></label>
           <label>Required basin heat<select id="heat"><option value="none">No heat</option><option value="heated">Heated</option><option value="superheated">Superheated</option></select></label>
           <label id="toolLabel">Tool<span class="picker with-icon"><img class="field-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="tool" value="#minecraft:axes" spellcheck="false"><button class="mini" data-pick-for="tool" data-include-tags="true" type="button" title="Find a tool or tag">⌕</button></span></label>
+        </div>
+      </div>
+      <div class="section" id="gregtechSection" hidden>
+        <div class="section-head"><h2>GregTech machine</h2></div>
+        <div class="options">
+          <label>Recipe type<input id="gtMachine" value="assembler" spellcheck="false" placeholder="assembler"></label>
+          <label>EU/t<input id="gtEUt" type="number" step="1" value="30"></label>
+          <label>Circuit (optional)<input id="gtCircuit" type="number" min="0" max="32" step="1" placeholder="0–32"></label>
+          <label>Y min (optional)<input id="gtYMin" type="number" step="1" placeholder="-64"></label>
+          <label>Y max<input id="gtYMax" type="number" step="1" placeholder="320"></label>
+        </div>
+        <div class="options" style="margin-top:10px;grid-template-columns:repeat(2,minmax(0,1fr))">
+          <label>Reusable items, one ID or #tag per line<textarea id="gtReusableItems" spellcheck="false"></textarea></label>
+          <label>Reusable fluids, ID and mB per line<textarea id="gtReusableFluids" spellcheck="false" placeholder="minecraft:water 1000"></textarea></label>
         </div>
       </div>
       <div class="section" id="sequenceSection" hidden>
@@ -392,6 +409,10 @@ export function addonRecipeEditorHtml(
       readRows();
       readMechanical();
       const mechanical = recipeType === 'create:mechanical_crafting';
+      const gregtech = recipeType === 'gtceu:machine';
+      const lines = id => document.getElementById(id).value.split(/\\r?\\n/).map(value => value.trim()).filter(Boolean);
+      const yMin = document.getElementById('gtYMin').value.trim();
+      const yMax = document.getElementById('gtYMax').value.trim();
       return {
         type: recipeType,
         recipeId: recipeId.value,
@@ -407,6 +428,16 @@ export function addonRecipeEditorHtml(
         tool: document.getElementById('tool').value,
         sequence: steps,
         ...(mechanical ? {mechanical:{pattern:mechanicalPattern,key:mechanicalKeys,acceptMirrored:document.getElementById('acceptMirrored').checked}} : {}),
+        ...(gregtech ? {gregtech:{
+          machine:document.getElementById('gtMachine').value.trim(),recipeId:recipeId.value,
+          itemInputs:lines('ingredients'),fluidInputs,
+          itemOutputs:outputs,fluidOutputs,
+          nonConsumableItems:lines('gtReusableItems'),
+          nonConsumableFluids:lines('gtReusableFluids').map(line => { const match = /^(\\S+)\\s+(\\d+)$/.exec(line); return {fluid:match ? match[1] : line,amount:match ? Number(match[2]) : 0}; }),
+          circuit:document.getElementById('gtCircuit').value.trim() === '' ? null : Number(document.getElementById('gtCircuit').value),
+          duration:Number(document.getElementById('processingTime').value),eut:Number(document.getElementById('gtEUt').value),
+          posY:yMin || yMax ? {min:Number(yMin),max:Number(yMax)} : null,
+        }} : {}),
       };
     }
     function preview() {
@@ -429,7 +460,7 @@ export function addonRecipeEditorHtml(
       const primaryIngredient = recipeType === 'create:mechanical_crafting' ? Object.values(mechanicalKeys)[0] || '' : ingredients[0] || fluidInputs[0]?.fluid || '';
       const outputPart = canonicalPart(output, 'new_recipe');
       const inputPart = canonicalPart(primaryIngredient, 'material');
-      const processPart = recipeType.split(':').at(-1).replaceAll('/', '_');
+      const processPart = recipeType === 'gtceu:machine' ? document.getElementById('gtMachine').value.trim() || 'machine' : recipeType.split(':').at(-1).replaceAll('/', '_');
       recipeId.value = 'kubevs:' + outputPart + '_from_' + processPart + '_' + inputPart;
     }
     function applyIcon(input, icon, source) {
@@ -473,11 +504,20 @@ export function addonRecipeEditorHtml(
       readRows();
       const wasMechanical = recipeType === 'create:mechanical_crafting';
       recipeType = next;
+      if (next === 'gtceu:machine' && outputs.length === 1 && outputs[0].item === 'minecraft:iron_plate' && document.getElementById('ingredients').value.trim() === 'minecraft:iron_ingot') {
+        outputs = [{ item: 'minecraft:gravel', count: 1, chance: 1 }];
+        document.getElementById('ingredients').value = 'minecraft:stone';
+        document.getElementById('gtMachine').value = 'macerator';
+        document.getElementById('gtEUt').value = '2';
+        renderOutputs();
+      }
       const mechanical = next === 'create:mechanical_crafting';
       document.querySelector('.workspace').classList.toggle('mechanical-mode', mechanical);
       document.getElementById('mechanicalSection').hidden = !mechanical;
       document.getElementById('itemIngredientsSection').hidden = mechanical;
       document.getElementById('optionsSection').hidden = mechanical;
+      const gregtech = next === 'gtceu:machine';
+      document.getElementById('gregtechSection').hidden = !gregtech;
       if (mechanical !== wasMechanical) {
         if (wasMechanical) mechanicalOutputs = outputs;
         else processingOutputs = outputs;
@@ -490,11 +530,12 @@ export function addonRecipeEditorHtml(
       const sequenced = next === 'create:sequenced_assembly';
       const basinRecipe = next === 'create:mixing' || next === 'create:compacting';
       document.getElementById('sequenceSection').hidden = !sequenced;
-      document.getElementById('fluidInputsSection').hidden = !basinRecipe;
-      document.getElementById('fluidOutputsSection').hidden = !basinRecipe;
+      document.getElementById('fluidInputsSection').hidden = !basinRecipe && !gregtech;
+      document.getElementById('fluidOutputsSection').hidden = !basinRecipe && !gregtech;
       document.getElementById('toolLabel').hidden = next !== 'farmersdelight:cutting';
       document.getElementById('experience').closest('label').hidden = next !== 'farmersdelight:cooking';
       document.getElementById('heat').closest('label').hidden = next !== 'create:mixing' && next !== 'create:compacting';
+      document.getElementById('processingTime').closest('label').hidden = gregtech ? false : !next.startsWith('oritech:') && next !== 'farmersdelight:cooking' && next !== 'create:crushing' && next !== 'create:milling' && next !== 'create:cutting';
       preview();
     }
     document.addEventListener('click', event => {

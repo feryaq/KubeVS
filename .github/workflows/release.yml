@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   release:
-    name: Build VS Code extension release
+    name: Build extension and Connector release
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -29,6 +29,11 @@ jobs:
         with:
           node-version: '22'
           cache: pnpm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
       - name: Verify release metadata
@@ -43,17 +48,21 @@ jobs:
           "EXTENSION_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Test production sources
         run: pnpm check
+      - name: Test and build production Connector
+        run: .\gradlew.bat :mods:kubevs-connector:test :mods:kubevs-connector:build --no-daemon
       - name: Assemble extension release
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force artifacts | Out-Null
           pnpm --filter kubevs-extension exec vsce package --no-dependencies --out "../../artifacts/kubevs-$env:EXTENSION_VERSION.vsix"
-          Get-FileHash artifacts/*.vsix -Algorithm SHA256 | Format-Table
+          Copy-Item "mods/kubevs-connector/build/libs/kubevs-$env:EXTENSION_VERSION.jar" "artifacts/kubevs-connector-$env:EXTENSION_VERSION.jar"
+          Get-FileHash artifacts/* -Algorithm SHA256 | Format-Table
       - name: Publish GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $asset = (Resolve-Path "artifacts/kubevs-$env:EXTENSION_VERSION.vsix").Path
+          $connector = (Resolve-Path "artifacts/kubevs-connector-$env:EXTENSION_VERSION.jar").Path
           $notes = (Resolve-Path "docs/releases/$env:EXTENSION_VERSION.md").Path
-          gh release create $env:GITHUB_REF_NAME $asset --verify-tag --notes-file $notes --title "KubeVS $env:GITHUB_REF_NAME"
+          gh release create $env:GITHUB_REF_NAME $asset $connector --verify-tag --notes-file $notes --title "KubeVS $env:GITHUB_REF_NAME"

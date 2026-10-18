@@ -394,7 +394,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                 ConnectorPermissions.allows(identity.role(), ConnectorPermissions.WORKSPACE_MANAGE));
         capabilities.addProperty("workspaceMaxFileBytes", WorkspaceFileService.DEFAULT_MAX_FILE_BYTES);
         JsonArray integrations = new JsonArray();
-        for (String modId : List.of("create", "oritech", "farmersdelight", "lootjs")) {
+        for (String modId : List.of("create", "oritech", "farmersdelight", "lootjs", "gtceu")) {
             if (ModList.get().isLoaded(modId)) {
                 integrations.add(modId);
             }
