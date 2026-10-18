@@ -8,6 +8,7 @@ import type { KubeVsMcpResource, KubeVsMcpTool } from './mcpTypes.js';
 const BODY_LIMIT = 1024 * 1024;
 const MAX_ACTIVE_REQUESTS = 16;
 const REQUEST_TIMEOUT_MS = 30_000;
+const TOOL_TIMEOUT_MS = 180_000;
 
 export interface KubeVsMcpServerOptions {
   version: string;
@@ -147,13 +148,7 @@ export class KubeVsMcpServer {
   }
 
   private makeMcpServer(): McpServer {
-    const mcp = new McpServer(
-      { name: 'KubeVS', version: this.options.version },
-      {
-        instructions:
-          'KubeVS tools inspect and edit the trusted KubeJS project and connected Minecraft workspace.',
-      },
-    );
+    const mcp = new McpServer({ name: 'KubeVS', version: this.options.version });
     for (const tool of this.options.tools) {
       mcp.registerTool(
         tool.name,
@@ -255,6 +250,9 @@ export class KubeVsMcpServer {
     let transport: StreamableHTTPServerTransport | undefined;
     try {
       const body = await readJson(req);
+      // Receiving a request remains bounded to 30s. Complete graphs and resource
+      // reloads can legitimately take longer after the authenticated body arrives.
+      req.socket.setTimeout(TOOL_TIMEOUT_MS);
       if (!this.options.isTrusted()) {
         respond(res, 403, 'Workspace is not trusted');
         return;

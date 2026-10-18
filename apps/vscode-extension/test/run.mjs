@@ -7,6 +7,10 @@ import { runTests } from '@vscode/test-electron';
 import { WebSocketServer } from 'ws';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
+process.env.KUBEVS_MCP_EFFICIENCY_REPORT = path.resolve(
+  directory,
+  '../../../artifacts/mcp-context-1.8.0.json',
+);
 const localExecutable = process.env.KUBEVS_VSCODE_EXECUTABLE_PATH;
 const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kubevs-vscode-test-'));
 const extensionDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kubevs-vscode-extensions-'));
@@ -38,6 +42,17 @@ const recipeFixtures = [
     },
   },
 ];
+// Includes recipes beyond the former MCP 25000 limit.
+for (let index = 0; index < 36_026; index++)
+  recipeFixtures.push({
+    id: `pack:catalog_${index}`,
+    recipeType: 'minecraft:crafting_shapeless',
+    json: {
+      type: 'minecraft:crafting_shapeless',
+      ingredients: [{ item: 'minecraft:oak_planks' }],
+      result: { id: `pack:item_${index}`, count: 1 },
+    },
+  });
 let clock = Date.now();
 let reloadEnabled = false;
 
@@ -114,8 +129,10 @@ server.on('connection', (socket, request) => {
     const requestMessage = JSON.parse(payload.toString());
     const { method, params = {}, requestId } = requestMessage;
     if (method === 'recipes.types') {
+      const types = {};
+      for (const recipe of recipeFixtures) (types[recipe.recipeType] ??= []).push(recipe.id);
       respond(socket, requestId, {
-        types: Object.fromEntries(recipeFixtures.map((r) => [r.recipeType, [r.id]])),
+        types,
         total: recipeFixtures.length,
       });
       return;
@@ -142,6 +159,7 @@ server.on('connection', (socket, request) => {
         offset,
         total: recipeFixtures.length,
         hasMore: offset + limit < recipeFixtures.length,
+        revision: 'fixture-recipe-snapshot',
       });
       return;
     }

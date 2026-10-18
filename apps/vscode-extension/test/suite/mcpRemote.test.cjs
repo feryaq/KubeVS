@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const vscode = require('vscode');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 
 suite('KubeVS MCP remote Connector', () => {
   test('uses live tools and revision-safe server writes without opening UI', async function () {
@@ -97,9 +99,94 @@ suite('KubeVS MCP remote Connector', () => {
       const source = await call('kubevs_get_recipe', { id: 'minecraft:test_sticks' });
       assert.equal(source.json.result.id, 'minecraft:stick');
       await errorResult('kubevs_set_reload_enabled', { enabled: true }, /administrator/i);
-      const graph = await call('kubevs_craft_graph', { item: 'minecraft:stick', amount: 8 });
+      const graph = await call('kubevs_craft_graph', {
+        item: 'minecraft:stick',
+        amount: 8,
+        format: 'tree',
+      });
       assert.equal(graph.tree.recipeId, 'minecraft:test_sticks');
       assert.equal(graph.totals.items['minecraft:oak_planks'], 2);
+      assert.equal(graph.coverage.catalogRecipes, 36028);
+      const summary = await call('kubevs_craft_graph', {
+        item: 'pack:item_36025',
+        format: 'resources',
+      });
+      assert.equal(summary.recipeId, 'pack:catalog_36025');
+      assert.equal(summary.tree, undefined);
+      assert.equal(summary.coverage.catalogComplete, true);
+      assert.equal(summary.resources.entries[0].id, 'minecraft:oak_planks');
+      const fields = await call('kubevs_get_recipe', {
+        id: 'minecraft:test_sticks',
+        paths: ['/ingredients'],
+      });
+      assert.deepEqual(fields.fields['/ingredients'], source.json.ingredients);
+      assert.equal(fields.json, undefined);
+      const unchangedRecipe = await call('kubevs_get_recipe', {
+        id: 'minecraft:test_sticks',
+        paths: ['/ingredients'],
+        ifRevision: fields.revision,
+      });
+      assert.deepEqual(unchangedRecipe, {
+        id: 'minecraft:test_sticks',
+        revision: fields.revision,
+        unchanged: true,
+      });
+      const otherProjection = await call('kubevs_get_recipe', {
+        id: 'minecraft:test_sticks',
+        paths: ['/result'],
+        ifRevision: fields.revision,
+      });
+      assert.deepEqual(otherProjection.fields['/result'], source.json.result);
+      assert.equal(otherProjection.unchanged, undefined);
+      const compactGraph = await call('kubevs_craft_graph', { item: 'minecraft:stick', amount: 8 });
+      assert.equal(compactGraph.graph.nodes.length, 2);
+      assert.equal(compactGraph.totals.items['minecraft:oak_planks'], 2);
+      assert.ok(JSON.stringify(compactGraph.graph).length < JSON.stringify(graph.tree).length);
+      const unchangedGraph = await call('kubevs_craft_graph', {
+        item: 'minecraft:stick',
+        amount: 8,
+        ifRevision: compactGraph.revision,
+      });
+      assert.equal(unchangedGraph.unchanged, true);
+      assert.equal(unchangedGraph.graph, undefined);
+      const verify = await call('kubevs_verify_recipe', {
+        id: 'minecraft:test_sticks',
+        checks: [{ path: '/ingredients', expected: source.json.ingredients }],
+      });
+      assert.equal(verify.matches, true);
+      const mismatch = await call('kubevs_verify_recipe', {
+        id: 'minecraft:test_sticks',
+        checks: [{ path: '/ingredients', expected: [{ item: 'minecraft:iron_ingot' }] }],
+      });
+      assert.deepEqual(mismatch.failures, ['/ingredients']);
+      const patchArgs = {
+        recipeId: 'minecraft:test_sticks',
+        edits: [
+          {
+            path: '/ingredients/0',
+            expected: { item: 'minecraft:oak_planks' },
+            value: { item: 'gtceu:wrought_iron_ingot' },
+          },
+        ],
+      };
+      const patch = await call('kubevs_patch_recipe', patchArgs);
+      assert.match(patch.result.code, /event.custom/);
+      assert.match(patch.result.code, /gtceu:wrought_iron_ingot/);
+      await errorResult(
+        'kubevs_patch_recipe',
+        { ...patchArgs, root: 'server', save: true, sourceRevision: 'stale' },
+        /recipe revision conflict/i,
+      );
+      saved(
+        (
+          await call('kubevs_patch_recipe', {
+            ...patchArgs,
+            root: 'server',
+            save: true,
+            sourceRevision: patch.sourceRevision,
+          })
+        ).result,
+      );
       const registries = await call('kubevs_list_registries');
       assert.ok(registries.some((entry) => entry.id === 'minecraft:item'));
       const search = await call('kubevs_search_registry', {
@@ -118,7 +205,43 @@ suite('KubeVS MCP remote Connector', () => {
       assert.equal((await call('kubevs_connector_health')).health.kubejsVersion, 'test');
       await errorResult('kubevs_reload', {}, /reload.*disabled|not permitted/i);
 
-      const schemaCatalog = await call('kubevs_list_recipe_schemas');
+      const catalogSummary = await call('kubevs_list_recipe_schemas', {
+        includeDefinitions: false,
+      });
+      assert.ok(catalogSummary.entries.some((entry) => entry.id === 'kubevs:raw_custom'));
+      assert.equal(catalogSummary.entries[0].schema, undefined);
+      const schemaCatalog = await call('kubevs_list_recipe_schemas', {
+        schemaId: 'kubevs:raw_custom',
+      });
+      const unchangedSchemas = await call('kubevs_list_recipe_schemas', {
+        schemaId: 'kubevs:raw_custom',
+        ifRevision: schemaCatalog.revision,
+      });
+      assert.equal(unchangedSchemas.unchanged, true);
+      if (process.env.KUBEVS_MCP_EFFICIENCY_REPORT) {
+        const reportPath = process.env.KUBEVS_MCP_EFFICIENCY_REPORT;
+        const bytes = (value) => Buffer.byteLength(JSON.stringify(value), 'utf8');
+        await fs.mkdir(path.dirname(reportPath), { recursive: true });
+        await fs.writeFile(
+          reportPath,
+          JSON.stringify(
+            {
+              catalogRecipes: graph.coverage.catalogRecipes,
+              source: 'isolated Code + real MCP SDK client + fixture Connector',
+              nestedTreeBytes: bytes(graph.tree),
+              losslessGraphBytes: bytes(compactGraph.graph),
+              fullGraphReplyBytes: bytes(compactGraph),
+              unchangedGraphReplyBytes: bytes(unchangedGraph),
+              schemaReplyBytes: bytes(schemaCatalog),
+              unchangedSchemaReplyBytes: bytes(unchangedSchemas),
+              losslessRoundTrip: 'covered by craftGraphCore.test.mjs',
+              tokenUsageMeasured: false,
+            },
+            null,
+            2,
+          ) + '\n',
+        );
+      }
       const raw = schemaCatalog.entries.find(
         (entry) => entry.schema.id === 'kubevs:raw_custom',
       )?.schema;
@@ -139,6 +262,11 @@ suite('KubeVS MCP remote Connector', () => {
         save: true,
       });
       const vanillaFile = saved(vanilla.result);
+      assert.equal(
+        vanillaFile.content,
+        undefined,
+        'saving must not echo the whole script by default',
+      );
       const first = await call('kubevs_read_file', { root: 'server', path: vanillaFile.path });
       assert.match(first.revision, /^[a-f0-9]{64}$/);
       const updated = await call('kubevs_write_file', {
@@ -169,7 +297,7 @@ suite('KubeVS MCP remote Connector', () => {
       created.add(copiedPath);
       assert.equal(
         (await call('kubevs_read_file', { root: 'server', path: copiedPath })).content,
-        updated.content,
+        `${first.content}\n// revised\n`,
       );
 
       saved(

@@ -164,6 +164,7 @@ async function renderGraph(page) {
   if (!backend) return;
   const recipes = graphRecipes.map(backend.normalizeRecipe).filter(Boolean),
     tree = backend.buildCraftTree(recipes, 'minecraft:diamond_pickaxe', 1);
+  await page.evaluate((fixture) => (window.fixtureTree = fixture), tree);
   await dispatch(page, { type: 'catalog', recipes: recipes.length, source: 'offline' });
   await dispatch(page, {
     type: 'tree',
@@ -220,7 +221,9 @@ try {
             { width: 1440, height: 900 },
             { width: 800, height: 700 },
             { width: 390, height: 844 },
-            ...(['addon', 'vanilla', 'schema'].includes(path.basename(file, '.html'))
+            ...(['addon', 'vanilla', 'schema', 'graph', 'calculator'].includes(
+              path.basename(file, '.html'),
+            )
               ? [{ width: 320, height: 820 }]
               : []),
           ]) {
@@ -245,7 +248,7 @@ try {
         await page.goto('file://' + path.join(directory, file));
         await page.addStyleTag({ content: themeCss(t) });
         if (name === 'dashboard' || name === 'dashboard-sidebar') await dispatch(page, connected);
-        if (name === 'graph') await renderGraph(page);
+        if (name === 'graph' || name === 'calculator') await renderGraph(page);
         if (name === 'registry') {
           await dispatch(page, {
             type: 'choices',
@@ -560,6 +563,115 @@ try {
             });
             assert.equal(overlap, false, 'Automatically packed graph nodes do not overlap');
           });
+          await runCheck(
+            'graph resources view is a compact full-width list ' + viewport.width,
+            async () => {
+              await page.locator('#viewMode').selectOption('resources');
+              assert.equal(
+                await page
+                  .locator('body')
+                  .evaluate((el) => el.classList.contains('resources-only')),
+                true,
+              );
+              assert.equal(await page.locator('.ledger').isVisible(), true);
+              assert.equal(await page.locator('.workspace').isVisible(), false);
+              assert.equal(await page.locator('.summary').isVisible(), false);
+              assert.ok((await page.locator('.resource').count()) > 0);
+              const list = await page.locator('.ledger').boundingBox();
+              assert.ok(
+                list.width >= Math.min(1040, viewport.width) - 2,
+                `list should fill its bounded layout: ${list.width}px`,
+              );
+              const overflow = await page.evaluate(
+                () => document.documentElement.scrollWidth > innerWidth,
+              );
+              assert.equal(overflow, false, 'resources view must not scroll horizontally');
+              await page.locator('#build').click();
+              assert.equal(
+                await page.locator('#status').isVisible(),
+                true,
+                'pending calculation remains visible',
+              );
+              assert.match(await page.locator('#status').innerText(), /calculating/i);
+              assert.equal(
+                await page.locator('.resource').count(),
+                0,
+                'old resource rows are cleared while rebuilding',
+              );
+              assert.equal(await page.locator('#copyResources').isDisabled(), true);
+              assert.equal(await page.locator('#resourceWarning').isVisible(), false);
+              await dispatch(page, { type: 'error', message: 'Fixture calculation failed' });
+              assert.equal(
+                await page.locator('#status').isVisible(),
+                true,
+                'errors remain visible in Resources view',
+              );
+              assert.match(await page.locator('#status').innerText(), /Fixture calculation failed/);
+              await page.locator('#target').fill('invalid');
+              await page.locator('#build').click();
+              assert.equal(
+                await page.locator('#status').isVisible(),
+                true,
+                'input validation remains visible in Resources view',
+              );
+              assert.match(
+                await page.locator('#status').innerText(),
+                /check the item id and amount/i,
+              );
+              await page.locator('#target').fill('minecraft:diamond_pickaxe');
+              await renderGraph(page);
+              assert.equal(
+                await page.locator('#status').isVisible(),
+                false,
+                'informational graph status is hidden in Resources view',
+              );
+              await page.screenshot({
+                path: path.join(out, 'graph-simple-' + viewport.width + '.png'),
+                fullPage: true,
+              });
+              if (viewport.width === 1440) {
+                await page.locator('#copyResources').click();
+                assert.ok(
+                  await page.evaluate(() => window.messages.some((m) => m.type === 'copyCode')),
+                );
+                const partial = await page.evaluate(() => {
+                  const tree = structuredClone(window.fixtureTree);
+                  tree.children[0].state = 'depth';
+                  if (tree.children[1]) tree.children[1].state = 'cycle';
+                  tree.children.push({
+                    ...structuredClone(tree.children[0]),
+                    item: { kind: 'tag', id: 'missing:tag', count: 1, chance: 1 },
+                    state: 'base',
+                    children: [],
+                  });
+                  return tree;
+                });
+                await dispatch(page, {
+                  type: 'tree',
+                  tree: partial,
+                  totals: backend.calculateCraftTotals(partial),
+                  tagMembers: {},
+                });
+                assert.match(
+                  await page.locator('#resourceWarning').innerText(),
+                  /depth|cycle|tags have no resolved items/i,
+                );
+                await page.screenshot({
+                  path: path.join(out, 'graph-simple-incomplete.png'),
+                  fullPage: true,
+                });
+                await renderGraph(page);
+                assert.equal(
+                  await page.locator('#viewMode').inputValue(),
+                  'resources',
+                  'rebuild keeps the selected presentation',
+                );
+              }
+              await page.locator('#viewMode').selectOption('graph');
+              assert.equal(await page.locator('.workspace').isVisible(), true);
+              assert.ok((await page.locator('.craft-node').count()) > 0);
+            },
+          );
           if (viewport.width === 1440) {
             await runCheck('graph alternatives route recipe cycle', async () => {
               await page.locator('button[aria-label="Next alternative recipe"]').first().click();
@@ -581,6 +693,12 @@ try {
                 ),
               );
               await page.locator('#amount').fill('1');
+              assert.equal(
+                await page.locator('#copyResources').isDisabled(),
+                true,
+                'old totals cannot be copied while waiting for a new calculation',
+              );
+              await renderGraph(page);
             });
             await runCheck('graph copy resources current totals', async () => {
               await page.locator('#copyResources').click();
@@ -618,6 +736,25 @@ try {
               await page.locator('#resourcesToggle').click();
             });
           }
+        }
+        if (name === 'calculator' && theme === 'dark') {
+          await runCheck(
+            'Resource Calculator opens in Resources view ' + viewport.width,
+            async () => {
+              assert.equal(await page.locator('#viewMode').inputValue(), 'resources');
+              assert.equal(await page.locator('.workspace').isVisible(), false);
+              assert.equal(await page.locator('.ledger').isVisible(), true);
+              assert.ok((await page.locator('.resource').count()) > 0);
+              assert.equal(
+                await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+                false,
+              );
+              await page.screenshot({
+                path: path.join(out, 'calculator-resources-' + viewport.width + '.png'),
+                fullPage: true,
+              });
+            },
+          );
         }
         if (name === 'registry' && theme === 'dark' && viewport.width === 1440) {
           await runCheck('registry choices trigger browse', async () =>

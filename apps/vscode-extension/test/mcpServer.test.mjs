@@ -66,6 +66,39 @@ async function clientFor(url) {
   return { client, transport };
 }
 
+test(
+  'authenticated tools can finish beyond the former 30 second idle timeout',
+  { timeout: 45000 },
+  async () => {
+    const server = new KubeVsMcpServer({
+      version: 'test',
+      token,
+      port: 0,
+      isTrusted: () => true,
+      tools: [
+        {
+          name: 'slow_schema',
+          description: 'Delayed schema provider fixture',
+          inputSchema: {},
+          run: async () => {
+            await new Promise((resolve) => setTimeout(resolve, 31000));
+            return { complete: true };
+          },
+        },
+      ],
+    });
+    const { url } = await server.start();
+    const { client, transport } = await clientFor(url);
+    try {
+      const result = await client.callTool({ name: 'slow_schema', arguments: {} });
+      assert.deepEqual(result.structuredContent, { result: { complete: true } });
+    } finally {
+      await transport.close();
+      await server.stop();
+    }
+  },
+);
+
 test('real SDK client initializes and exchanges tools and resources', async () => {
   const app = fixture();
   const { url } = await app.server.start();

@@ -6,7 +6,105 @@ import {
   canonicalRecipeLabel,
   defaultWorkstations,
   normalizeRecipe,
+  fetchRecipeSnapshot,
+  packCraftTree,
 } from '../dist/craftGraphCore.mjs';
+
+test('compact graph preserves every tree field and shared recipe metadata without loss', () => {
+  const stack = (id) => ({ kind: 'item', id, count: 1, chance: 1 });
+  const recipes = [
+    {
+      id: 'pack:final',
+      recipeType: 'pack:assembling',
+      inputs: Array.from({ length: 12 }, () => stack('pack:part')),
+      outputs: [stack('pack:final')],
+      duration: 20,
+      energy: 40,
+    },
+    {
+      id: 'pack:part',
+      recipeType: 'pack:pressing',
+      categoryId: 'pack:parts',
+      catalysts: [stack('pack:mold')],
+      workstations: [stack('pack:press')],
+      inputs: [stack('pack:raw')],
+      outputs: [stack('pack:part')],
+      duration: 10,
+      energy: 20,
+    },
+  ];
+  const tree = buildCraftTree(recipes, 'pack:final', 2);
+  const packed = packCraftTree(tree);
+  const decode = (index) => {
+    const node = Object.fromEntries(packed.columns.map((key, i) => [key, packed.nodes[index][i]]));
+    if (node.recipeId === null) {
+      delete node.recipeId;
+      node.catalysts = [];
+      node.workstations = [];
+    } else Object.assign(node, packed.recipes[node.recipeId]);
+    node.children = node.children.map(decode);
+    return node;
+  };
+  assert.deepEqual(decode(0), tree);
+  assert.ok(JSON.stringify(packed).length < JSON.stringify(tree).length * 0.65);
+});
+
+test('loads all 36028 recipes including a target beyond the old 25000 cap', async () => {
+  const fixture = Array.from({ length: 36028 }, (_, i) => ({
+    id: `pack:r_${i}`,
+    recipeType: 'minecraft:crafting_shapeless',
+    json: { ingredients: [{ item: 'minecraft:stone' }], result: { id: `pack:item_${i}` } },
+  }));
+  let pages = 0;
+  const entries = await fetchRecipeSnapshot(async (offset, limit) => {
+    pages++;
+    return {
+      entries: fixture.slice(offset, offset + limit),
+      offset,
+      total: fixture.length,
+      hasMore: offset + limit < fixture.length,
+    };
+  });
+  assert.equal(entries.length, 36028);
+  assert.equal(pages, 73);
+  const tree = buildCraftTree(entries.map(normalizeRecipe).filter(Boolean), 'pack:item_36027', 2);
+  assert.equal(tree.recipeId, 'pack:r_36027');
+  assert.equal(calculateCraftTotals(tree).items['minecraft:stone'], 2);
+});
+
+test('rejects incomplete, duplicate and changing catalogs instead of returning a partial graph', async () => {
+  const entry = { id: 'pack:r', recipeType: 'pack:recipe', json: {} };
+  for (const page of [
+    { entries: [], offset: 0, total: 1, hasMore: true },
+    { entries: [entry], offset: 0, total: 2, hasMore: false },
+    { entries: [entry, entry], offset: 0, total: 2, hasMore: false },
+    { entries: [], offset: 1, total: 0, hasMore: false },
+    { entries: [], offset: 0, total: 250001, hasMore: true },
+  ])
+    await assert.rejects(fetchRecipeSnapshot(async () => page));
+  await assert.rejects(
+    fetchRecipeSnapshot(async (offset) => ({
+      entries: offset ? [] : [entry],
+      offset,
+      total: offset ? 2 : 3,
+      hasMore: true,
+    })),
+    /changed/,
+  );
+  await assert.rejects(
+    fetchRecipeSnapshot(async (offset, limit, revision) => {
+      if (offset) assert.equal(revision, 'first');
+      return {
+        entries: offset ? [{ ...entry, id: 'pack:other' }] : [entry],
+        offset,
+        total: 2,
+        hasMore: offset === 0,
+        revision: offset ? 'reloaded' : 'first',
+      };
+    }),
+    /revision changed/,
+  );
+});
 
 test('normalizes a shaped recipe using the actual slot count', () => {
   const recipe = normalizeRecipe({
@@ -20,6 +118,55 @@ test('normalizes a shaped recipe using the actual slot count', () => {
   });
   assert.equal(recipe.inputs[0].count, 2);
   assert.equal(recipe.outputs[0].count, 4);
+});
+
+test('Create assembly includes nested consumed inputs per loop and keeps the transitional item internal', () => {
+  const step = (ingredient, keepHeldItem = false) => ({
+    type: 'create:deploying',
+    ingredients: [{ item: 'create:incomplete_precision_mechanism' }, ingredient],
+    results: [{ id: 'create:incomplete_precision_mechanism' }],
+    keep_held_item: keepHeldItem,
+  });
+  const raw = {
+    ingredient: { item: 'gtceu:gold_plate' },
+    loops: 5,
+    transitional_item: { id: 'create:incomplete_precision_mechanism' },
+    sequence: [
+      step({ item: 'create:cogwheel' }),
+      step({ item: 'gtceu:wrought_iron_ingot' }),
+      step({ item: 'pack:mold' }, true),
+    ],
+    results: [
+      { id: 'create:precision_mechanism', chance: 120 },
+      { id: 'minecraft:gold_nugget', chance: 30 },
+    ],
+  };
+  const recipe = normalizeRecipe({
+    id: 'create:precision_mechanism',
+    recipeType: 'create:sequenced_assembly',
+    json: raw,
+  });
+  assert.deepEqual(
+    recipe.inputs.map((s) => [s.id, s.count]),
+    [
+      ['gtceu:gold_plate', 1],
+      ['create:cogwheel', 5],
+      ['gtceu:wrought_iron_ingot', 5],
+    ],
+  );
+  assert.equal(recipe.outputs[0].chance, 0.8);
+  assert.equal(recipe.catalysts[0].id, 'pack:mold');
+  assert.equal(recipe.catalysts[0].count, 1);
+  assert.ok(!recipe.inputs.some((s) => s.id.includes('incomplete')));
+  const unsupported = { ...raw, sequence: [{ type: 'pack:unknown_step', ingredients: [] }] };
+  assert.equal(
+    normalizeRecipe({
+      id: 'pack:unsupported',
+      recipeType: 'create:sequenced_assembly',
+      json: unsupported,
+    }),
+    undefined,
+  );
 });
 
 test('builds a tree, totals base resources, and supports alternatives', () => {

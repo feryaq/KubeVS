@@ -1,4 +1,5 @@
 import { canonicalRecipeLabel, defaultWorkstations } from './recipePresentation.js';
+export { fetchRecipeSnapshot } from './recipeSnapshotCore.js';
 
 export { canonicalRecipeLabel, defaultWorkstations } from './recipePresentation.js';
 
@@ -56,12 +57,65 @@ export interface CraftTotals {
   readonly energy: number;
 }
 
+/** Lossless wire encoding: recipe metadata once, ordered node values instead of repeated keys. */
+export function packCraftTree(root: CraftTreeNode): {
+  columns: readonly string[];
+  recipes: Record<string, Record<string, unknown>>;
+  nodes: unknown[][];
+} {
+  const columns = [
+    'item',
+    'required',
+    'recipeId',
+    'batches',
+    'alternatives',
+    'selectedAlternative',
+    'duration',
+    'energy',
+    'byproducts',
+    'children',
+    'state',
+  ];
+  const recipes: Record<string, Record<string, unknown>> = {};
+  const nodes: unknown[][] = [];
+  const visit = (node: CraftTreeNode): number => {
+    const index = nodes.length;
+    const row: unknown[] = [];
+    nodes.push(row);
+    if (node.recipeId)
+      recipes[node.recipeId] = {
+        recipeType: node.recipeType,
+        recipeLabel: node.recipeLabel,
+        ...(node.categoryId === undefined ? {} : { categoryId: node.categoryId }),
+        catalysts: node.catalysts,
+        workstations: node.workstations,
+      };
+    row.push(
+      node.item,
+      node.required,
+      node.recipeId ?? null,
+      node.batches,
+      node.alternatives,
+      node.selectedAlternative,
+      node.duration,
+      node.energy,
+      node.byproducts,
+      node.children.map(visit),
+      node.state,
+    );
+    return index;
+  };
+  visit(root);
+  return { columns, recipes, nodes };
+}
+
 const INPUT_KEYS = ['ingredient', 'ingredients', 'input', 'inputs', 'base', 'addition', 'template'];
 const OUTPUT_KEYS = ['result', 'results', 'output', 'outputs'];
 
 export function normalizeRecipe(entry: RecipeSnapshotEntry): CraftRecipe | undefined {
   const raw = asRecord(entry.json);
   if (!raw) return undefined;
+  if (entry.recipeType === 'create:sequenced_assembly') return normalizeCreateSequence(entry, raw);
   if (entry.recipeType.startsWith('gtceu:') && asRecord(raw.inputs) && asRecord(raw.outputs)) {
     return normalizeGregtechRecipe(entry, raw);
   }
@@ -83,6 +137,63 @@ export function normalizeRecipe(entry: RecipeSnapshotEntry): CraftRecipe | undef
       0,
     ),
     energy: positiveNumber(raw.energy ?? raw.energyCost ?? raw.energy_cost, 0),
+  };
+}
+
+// Create mc1.21.1: SequencedAssemblyRecipe and generated precision_mechanism.json.
+// https://github.com/Creators-of-Create/Create/tree/mc1.21.1/dev
+function normalizeCreateSequence(
+  entry: RecipeSnapshotEntry,
+  raw: Readonly<Record<string, unknown>>,
+): CraftRecipe | undefined {
+  const transitional = collectStacks(raw.transitional_item)[0];
+  const base = collectStacks(raw.ingredient, true);
+  const loops = positiveNumber(raw.loops, 5);
+  if (
+    !transitional ||
+    !base.length ||
+    !Number.isInteger(loops) ||
+    loops < 1 ||
+    !Array.isArray(raw.sequence) ||
+    !raw.sequence.length
+  )
+    return undefined;
+  const inputs = [...base],
+    catalysts: FlowStack[] = [],
+    workstations: FlowStack[] = [];
+  let duration = 0;
+  for (const value of raw.sequence) {
+    const step = asRecord(value),
+      type = step?.type;
+    if (
+      !step ||
+      typeof type !== 'string' ||
+      !['create:deploying', 'create:pressing', 'create:cutting'].includes(type)
+    )
+      return undefined;
+    const stacks = collectFields(step, INPUT_KEYS);
+    if (stacks[0]?.id !== transitional.id) return undefined;
+    for (const stack of stacks.slice(1)) {
+      if (type === 'create:deploying' && (step.keep_held_item ?? step.keepHeldItem) === true)
+        catalysts.push(stack);
+      else inputs.push({ ...stack, count: stack.count * loops });
+    }
+    duration += positiveNumber(step.processingTime ?? step.processing_time, 0) * loops;
+    workstations.push(...workstationStacks(type));
+  }
+  const weighted = collectFields(raw, OUTPUT_KEYS).filter((stack) => stack.chance > 0);
+  const weight = weighted.reduce((sum, stack) => sum + stack.chance, 0);
+  if (!weight) return undefined;
+  return {
+    id: entry.id,
+    recipeType: entry.recipeType,
+    label: canonicalRecipeLabel(entry.recipeType),
+    inputs: mergeStacks(inputs),
+    outputs: mergeStacks(weighted.map((stack) => ({ ...stack, chance: stack.chance / weight }))),
+    catalysts: mergeStacks(catalysts),
+    workstations: [...new Map(workstations.map((stack) => [stack.id, stack])).values()],
+    duration,
+    energy: 0,
   };
 }
 
@@ -158,6 +269,7 @@ export function buildCraftTree(
   const byOutput = new Map<string, CraftRecipe[]>();
   for (const recipe of recipes) {
     for (const output of recipe.outputs) {
+      if (output.chance <= 0 || output.count <= 0) continue;
       const group = byOutput.get(output.id) ?? [];
       group.push(recipe);
       byOutput.set(output.id, group);
@@ -340,7 +452,7 @@ function mergeStacks(stacks: readonly FlowStack[]): FlowStack[] {
 }
 
 function probability(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 1;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 1;
   return value;
 }
 

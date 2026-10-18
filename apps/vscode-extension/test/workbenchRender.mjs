@@ -92,6 +92,7 @@ const renders = {
     }),
   loot: () => views.lootRuleEditorHtml(w, 'preview'),
   graph: () => views.craftGraphHtml(w, 'preview', false),
+  calculator: () => views.craftGraphHtml(w, 'preview', true),
   dashboard: () => views.dashboardHtml(w, 'preview'),
   'dashboard-sidebar': () => views.dashboardHtml(w, 'preview', 'sidebar'),
   ...(hasRegistry ? { registry: () => views.registryBrowserHtml(w, 'preview') } : {}),

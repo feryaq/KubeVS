@@ -22,7 +22,10 @@ suite('KubeVS MCP in installed Code', () => {
     const created = new Map();
     const createdDirectories = [];
     const call = async (name, args = {}) => {
-      const reply = await client.callTool({ name, arguments: args });
+      const reply = await client.callTool({
+        name,
+        arguments: args.save ? { ...args, includeContent: true } : args,
+      });
       assert.equal(reply.isError, undefined, `${name}: ${JSON.stringify(reply.content)}`);
       assert.ok(
         reply.structuredContent && 'result' in reply.structuredContent,

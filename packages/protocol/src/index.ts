@@ -158,6 +158,7 @@ export interface RecipeSnapshotEntry {
 }
 
 export interface PagedRecipeSnapshots {
+  readonly revision?: string;
   readonly entries: readonly RecipeSnapshotEntry[];
   readonly offset: number;
   readonly total: number;

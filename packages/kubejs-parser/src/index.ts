@@ -219,6 +219,15 @@ export function analyzeKubeJs(source: string, kind?: ScriptKind): readonly Stati
         i += 1;
         while (isIdentifierPart(source[i])) i += 1;
         const identifier = source.slice(tokenStart, i);
+        if (identifier === 'replaceInput' && source[nextSignificant(i)] === '(') {
+          report(
+            'warning',
+            'kubevs/verify-replaced-inputs',
+            'replaceInput depends on serializer support and may miss nested ingredients. After reload, verify the exact live recipe JSON; use an explicit recipe override if inputs remain unchanged.',
+            tokenStart,
+            identifier.length,
+          );
+        }
         if (identifier === 'eval' && source[nextSignificant(i)] === '(') {
           report('error', 'kubevs/no-eval', evalMessage, tokenStart, identifier.length);
         }

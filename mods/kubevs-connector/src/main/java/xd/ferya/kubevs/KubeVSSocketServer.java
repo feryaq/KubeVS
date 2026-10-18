@@ -60,6 +60,9 @@ final class KubeVSSocketServer extends WebSocketServer {
     private final ConnectorConfig config;
     private volatile String authenticationToken;
     private final ReloadPolicy reloadPolicy;
+    private final RecipeSnapshotVersion<RecipeHolder<?>> recipeSnapshotVersion = new RecipeSnapshotVersion<>();
+    private String sortedRecipeRevision;
+    private List<RecipeHolder<?>> sortedRecipeSnapshot = List.of();
     private final Map<WebSocket, RateLimiter> rateLimiters = new ConcurrentHashMap<>();
     private final Map<WebSocket, SessionIdentity> identities = new ConcurrentHashMap<>();
     private final WorkspaceFileService workspaceFiles;
@@ -1135,10 +1138,16 @@ final class KubeVSSocketServer extends WebSocketServer {
     }
 
     private JsonObject recipeSnapshot(JsonObject params) {
-        List<RecipeHolder<?>> all =
-                minecraftServer.getRecipeManager().getRecipes().stream()
-                        .sorted(Comparator.comparing(holder -> holder.id().toString()))
-                        .toList();
+        List<RecipeHolder<?>> current = List.copyOf(minecraftServer.getRecipeManager().getRecipes());
+        String expectedRevision = params.has("revision") ? params.get("revision").getAsString() : null;
+        String snapshotRevision = recipeSnapshotVersion.check(current, expectedRevision);
+        if (!snapshotRevision.equals(sortedRecipeRevision)) {
+            sortedRecipeSnapshot = current.stream()
+                    .sorted(Comparator.comparing(holder -> holder.id().toString()))
+                    .toList();
+            sortedRecipeRevision = snapshotRevision;
+        }
+        List<RecipeHolder<?>> all = sortedRecipeSnapshot;
         int offset = integer(params, "offset", 0, 0, Integer.MAX_VALUE);
         int limit = integer(params, "limit", 100, 1, MAX_PAGE_SIZE);
         int from = Math.min(offset, all.size());
@@ -1169,6 +1178,7 @@ final class KubeVSSocketServer extends WebSocketServer {
         result.addProperty("offset", from);
         result.addProperty("total", all.size());
         result.addProperty("hasMore", to < all.size());
+        result.addProperty("revision", snapshotRevision);
         return result;
     }
 

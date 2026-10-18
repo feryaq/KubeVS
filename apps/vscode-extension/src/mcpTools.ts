@@ -32,7 +32,8 @@ import {
   buildCraftTree,
   calculateCraftTotals,
   normalizeRecipe,
-  type RecipeSnapshotEntry,
+  fetchRecipeSnapshot,
+  packCraftTree,
   type CraftRecipe,
 } from './craftGraphCore.js';
 import {
@@ -40,7 +41,13 @@ import {
   withRemovedRecipe,
   withoutRemovedRecipe,
 } from './recipeRemovalCore.js';
-import { buildRecipeReplacement } from './recipeReplacementCore.js';
+import {
+  buildRecipeReplacement,
+  patchRecipeDefinition,
+  recipePointer,
+  recipeRevision,
+  verifyRecipeFields,
+} from './recipeReplacementCore.js';
 import { loadRecipeSchemas } from './recipeSchemas.js';
 
 function isMissingFile(error: unknown): boolean {
@@ -68,6 +75,18 @@ const pathArg = z
   .max(1024)
   .describe('Relative path within the KubeJS root, e.g. server_scripts/recipes/example.js.');
 const revision = z.string().min(1).max(256);
+const jsonValue = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.array(z.unknown()),
+  z.record(z.unknown()),
+]);
+const fieldChecks = z
+  .array(z.object({ path: z.string().min(1).max(1024), expected: jsonValue }))
+  .min(1)
+  .max(100);
 const page = {
   offset: z.number().int().min(0).default(0),
   limit: z.number().int().min(1).max(200).default(60),
@@ -118,6 +137,12 @@ const lootActionSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 const saveArgs = {
+  includeContent: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Include saved file content in the reply; default false avoids echoing code already supplied or previewed.',
+    ),
   root: rootArg,
   path: pathArg
     .optional()
@@ -212,7 +237,15 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
     }
     const written = await ctx.workspace.write({ ...args, path: args.path ?? path, content: code });
     await ctx.refresh();
-    return { saved: true, ...written, requirements, appliedInGame: false };
+    return {
+      saved: true,
+      root: written.root,
+      path: written.path,
+      revision: written.revision,
+      ...(args.includeContent ? { content: written.content } : {}),
+      requirements,
+      appliedInGame: false,
+    };
   };
   const recipeCode = (
     recipeId: string,
@@ -289,9 +322,14 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
   );
   tool(
     'kubevs_read_file',
-    'Read a UTF-8 KubeJS file and its content revision. Read before overwriting or deleting.',
-    { root: rootArg, path: pathArg },
-    (args) => ctx.workspace.read(args),
+    'Read a UTF-8 KubeJS file and revision before overwriting. ifRevision avoids resending unchanged content.',
+    { root: rootArg, path: pathArg, ifRevision: revision.optional() },
+    async (args) => {
+      const file = await ctx.workspace.read(args);
+      return args.ifRevision === file.revision
+        ? { root: file.root, path: file.path, revision: file.revision, unchanged: true }
+        : file;
+    },
   );
   tool(
     'kubevs_write_file',
@@ -300,12 +338,18 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
       root: rootArg,
       path: pathArg,
       content: text,
+      includeContent: z.boolean().default(false),
       expectedRevision: revision.nullable().optional(),
     },
     async (args) => {
       const result = await ctx.workspace.write(args);
       await ctx.refresh();
-      return result;
+      return {
+        root: result.root,
+        path: result.path,
+        revision: result.revision,
+        ...(args.includeContent ? { content: result.content } : {}),
+      };
     },
     false,
   );
@@ -681,10 +725,81 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
     },
   );
   tool(
+    'kubevs_patch_recipe',
+    'Preview/save an exact nested JSON edit to a live recipe. Uses explicit event.custom override, not replaceInput. Paths are JSON Pointers; expected values guard each edit. Save requires sourceRevision from preview and file expectedRevision for overwrites. Reload, then verify_recipe.',
+    {
+      recipeId: id,
+      edits: z
+        .array(
+          z.object({ path: z.string().min(1).max(1024), expected: jsonValue, value: jsonValue }),
+        )
+        .min(1)
+        .max(100),
+      sourceRevision: revision.optional(),
+      ...saveArgs,
+    },
+    async (args) => {
+      const source = (await request('recipes.get', { id: args.recipeId })) as { json: unknown };
+      const patched = patchRecipeDefinition(args.recipeId, source.json, args.edits);
+      if (args.save && args.sourceRevision !== patched.sourceRevision)
+        throw new Error('Live recipe revision conflict. Preview the patch again before saving.');
+      return {
+        sourceRevision: patched.sourceRevision,
+        changed: args.edits.map((edit) => edit.path),
+        result: await saveCode(
+          args,
+          patched.code,
+          recipePath(args.recipeId, (patched.json as { type: string }).type),
+        ),
+      };
+    },
+    false,
+  );
+  tool(
+    'kubevs_verify_recipe',
+    'Compare exact live JSON fields after reload; empty static diagnostics do not prove changes applied. Check complete ingredient objects to catch lingering tags. Returns only mismatching paths.',
+    { id, checks: fieldChecks },
+    async (args) => {
+      const live = (await request('recipes.get', { id: args.id })) as { json: unknown };
+      return {
+        id: args.id,
+        source: 'live',
+        revision: recipeRevision(live.json),
+        ...verifyRecipeFields(live.json, args.checks),
+      };
+    },
+  );
+  tool(
     'kubevs_get_recipe',
-    'Read the exact live JSON definition of a recipe by namespaced ID.',
-    { id },
-    (args) => request('recipes.get', args),
+    'Read exact live recipe JSON. Supply paths (JSON Pointers) to return only needed fields and save context.',
+    {
+      id,
+      ifRevision: revision.optional(),
+      paths: z.array(z.string().min(1).max(1024)).min(1).max(100).optional(),
+    },
+    async (args) => {
+      const live = (await request('recipes.get', { id: args.id })) as {
+        id: string;
+        recipeType: string;
+        json: unknown;
+      };
+      const rev = recipeRevision({
+        tool: 'get_recipe',
+        id: live.id,
+        paths: args.paths ?? null,
+        json: live.json,
+      });
+      if (args.ifRevision === rev) return { id: live.id, revision: rev, unchanged: true };
+      if (!args.paths) return { ...live, revision: rev };
+      return {
+        id: live.id,
+        recipeType: live.recipeType,
+        revision: rev,
+        fields: Object.fromEntries(
+          args.paths.map((path) => [path, recipePointer(live.json, path)]),
+        ),
+      };
+    },
   );
   tool(
     'kubevs_list_registries',
@@ -723,9 +838,24 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
   );
   tool(
     'kubevs_logs',
-    'Read recent Connector logs for diagnosing script reloads and remote file operations.',
-    {},
-    () => request('logs.list'),
+    'Read recent Connector logs, newest first. Defaults to 20 matching entries; paginate older logs.',
+    {
+      ...page,
+      limit: z.number().int().min(1).max(200).default(20),
+      query: z.string().max(300).default(''),
+    },
+    async (args) => {
+      const logs = (await request('logs.list')) as { entries: unknown[] };
+      const entries = logs.entries
+        .filter((entry) => JSON.stringify(entry).toLowerCase().includes(args.query.toLowerCase()))
+        .reverse();
+      return {
+        entries: entries.slice(args.offset, args.offset + args.limit),
+        total: entries.length,
+        offset: args.offset,
+        hasMore: args.offset + args.limit < entries.length,
+      };
+    },
   );
   tool(
     'kubevs_inspect_held_item',
@@ -755,7 +885,9 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
     {},
     async () => {
       if (!connected().capabilities.reload)
-        throw new Error('Server reload is disabled or not permitted for this session.');
+        throw new Error(
+          'Server reload is disabled or not permitted for this session. With explicit user permission, an admin can enable permissions.allowReload using kubevs_set_reload_enabled (Connector 1.7.0+).',
+        );
       return request('reload.server');
     },
     false,
@@ -827,6 +959,8 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
       }
       return {
         checked: results.length,
+        analysis: 'lexical-only',
+        runtimeVerified: false,
         truncated: truncated || queue.length > 0 || files.length >= args.limit,
         results,
       };
@@ -834,30 +968,29 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
   );
   tool(
     'kubevs_craft_graph',
-    'Build a production chain and resource totals from live recipes. Supports recipe selection per output and bounded depth. No GUI required.',
+    'Build a production chain from the full live catalog (up to 250000 recipes). Default graph encodes every node losslessly as rows using columns; recipes holds shared metadata, children are row indices, root is row 0. format:tree returns nested objects; format:resources returns a simple paginated shopping list (summary is an alias). ifRevision skips unchanged results. Coverage and totals are model estimates.',
     {
       item: id,
       amount: z.number().positive().max(1000000).default(1),
-      maxDepth: z.number().int().min(1).max(12).default(6),
+      maxDepth: z.number().int().min(1).max(256).default(32),
+      maxNodes: z.number().int().min(1).max(50000).default(5000),
+      format: z.enum(['graph', 'resources', 'summary', 'tree']).default('graph'),
+      ifRevision: revision.optional(),
+      ...page,
       selections: z.record(z.string()).default({}),
     },
     async (args) => {
       connected();
-      const entries: RecipeSnapshotEntry[] = [];
-      let offset = 0;
-      for (;;) {
+      let snapshotRevision: string | undefined;
+      const entries = await fetchRecipeSnapshot(async (offset, limit, revision) => {
         const batch = await ctx.connector.request<PagedRecipeSnapshots>('recipes.snapshot', {
           offset,
-          limit: 500,
+          limit,
+          ...(revision ? { revision } : {}),
         });
-        entries.push(...batch.entries);
-        if (entries.length > 25000)
-          throw new Error('Too many recipes for one graph request (25000 maximum).');
-        if (!batch.hasMore) break;
-        const next = batch.offset + batch.entries.length;
-        if (next <= offset) throw new Error('Connector returned a non-advancing recipe page.');
-        offset = next;
-      }
+        snapshotRevision = batch.revision;
+        return batch;
+      });
       const recipes = entries.map(normalizeRecipe).filter((r): r is CraftRecipe => r !== undefined);
       const tree = buildCraftTree(
         recipes,
@@ -865,9 +998,71 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
         args.amount,
         args.selections,
         args.maxDepth,
-        1000,
+        args.maxNodes,
       );
-      return { tree, totals: calculateCraftTotals(tree), source: 'live' };
+      const unresolved: { item: string; state: string }[] = [];
+      let nodes = 0,
+        truncated = 0,
+        cycles = 0,
+        tags = 0;
+      const visit = (node: typeof tree): void => {
+        nodes++;
+        if (node.state === 'depth') truncated++;
+        if (node.state === 'cycle') cycles++;
+        if (node.item.kind === 'tag') tags++;
+        if (node.state === 'depth' || node.state === 'cycle' || node.item.kind === 'tag')
+          unresolved.push({
+            item: node.item.id,
+            state: node.item.kind === 'tag' ? 'tag' : node.state,
+          });
+        node.children.forEach(visit);
+      };
+      visit(tree);
+      const totals = calculateCraftTotals(tree);
+      const resources = [
+        ...Object.entries(totals.items).map(([id, amount]) => ({ kind: 'item', id, amount })),
+        ...Object.entries(totals.fluids).map(([id, amount]) => ({ kind: 'fluid', id, amount })),
+      ].sort((a, b) => a.id.localeCompare(b.id));
+      const result = {
+        source: 'live',
+        target: args.item,
+        recipeId: tree.recipeId,
+        coverage: {
+          catalogRecipes: entries.length,
+          normalizedRecipes: recipes.length,
+          skippedRecipes: entries.length - recipes.length,
+          catalogComplete: true,
+          snapshotConsistency: snapshotRevision ? 'revision-checked' : 'pagination-checked',
+          normalization: 'heuristic',
+          nodes,
+          truncated,
+          cycles,
+          unresolvedTags: tags,
+        },
+        ...(args.format === 'tree'
+          ? { tree, totals }
+          : args.format === 'graph'
+            ? { graph: packCraftTree(tree), totals }
+            : {
+                totals: { duration: totals.duration, energy: totals.energy },
+                resources: {
+                  entries: resources.slice(args.offset, args.offset + args.limit),
+                  total: resources.length,
+                  offset: args.offset,
+                  hasMore: args.offset + args.limit < resources.length,
+                },
+                unresolved: {
+                  entries: unresolved.slice(args.offset, args.offset + args.limit),
+                  total: unresolved.length,
+                  offset: args.offset,
+                  hasMore: args.offset + args.limit < unresolved.length,
+                },
+              }),
+      };
+      const rev = recipeRevision(result);
+      return args.ifRevision === rev
+        ? { revision: rev, unchanged: true, source: 'live' }
+        : { ...result, revision: rev };
     },
   );
   tool(
@@ -889,9 +1084,40 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
   );
   tool(
     'kubevs_list_recipe_schemas',
-    'Read installed custom recipe schema definitions and parser errors, including the built-in raw JSON schema.',
-    {},
-    () => loadRecipeSchemas(),
+    'List recipe schema summaries. Use schemaId for one full definition, or includeDefinitions:true. Paginated; errors are never hidden.',
+    {
+      ...page,
+      schemaId: id.optional(),
+      includeDefinitions: z.boolean().default(true),
+      ifRevision: revision.optional(),
+    },
+    async (args) => {
+      const catalog = await loadRecipeSchemas();
+      const entries = catalog.entries.filter(
+        (entry) => !args.schemaId || entry.schema.id === args.schemaId,
+      );
+      const result = {
+        directory: catalog.directory,
+        errors: catalog.errors,
+        entries: entries.slice(args.offset, args.offset + args.limit).map((entry) =>
+          args.includeDefinitions || args.schemaId
+            ? entry
+            : {
+                id: entry.schema.id,
+                label: entry.schema.label,
+                source: entry.source,
+                builtIn: entry.builtIn,
+              },
+        ),
+        total: entries.length,
+        offset: args.offset,
+        hasMore: args.offset + args.limit < entries.length,
+      };
+      const rev = recipeRevision(result);
+      return args.ifRevision === rev
+        ? { revision: rev, unchanged: true }
+        : { ...result, revision: rev };
+    },
   );
   tool(
     'kubevs_loot_presets',

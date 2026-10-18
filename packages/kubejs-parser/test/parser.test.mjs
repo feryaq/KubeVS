@@ -2,6 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { analyzeKubeJs, classifyScriptPath } from '../dist/index.js';
 
+test('replacement calls need runtime verification; literals and comments do not warn', () => {
+  const issues = analyzeKubeJs(
+    `ServerEvents.recipes(event => { event.replaceInput({}, '#c:ingots/iron', 'gtceu:wrought_iron_ingot') })`,
+  );
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, 'warning');
+  assert.equal(issues[0].code, 'kubevs/verify-replaced-inputs');
+  assert.deepEqual(analyzeKubeJs(`// replaceInput()\nconst example = 'replaceInput()';`), []);
+});
+
 test('classifies KubeJS folders on either platform', () => {
   assert.equal(classifyScriptPath('kubejs\\server_scripts\\main.js'), 'server_scripts');
   assert.equal(classifyScriptPath('/pack/kubejs/startup_scripts/items.js'), 'startup_scripts');

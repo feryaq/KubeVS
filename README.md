@@ -6,7 +6,7 @@
 
 ## Установка
 
-1. Установите `kubevs-1.7.0.vsix` командой VS Code **Install from VSIX…**.
+1. Установите `kubevs-1.8.0.vsix` командой VS Code **Install from VSIX…**.
 2. Поместите JAR Connector в папку `mods` сервера Minecraft.
 3. Выполните в игре `/kvs join`, затем в VS Code запустите **KubeVS: Connect with /kvs join code**.
 4. Откройте KubeVS значком куба на панели действий. Рабочая среда откроется автоматически; в боковой панели доступен тот же интерфейс.
@@ -15,8 +15,8 @@
 
 | Компонент          | Версия | Платформа                                        |
 | ------------------ | -----: | ------------------------------------------------ |
-| Расширение KubeVS  |  1.7.0 | VS Code 1.105+; проверен Code OSS                |
-| KubeVS Connector   |  1.7.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
+| Расширение KubeVS  |  1.8.0 | VS Code 1.105+; проверен Code OSS                |
+| KubeVS Connector   |  1.8.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
 | Протокол WebSocket |      2 | С аутентификацией; по умолчанию только localhost |
 
 ## Возможности
@@ -46,7 +46,7 @@ pnpm --filter kubevs-extension package:vsix
 bash gradlew :mods:kubevs-connector:test :mods:kubevs-connector:build
 ```
 
-Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.7.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.7.0.jar`.
+Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.8.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.8.0.jar`.
 
 В релизах GitHub распространяются расширение VSIX и Connector JAR; Connector также доступен через Modrinth. Перед выпуском следуйте [инструкции по релизу](RELEASE.md). Сборка сама по себе не публикует новую версию.
 
@@ -76,4 +76,12 @@ KubeVS распространяется по лицензии [KubeVS Community 
 
 ### Перезагрузка через ИИ
 
-Администратор Connector может разрешить агенту перезагрузку ресурсов через MCP: `kubevs_set_reload_enabled({enabled:true})`, затем `kubevs_reload`. Настройка `permissions.allowReload` сохраняется в конфигурации; отключение использует `{enabled:false}`. По умолчанию reload запрещён. Обновите мод и расширение до 1.7.0. Это аналог перезагрузки ресурсов, а не рестарт Minecraft; новые предметы из startup_scripts по-прежнему требуют перезапуска.
+Администратор Connector может разрешить агенту перезагрузку ресурсов через MCP: `kubevs_set_reload_enabled({enabled:true})`, затем `kubevs_reload`. Настройка `permissions.allowReload` сохраняется в конфигурации; отключение использует `{enabled:false}`. По умолчанию reload запрещён. Обновите мод и расширение до 1.8.0. Это аналог перезагрузки ресурсов, а не рестарт Minecraft; новые предметы из startup_scripts по-прежнему требуют перезапуска.
+
+### Большие сборки и MCP
+
+Граф читает до 250 000 рецептов и 256 МиБ. С Connector 1.8.0 проверяется единая ревизия каталога: reload во время загрузки прервёт операцию с просьбой повторить её. В ответе MCP `coverage` различает полноту каталога, пропущенные при нормализации рецепты и ограниченные ветки. Нормализация нестандартных рецептов остаётся эвристической.
+
+Граф MCP по умолчанию передаёт все узлы таблицей `graph.nodes`: порядок значений задан `columns`, `children` содержит индексы дочерних строк, общие сведения находятся в `recipes`; корень — строка 0. Обычные вложенные объекты доступны через `format: tree`, необязательная сводка — через `format: resources`. `ifRevision` при чтении файлов, рецептов, схем и графов возвращает `unchanged: true`, если данные прежние. Ответ на сохранение не повторяет отправленный код; для него есть `includeContent: true`.
+
+Для вложенных ингредиентов используйте `kubevs_patch_recipe`: сначала превью с JSON Pointer, ожидаемым старым значением и новым значением, затем сохранение с `sourceRevision` из превью и ревизией файла при перезаписи. После разрешённого reload проверьте точные поля через `kubevs_verify_recipe`. Это явное переопределение рецепта, а не изменение поведения KubeJS `replaceInput`. Статические предупреждения не подтверждают результат в игре.
