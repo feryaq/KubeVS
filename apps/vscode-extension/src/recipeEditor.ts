@@ -1,3 +1,4 @@
+import { recipeWorkbenchCss, recipeWorkbenchHeader } from './recipeWorkbenchUi.js';
 import { workbenchCss, editorUtilities, handleWorkbenchMessage } from './workbenchUi.js';
 import * as vscode from 'vscode';
 import { generateKubeJs, importRecipeJson } from '@kubevs/recipe-model';
@@ -251,48 +252,47 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
       .types button[aria-pressed="true"] { color: HighlightText; background: Highlight; forced-color-adjust: none; }
     }
     ${workbenchCss}
+    ${recipeWorkbenchCss}
+    .recipe-vanilla .types{background:transparent;padding:0}.recipe-vanilla .slot:not(:focus){color:transparent}.recipe-vanilla .slot-label{position:absolute;left:5px;right:5px;bottom:6px;max-height:26px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-align:center;font-size:10px;line-height:1.2;color:var(--vscode-editor-foreground);pointer-events:none;overflow-wrap:anywhere}.recipe-vanilla .slot-frame:has(.slot-icon[hidden]) .slot-label{top:50%;bottom:auto;transform:translateY(-50%);font-size:11px}.recipe-vanilla .slot-frame:has(.slot:focus) .slot-label{display:none}.recipe-vanilla .crafting-flow{display:flex;align-items:center;justify-content:center;gap:24px;padding:16px 0 12px;flex-wrap:wrap}.recipe-vanilla .workbench{display:block;padding:0}.recipe-vanilla .crafting{width:min(270px,100%);grid-template-columns:repeat(3,minmax(0,1fr));background:var(--vscode-editor-background);border-radius:10px;padding:14px;gap:7px;overflow:visible}.recipe-vanilla .slot{border-bottom-color:var(--kvs-line);font-size:10px;border-radius:7px;padding:38px 5px 5px}.recipe-vanilla .slot:focus-visible{background:var(--kvs-soft)}.recipe-vanilla .result{width:100%;justify-content:center;text-align:center;display:flex;gap:12px;color:var(--vscode-descriptionForeground);font-size:12px;min-width:0}.recipe-vanilla .result strong{font-weight:500;overflow-wrap:anywhere}.recipe-vanilla .result-mark{width:26px;height:26px;border:0;background:transparent;font-size:20px}.recipe-vanilla .cooking-options{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:18px}.recipe-vanilla .ingredient-toolbar{justify-content:center;margin-bottom:0}.recipe-vanilla .crafting.cooking{grid-template-columns:78px;justify-content:center;width:110px}.recipe-vanilla .recipe-editor .row{grid-template-columns:minmax(0,1fr) 70px}.recipe-vanilla .recipe-editor .row.cooking-options{grid-template-columns:repeat(2,minmax(0,1fr))}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   </style>
 </head>
-<body>
-  <header>
-    <div class="identity"><h1>Vanilla Recipe</h1></div>
-    <div class="types" role="group" aria-label="Recipe type">
-      <button type="button" data-kind="shaped" aria-pressed="true">Crafting Table</button>
-      <button type="button" data-kind="shapeless" aria-pressed="false">Shapeless</button>
-      <button type="button" data-kind="smelting" aria-pressed="false">Furnace</button>
-      <button type="button" data-kind="blasting" aria-pressed="false">Blast Furnace</button>
-      <button type="button" data-kind="smoking" aria-pressed="false">Smoker</button>
-      <button type="button" data-kind="campfire_cooking" aria-pressed="false">Campfire</button>
-    </div>
-    <button class="save" type="button" id="save">Save Recipe</button>
-  </header>
-  <main>
-    <aside>
-
-      <label>Recipe ID <span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false"><button id="editRecipeId" title="Override the automatic recipe ID" class="pick" type="button">Edit</button></span></label>
+<body class="recipe-workbench recipe-vanilla">
+  ${recipeWorkbenchHeader('Vanilla recipe')}
+  <main class="recipe-layout">
+    <nav class="recipe-rail" aria-label="Recipe type">
+      <div class="recipe-type-list types" role="group" aria-label="Recipe type">
+        <button class="type-button" type="button" data-kind="shaped" aria-pressed="true">Crafting table</button>
+        <button class="type-button" type="button" data-kind="shapeless" aria-pressed="false">Shapeless</button>
+        <button class="type-button" type="button" data-kind="smelting" aria-pressed="false">Furnace</button>
+        <button class="type-button" type="button" data-kind="blasting" aria-pressed="false">Blast furnace</button>
+        <button class="type-button" type="button" data-kind="smoking" aria-pressed="false">Smoker</button>
+        <button class="type-button" type="button" data-kind="campfire_cooking" aria-pressed="false">Campfire</button>
+      </div>
+    </nav>
+    <section class="recipe-editor" aria-label="Recipe ingredients and result">
       <div class="row">
-        <label>Output <span class="picker has-icon"><img id="outputIcon" class="item-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="output" value="minecraft:diamond" spellcheck="false"><button id="pickOutput" class="pick" type="button" title="Find an item by name or ID">⌕</button></span></label>
+        <label>Result <span class="picker has-icon"><img id="outputIcon" class="item-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input id="output" value="minecraft:diamond" spellcheck="false"><button id="pickOutput" class="pick" type="button" title="Find an item by name or ID" aria-label="Find result item">⌕</button></span></label>
         <label>Count <input id="count" type="number" min="1" max="64" value="1"></label>
+      </div>
+      <div class="workbench" aria-labelledby="ingredientsTitle">
+        <span class="visually-hidden" id="ingredientsTitle">Ingredients</span>
+        <div class="crafting-flow"><div class="crafting" id="grid">
+          ${Array.from({ length: 9 }, (_, index) => `<span class="slot-frame"><img class="slot-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input class="slot" aria-label="Ingredient, slot ${index + 1}" placeholder="${index === 0 ? 'minecraft:stone' : ''}" spellcheck="false"></span>`).join('')}
+        </div></div>
+        <div class="ingredient-toolbar"><button id="pickIngredient" class="pick" type="button" title="Find an ingredient for the selected slot">⌕ Find ingredient</button></div>
+        <div class="result"><div class="result-mark" aria-hidden="true">→</div><strong id="resultName">minecraft:diamond</strong></div>
       </div>
       <div class="row cooking-options" id="cookingOptions" hidden>
         <label>Experience <input id="experience" type="number" min="0" step="0.05" value="0"></label>
         <label>Time, ticks <input id="cookingTime" type="number" min="1" step="1" value="200"></label>
       </div>
-      <p class="hint">Select an item by name or ID. For an item group, use a tag such as <strong>#namespace:tag</strong>.</p>
-    </aside>
-    <section class="workbench" aria-labelledby="ingredientsTitle">
-      <div>
-        <div class="ingredient-toolbar"><h2 id="ingredientsTitle">Ingredients</h2><button id="pickIngredient" class="pick" type="button">⌕ Find for selected slot</button></div>
-        <div class="crafting" id="grid">
-          ${Array.from({ length: 9 }, (_, index) => `<span class="slot-frame"><img class="slot-icon" alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" hidden><input class="slot" aria-label="Ingredient, slot ${index + 1}" placeholder="${index === 0 ? 'minecraft:stone' : ''}" spellcheck="false"></span>`).join('')}
-        </div>
-      </div>
-      <div class="result"><div class="result-mark" aria-hidden="true">→</div><div><strong id="resultName">minecraft:diamond</strong></div></div>
+      <details class="recipe-details"><summary>Recipe ID</summary>
+        <span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false" aria-label="Recipe ID"><button id="editRecipeId" title="Override the automatic recipe ID" class="pick" type="button">Edit</button></span>
+      </details>
     </section>
-    <section class="preview">
-      <h2>JavaScript</h2>
-      <pre id="code"></pre>
-      <p class="status" id="status" role="status" aria-live="polite">Recipe is ready for review.</p>
+    <section class="preview recipe-preview" aria-label="Generated JavaScript">
+      <details open><summary>JavaScript</summary><div class="preview-content"><pre id="code"></pre></div></details>
+      <p class="status" id="status" role="status" aria-live="polite">Ready for review.</p>
     </section>
   </main>
   <script nonce="${nonce}">
@@ -345,6 +345,14 @@ function recipeEditorHtml(webview: vscode.Webview, nonce: string): string {
       return input === output ? outputIcon : input.closest('.slot-frame')?.querySelector('.slot-icon');
     }
     function scheduleIcon(input) {
+      const frame = input.closest('.slot-frame');
+      if (frame) {
+        let caption = frame.querySelector('.slot-label');
+        if (!caption) { caption = document.createElement('span'); caption.className = 'slot-label'; caption.setAttribute('aria-hidden', 'true'); frame.append(caption); }
+        const value = input.value.trim();
+        caption.textContent = value.replace(/^#/, '').split(':').at(-1).split('/').at(-1).replaceAll('_', ' ');
+        input.title = value || 'Empty ingredient slot';
+      }
       const previousTimer = iconTimers.get(input);
       if (previousTimer) clearTimeout(previousTimer);
       const value = input.value.trim();

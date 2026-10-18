@@ -1,4 +1,5 @@
 import { workbenchCss, editorUtilities, handleWorkbenchMessage } from './workbenchUi.js';
+import { recipeWorkbenchCss, recipeWorkbenchHeader } from './recipeWorkbenchUi.js';
 import * as vscode from 'vscode';
 import {
   buildRecipeFromSchema,
@@ -324,42 +325,56 @@ function genericRecipeEditorHtml(
       .origin::before { background: Highlight; forced-color-adjust: none; }
     }
     ${workbenchCss}
+    ${recipeWorkbenchCss}
+    .recipe-schema .schema-tools { display: grid; grid-template-columns: minmax(0,1fr) 34px; gap: 6px; }
+    .recipe-schema .schema-tools select { width: 100%; }
+    .recipe-schema .schema-tools #reload { min-width: 34px; width: 34px; padding: 4px; font-size: 18px; line-height: 1; }
+    .recipe-schema .schema-identity { padding: 17px 0; border-bottom: 1px solid var(--kvs-line); }
+    .recipe-schema .schema-identity #schemaName { margin: 0 0 5px; color: var(--vscode-editor-foreground); font-size: 14px; }
+    .recipe-schema .schema-identity #schemaDescription { line-height: 1.45; }
+    .recipe-schema .origin { margin-top: 9px; }
+    .recipe-schema .schema-library { margin-top: 14px; }
+    .recipe-schema .schema-library > summary { cursor: pointer; font-size: 12px; color: var(--vscode-descriptionForeground); }
+    .recipe-schema .schema-library code { display: block; margin-top: 8px; overflow-wrap: anywhere; font-size: 11px; }
+    .recipe-schema .rail-actions { display: flex; margin-top: 14px; }
+    .recipe-schema .recipe-id-field { margin-bottom: 18px; }
+    .recipe-schema .recipe-editor { align-content: start; }
+    .recipe-schema .form { max-width: none; gap: 16px; }
+    .recipe-schema .form .kind { display: none; }
+    .recipe-schema .form .field-help { line-height: 1.35; }
+    .recipe-schema .preview pre { min-height: 0; max-height: min(55vh,650px); }
+    .recipe-schema .preview details > summary { cursor: pointer; font-size: 12px; font-weight: 600; }
+    .recipe-schema .preview details > .preview-content { margin-top: 10px; }
+    @media (max-width: 740px) {
+      .recipe-schema .schema-identity { padding: 12px 0; }
+      .recipe-schema .schema-identity #schemaDescription { display: none; }
+      .recipe-schema .origin { margin-top: 5px; }
+    }
   </style>
 </head>
-<body>
-  <header>
-    <div class="identity"><h1>Schema Recipe</h1></div>
-    <label class="schema-switcher"><span class="muted">Recipe schema</span><select id="schema"></select></label>
-    <button type="button" id="reload">Reload schemas</button>
-    <button class="primary" type="button" id="save">Save recipe</button>
-  </header>
-  <main>
-    <aside>
-      <div class="schema-meta">
-        <div>
-          <h2 id="schemaName">Schema</h2>
-          <div class="muted" id="schemaDescription"></div>
-          <div class="origin" id="schemaOrigin"></div>
-        </div>
-        <label class="field"><span class="field-label">Recipe ID</span><span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false" placeholder="namespace:recipe_id"><button id="editRecipeId" type="button">Edit</button></span><span class="field-help">Generated from the output, process, and primary ingredient.</span></label>
-        <div>
-          <h2>Schema library</h2>
-          <div class="toolbar">
-            <button type="button" id="newSchema">New schema</button>
-          </div>
-          <p class="muted">Workspace schemas update automatically from <code id="schemaDirectory"></code>.</p>
-          <ul class="errors" id="catalogErrors"></ul>
-        </div>
+<body class="recipe-workbench recipe-schema">
+  ${recipeWorkbenchHeader('Schema recipe')}
+  <main class="recipe-layout">
+    <aside class="recipe-rail" aria-label="Recipe schemas">
+      <div class="schema-tools">
+        <select id="schema" aria-label="Recipe schema"></select>
+        <button type="button" id="reload" title="Reload schemas" aria-label="Reload schemas">↻</button>
       </div>
+      <div class="schema-identity">
+        <h2 id="schemaName">Schema</h2>
+        <div class="muted" id="schemaDescription"></div>
+        <div class="origin" id="schemaOrigin"></div>
+      </div>
+      <div class="rail-actions"><button type="button" id="newSchema">New schema</button></div>
+      <details class="schema-library"><summary>Schema library</summary><code id="schemaDirectory"></code></details>
+      <ul class="errors" id="catalogErrors"></ul>
     </aside>
-    <section>
-      <h2>Recipe fields</h2>
-      <p class="muted" id="fieldSummary"></p>
+    <section class="recipe-editor">
+      <label class="field recipe-id-field"><span class="field-label">Recipe ID</span><span class="id-editor"><input id="recipeId" value="" readonly spellcheck="false" placeholder="namespace:recipe_id"><button id="editRecipeId" type="button">Edit</button></span></label>
       <div class="form" id="form"></div>
     </section>
-    <section class="preview">
-      <h2>JavaScript</h2>
-      <pre id="code"></pre>
+    <section class="preview recipe-preview">
+      <details open><summary>JavaScript</summary><div class="preview-content"><pre id="code"></pre></div></details>
       <p class="status" id="status" role="status" aria-live="polite">Ready.</p>
     </section>
   </main>
@@ -579,10 +594,7 @@ function genericRecipeEditorHtml(
         required.textContent = ' *';
         label.append(required);
       }
-      const kind = document.createElement('span');
-      kind.className = 'kind';
-      kind.textContent = field.multiple ? field.kind + '[]' : field.kind;
-      heading.append(label, kind);
+      heading.append(label);
       group.append(heading);
       if (field.kind === 'boolean' && !field.multiple) {
         const checkLabel = document.createElement('label');
@@ -595,9 +607,7 @@ function genericRecipeEditorHtml(
         if (helpId) input.setAttribute('aria-describedby', helpId);
         if (field.required) input.setAttribute('aria-required', 'true');
         input.checked = Boolean(values[field.path]);
-        const text = document.createElement('span');
-        text.textContent = 'Enabled';
-        checkLabel.append(input, text);
+        checkLabel.append(input);
         group.append(checkLabel);
       } else if (field.multiple) {
         const list = document.createElement('div');
@@ -664,7 +674,6 @@ function genericRecipeEditorHtml(
       document.getElementById('schemaName').textContent = entry.schema.label;
       document.getElementById('schemaDescription').textContent = entry.schema.description || entry.schema.recipeType || 'Dynamic recipe type';
       document.getElementById('schemaOrigin').textContent = entry.builtIn ? 'Built in' : entry.source;
-      document.getElementById('fieldSummary').textContent = entry.schema.fields.length + ' typed field' + (entry.schema.fields.length === 1 ? '' : 's') + ' · ' + (entry.schema.recipeType || 'dynamic type');
       entry.schema.fields.forEach((field, index) =>
         form.append(renderField(field, values, index))
       );

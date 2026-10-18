@@ -95,6 +95,10 @@ export async function handleWorkbenchMessage(
 ): Promise<boolean> {
   if (typeof value !== 'object' || value === null) return false;
   const message = value as { type?: unknown; code?: unknown };
+  if (message.type === 'openRecipeHome') {
+    await vscode.commands.executeCommand('kubevs.openDashboard');
+    return true;
+  }
   if (message.type !== 'copyCode') return false;
   if (typeof message.code !== 'string' || message.code.length > 1_048_576) return true;
   await vscode.env.clipboard.writeText(message.code);
@@ -105,6 +109,9 @@ export async function handleWorkbenchMessage(
 /** Uses the panel's existing API instance and validation; never generates or saves code itself. */
 export function editorUtilities(): string {
   return `
+    document.getElementById('openRecipeHome')?.addEventListener('click', () => vscode.postMessage({type:'openRecipeHome'}));
+    const recipePreview = document.querySelector('.recipe-preview > details');
+    if (recipePreview && window.matchMedia('(max-width: 700px)').matches) recipePreview.open = false;
     const previewCode = document.getElementById('code');
     if (previewCode) {
       const tools = document.createElement('div');

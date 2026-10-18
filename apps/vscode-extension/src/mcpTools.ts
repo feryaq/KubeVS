@@ -20,7 +20,13 @@ import {
   LOOT_RULE_PRESETS,
   type LootConditionNode,
 } from './lootRuleCore.js';
-import { generateGregtechRecipe } from './gregtechRecipeCore.js';
+import { gregtechOperationControls } from './gregtechOperationControls.js';
+import {
+  generateGregtechRecipe,
+  generateGregtechShapedRecipe,
+  gregtechOperationNames,
+  validateGregtechOperation,
+} from './gregtechRecipeCore.js';
 import { generatedArtifactStem, craftCategory } from './generatedTargetCore.js';
 import {
   buildCraftTree,
@@ -434,8 +440,25 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
     false,
   );
   tool(
+    'kubevs_generate_gregtech_shaped_recipe',
+    'Create GTCEu shaped crafting with reusable tool symbols. Maximum 3×3. Lowercase s,h,r,w,f,c,d,m,x,k automatically map to saw,hammer,soft mallet,wrench,file,crowbar,screwdriver,mortar,wire cutter,knife. Other symbols require key entries. addMaterialInfo enables recycling data.',
+    {
+      recipeId: id,
+      pattern: z.array(z.string().min(1).max(3)).min(1).max(3),
+      key: z.record(z.string().max(300)),
+      output: z.string().min(3).max(300),
+      count: z.number().int().min(1).max(64).default(1),
+      mirrored: z.boolean().default(true),
+      addMaterialInfo: z.boolean().default(false),
+      ...saveArgs,
+    },
+    (args) =>
+      saveCode(args, generateGregtechShapedRecipe(args), recipePath(args.recipeId, 'gtceu:shaped')),
+    false,
+  );
+  tool(
     'kubevs_generate_gregtech_recipe',
-    'Preview or save a GTCEu Modern 1.21.1 machine recipe using its native KubeJS builder. machine is the recipe type path, e.g. assembler or chemical_reactor; use live recipe types to verify it. Item inputs accept count prefixes and #tags; fluid amounts are mB. duration is ticks; eut is signed EU/t (negative for generators). No implicit overclocking. Startup registration of new machines is outside this tool.',
+    'Preview or save a GTCEu Modern 1.21.1 machine recipe using its native KubeJS builder. Read kubevs://gregtech-guide for every advanced operation, argument, unit, and example. machine is a registered recipe type path, e.g. assembler. Fluid amounts are mB; duration is ticks; eut is signed EU/t. No implicit overclocking.',
     {
       machine: z
         .string()
@@ -447,7 +470,7 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
       itemOutputs: z
         .array(
           z.object({
-            item: id,
+            item: z.string().min(3).max(300),
             count: z.number().int().positive().default(1),
             chance: z.number().positive().max(1).default(1),
           }),
@@ -462,7 +485,47 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
       eut: z
         .number()
         .int()
-        .refine((value) => value !== 0, 'EU/t must not be zero'),
+        .refine((value) => value !== 0, 'EU/t must not be zero')
+        .nullable()
+        .default(null),
+      cleanroom: z.enum(['cleanroom', 'sterile_cleanroom']).nullable().default(null),
+      blastFurnaceTemp: z.number().int().positive().nullable().default(null),
+      researchWithoutRecipe: z.string().min(1).max(300).nullable().default(null),
+      operations: z
+        .array(
+          z
+            .object({
+              op: z.enum(gregtechOperationNames),
+              item: z.string().optional(),
+              fluid: z.string().optional(),
+              fraction: z.string().optional(),
+              snbt: z.string().optional(),
+              state: z.string().optional(),
+              amount: z.number().optional(),
+              count: z.number().optional(),
+              chance: z.number().optional(),
+              min: z.number().optional(),
+              max: z.number().optional(),
+              tick: z.boolean().optional(),
+              id: z.string().optional(),
+              reverse: z.boolean().optional(),
+              value: z.union([z.string(), z.number(), z.boolean()]).optional(),
+              key: z.string().optional(),
+              kind: z.string().optional(),
+              fluidMaterialInfo: z.boolean().optional(),
+              ids: z.array(z.string().max(300)).max(32).optional(),
+              dataItem: id.optional(),
+              eut: z.number().int().optional(),
+              amperage: z.number().int().optional(),
+              duration: z.number().int().optional(),
+              cwu: z.number().int().optional(),
+              totalCwu: z.number().int().optional(),
+            })
+            .strict()
+            .refine(validateGregtechOperation, 'Invalid GTCEu operation or parameter'),
+        )
+        .max(128)
+        .default([]),
       posY: z.object({ min: z.number().int(), max: z.number().int() }).nullable().default(null),
       ...saveArgs,
     },
@@ -863,6 +926,121 @@ export function createMcpResources(ctx: McpToolsContext): readonly KubeVsMcpReso
         },
         limits:
           'Local projects must be trusted. HTTP bearer authentication is required. Server operations retain Connector permissions. File paths stay within KubeJS content roots; dirty editor buffers are protected.',
+      }),
+    },
+    {
+      uri: 'kubevs://gregtech-guide',
+      name: 'GTCEu 1.21 recipe builder guide',
+      description: 'Advanced operations and argument units for kubevs_generate_gregtech_recipe.',
+      read: async () => ({
+        source:
+          'GregTechCEu/GregTech-Modern 1.21, commit 36a6b38c580e54445e055e3ca05eecf675f2cb96, GTRecipeSchema.java',
+        controls: gregtechOperationControls,
+        operationFormat:
+          'operations is an ordered array of objects with op plus the listed fields. Unknown fields and operations are rejected. IDs use namespace:path unless marked arbitrary string.',
+        groups: {
+          io: {
+            operations: [
+              'itemInput',
+              'itemOutput: {item,count?,chance?,fraction?,tick?}',
+              'fluidInput',
+              'fluidOutput: {fluid,amount,chance?,fraction?,tick?}',
+            ],
+            units:
+              'count is items; amount is mB; chance is 0–1, rounded to 1/10000. Input chance 0 means a reusable catalyst. fraction is output-only numerator/denominator with denominator ≤10000. tick switches the call to per-tick IO and resets it afterward.',
+            example: {
+              op: 'fluidOutput',
+              fluid: 'minecraft:water',
+              amount: 250,
+              chance: 0.25,
+              tick: true,
+            },
+          },
+          ranged: {
+            operations: [
+              'itemInputRanged',
+              'itemOutputRanged: {item,min,max,tick?}',
+              'fluidInputRanged',
+              'fluidOutputRanged: {fluid,min,max,tick?}',
+            ],
+            units:
+              'min/max are positive item counts or mB. Item IDs may be #tags. The range is inclusive.',
+          },
+          energy: {
+            operations: [
+              'EUt',
+              'inputEU',
+              'outputEU: {value,amount?}',
+              'CWUt',
+              'inputCWU',
+              'outputCWU',
+              'totalCWU: {value}',
+            ],
+            units:
+              'EU voltage is signed for EUt, amount is amperage. CWU is integer; negative CWUt outputs CWU. totalCWU changes recipe duration and should be used only when intended.',
+          },
+          data: {
+            operations: [
+              'addDataString',
+              'addDataNumber',
+              'addDataBool: {key,value}',
+              'explosivesAmount',
+              'solderMultiplier',
+              'fusionStartEU: {value}',
+              'explosivesType: {item,count?}',
+              'disableDistilleryRecipes',
+              'researchScan',
+              'durationIsTotalCWU',
+              'hideDuration: {value:boolean}',
+            ],
+            units:
+              'Temperature and item counts are Java int; fusionStartEU is long limited to safe JavaScript integer precision.',
+          },
+          conditions: {
+            operations: [
+              'rain',
+              'thunder: {value:0..1,reverse?}',
+              'posY: {min,max,reverse?}',
+              'daytime: {value:boolean}',
+              'nighttime',
+              'dimension',
+              'biome',
+              'biomeTag',
+              'environmentalHazard: {id,reverse?}',
+              'adjacentFluids',
+              'adjacentFluidTag',
+              'adjacentBlocks',
+              'adjacentBlockTag: {ids:[namespace:path],reverse?}',
+              'heraclesQuest',
+              'ftbQuest: {id,reverse?}',
+            ],
+            caveat:
+              'Quest conditions require their integration mods. Dimension/biome/adjacency use fixed Java class factories; validate with a running 1.21 game before deployment.',
+          },
+          research: {
+            operations: [
+              'researchWithoutRecipe: {id,dataItem?}',
+              'scannerResearch: {item? or fluid+amount,id?,dataItem?,duration?,eut?,amperage?}',
+              'stationResearch: {item? or fluid+amount,id?,dataItem?,cwu,totalCwu,eut?,amperage?}',
+            ],
+            caveat:
+              'dataItem must actually carry gtceu:data_item; research requires GTCEu research enabled. Station totalCwu must be ≥ cwu.',
+          },
+          metadata: {
+            operations: [
+              'category: {id}',
+              'chanceLogic: {kind:itemInput|fluidInput|itemOutput|fluidOutput|tickInput|tickOutput,id,key?}',
+              'addMaterialInfo: {value:boolean,fluidMaterialInfo?}',
+              'removePreviousMaterialInfo',
+            ],
+            caveat:
+              'Chance logic ID and optional tick capability key must exist in the GT registries.',
+          },
+        },
+        topLevel:
+          'cleanroom is cleanroom or sterile_cleanroom; blastFurnaceTemp is kelvin; researchWithoutRecipe is a research ID; posY is min/max; circuit is 0–32. All are optional except machine, recipeId, duration and IO.',
+        boundary:
+          'Arbitrary addon Java capabilities or custom RecipeCondition objects need native KubeJS scripting. Existing GT recipe JSON can be preserved with generic recipe read/write tools.',
       }),
     },
   ];

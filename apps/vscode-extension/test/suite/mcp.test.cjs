@@ -66,6 +66,7 @@ suite('KubeVS MCP in installed Code', () => {
         'kubevs_generate_recipe',
         'kubevs_generate_mod_recipe',
         'kubevs_generate_gregtech_recipe',
+        'kubevs_generate_gregtech_shaped_recipe',
         'kubevs_generate_loot',
         'kubevs_generate_content',
         'kubevs_diagnostics',
@@ -74,6 +75,28 @@ suite('KubeVS MCP in installed Code', () => {
       const resources = (await client.listResources()).resources;
       assert.ok(resources.some((resource) => resource.uri === 'kubevs://status'));
       assert.ok(resources.some((resource) => resource.uri === 'kubevs://guide'));
+      const gtGuide = JSON.parse(
+        (await client.readResource({ uri: 'kubevs://gregtech-guide' })).contents[0].text,
+      );
+      assert.ok(gtGuide.controls.length >= 50);
+      for (const control of gtGuide.controls) {
+        await call('kubevs_generate_gregtech_recipe', {
+          machine: 'assembler',
+          recipeId: 'kubevs:advanced_preview',
+          duration: 100,
+          itemInputs: ['minecraft:stone'],
+          itemOutputs: [{ item: 'minecraft:diamond' }],
+          operations: [control.example],
+        });
+      }
+      const shapedPreview = await call('kubevs_generate_gregtech_shaped_recipe', {
+        recipeId: 'kubevs:tool_preview',
+        pattern: ['hA', ' A'],
+        key: { A: '#c:ingots/iron' },
+        output: 'minecraft:iron_nugget',
+        addMaterialInfo: true,
+      });
+      assert.match(JSON.stringify(shapedPreview), /gtceu.shaped/);
       const status = await call('kubevs_status');
       assert.ok(Array.isArray(status.roots));
       assert.ok(!JSON.stringify(status).includes(token), 'status exposed MCP token');

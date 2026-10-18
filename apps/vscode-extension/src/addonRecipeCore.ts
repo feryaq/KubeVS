@@ -1,9 +1,16 @@
+export { gregtechOperationControls } from './gregtechOperationControls.js';
 import {
   generateGregtechRecipe,
+  generateGregtechShapedRecipe,
   isGregtechRecipeDraft,
   type GregtechRecipeDraft,
 } from './gregtechRecipeCore.js';
-export { generateGregtechRecipe, isGregtechRecipeDraft } from './gregtechRecipeCore.js';
+export {
+  generateGregtechRecipe,
+  generateGregtechShapedRecipe,
+  gregtechOperationNames,
+  isGregtechRecipeDraft,
+} from './gregtechRecipeCore.js';
 export type AddonRecipeType =
   | 'create:pressing'
   | 'create:crushing'
@@ -22,7 +29,8 @@ export type AddonRecipeType =
   | 'oritech:atomic_forge'
   | 'farmersdelight:cooking'
   | 'farmersdelight:cutting'
-  | 'gtceu:machine';
+  | 'gtceu:machine'
+  | 'gtceu:shaped';
 
 export type CreateSequenceStepType = 'create:pressing' | 'create:deploying' | 'create:cutting';
 
@@ -65,6 +73,7 @@ export interface MechanicalCraftingDraft {
   readonly pattern: readonly string[];
   readonly key: Readonly<Record<string, string>>;
   readonly acceptMirrored: boolean;
+  readonly addMaterialInfo?: boolean;
 }
 
 /** Editor limit; larger Create recipes may not fit recipe viewers. */
@@ -90,6 +99,7 @@ const RECIPE_TYPES = new Set<AddonRecipeType>([
   'farmersdelight:cooking',
   'farmersdelight:cutting',
   'gtceu:machine',
+  'gtceu:shaped',
 ]);
 
 export function generateAddonRecipe(draft: AddonRecipeDraft): string {
@@ -98,6 +108,23 @@ export function generateAddonRecipe(draft: AddonRecipeDraft): string {
     if (!draft.gregtech || draft.gregtech.recipeId !== draft.recipeId)
       throw new Error('Invalid GregTech recipe details.');
     return generateGregtechRecipe(draft.gregtech);
+  }
+  if (draft.type === 'gtceu:shaped') {
+    if (
+      !draft.mechanical ||
+      draft.outputs.length !== 1 ||
+      draft.outputs[0]?.chance !== 1 ||
+      draft.fluidInputs.length ||
+      draft.fluidOutputs.length
+    )
+      throw new Error('GT shaped crafting requires one guaranteed item output and no fluids.');
+    return generateGregtechShapedRecipe({
+      recipeId: draft.recipeId,
+      ...draft.mechanical,
+      output: draft.outputs[0].item,
+      count: draft.outputs[0].count,
+      mirrored: draft.mechanical.acceptMirrored,
+    });
   }
   const recipeId = requireResource(draft.recipeId, 'Recipe ID');
   if (draft.type === 'create:mechanical_crafting') {
@@ -218,7 +245,8 @@ export function isAddonRecipeDraft(value: unknown): value is AddonRecipeDraft {
   return (
     typeof draft.type === 'string' &&
     RECIPE_TYPES.has(draft.type as AddonRecipeType) &&
-    (draft.type !== 'create:mechanical_crafting' || isMechanicalCraftingDraft(draft.mechanical)) &&
+    (!['create:mechanical_crafting', 'gtceu:shaped'].includes(draft.type as string) ||
+      isMechanicalCraftingDraft(draft.mechanical, draft.type === 'gtceu:shaped')) &&
     (draft.type !== 'gtceu:machine' || isGregtechRecipeDraft(draft.gregtech)) &&
     typeof draft.recipeId === 'string' &&
     draft.recipeId.length <= 300 &&
@@ -263,7 +291,10 @@ export function isAddonRecipeDraft(value: unknown): value is AddonRecipeDraft {
   );
 }
 
-function isMechanicalCraftingDraft(value: unknown): value is MechanicalCraftingDraft {
+function isMechanicalCraftingDraft(
+  value: unknown,
+  tools = false,
+): value is MechanicalCraftingDraft {
   if (typeof value !== 'object' || value === null) return false;
   const mechanical = value as Partial<MechanicalCraftingDraft>;
   return (
@@ -271,7 +302,9 @@ function isMechanicalCraftingDraft(value: unknown): value is MechanicalCraftingD
     mechanical.pattern.length <= MAX_MECHANICAL_SIZE &&
     mechanical.pattern.every(
       (row) =>
-        typeof row === 'string' && row.length <= MAX_MECHANICAL_SIZE && /^[A-Z0-9 ]*$/.test(row),
+        typeof row === 'string' &&
+        row.length <= MAX_MECHANICAL_SIZE &&
+        (tools ? /^[A-Za-z0-9 ]*$/ : /^[A-Z0-9 ]*$/).test(row),
     ) &&
     typeof mechanical.key === 'object' &&
     mechanical.key !== null &&
@@ -281,6 +314,7 @@ function isMechanicalCraftingDraft(value: unknown): value is MechanicalCraftingD
       ([symbol, ingredient]) =>
         /^[A-Z0-9]$/.test(symbol) && typeof ingredient === 'string' && ingredient.length <= 300,
     ) &&
+    (mechanical.addMaterialInfo === undefined || typeof mechanical.addMaterialInfo === 'boolean') &&
     typeof mechanical.acceptMirrored === 'boolean'
   );
 }

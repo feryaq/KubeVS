@@ -220,6 +220,9 @@ try {
             { width: 1440, height: 900 },
             { width: 800, height: 700 },
             { width: 390, height: 844 },
+            ...(['addon', 'vanilla', 'schema'].includes(path.basename(file, '.html'))
+              ? [{ width: 320, height: 820 }]
+              : []),
           ]) {
         const name = path.basename(file, '.html'),
           key = `${name}-${theme}-${viewport.width}`;
@@ -260,6 +263,13 @@ try {
         }
         await renderPreview(page, name);
         await page.screenshot({ path: path.join(out, key + '.png'), fullPage: true });
+        // Preview is collapsible on compact recipe layouts. Open it as a user would for copy/code checks.
+        if (name === 'addon' || name === 'schema' || name === 'vanilla') {
+          const preview = page.locator('.recipe-preview > details');
+          if ((await preview.count()) && (await preview.getAttribute('open')) === null)
+            await preview.locator('summary').first().click();
+        }
+
         if (name === 'dashboard' && theme === 'dark' && viewport.width === 1440) {
           await runCheck('dashboard ready handshake', async () =>
             assert.ok(await page.evaluate(() => window.messages.some((m) => m.type === 'ready'))),
@@ -768,8 +778,79 @@ try {
         }
         if (name === 'addon') {
           await runCheck(
+            'GTCEu form, tools and return Home ' + theme + ' ' + viewport.width,
+            async () => {
+              const select = async (type) => {
+                const group = page
+                  .locator('[data-type="' + type + '"]')
+                  .locator('xpath=ancestor::details[1]');
+                if ((await group.getAttribute('open')) === null)
+                  await group.locator('summary').first().click();
+                await page.locator('[data-type="' + type + '"]').click();
+              };
+              await page.locator('#typeSearch').fill('GregTech');
+              assert.equal(await page.locator('[data-type="create:pressing"]').isVisible(), false);
+              await page.locator('#typeSearch').fill('');
+              await select('gtceu:machine');
+              await page.locator('#gtAdvanced > summary').click();
+              await page.locator('#gtOperationType').selectOption('scannerResearch');
+              await page.locator('#gtAddOperation').click();
+              await page.locator('[data-gt-field="duration"]').fill('2400');
+              await page.locator('#gtOperationType').selectOption('fluidOutput');
+              await page.locator('#gtAddOperation').click();
+              await page.locator('[data-gt-field="chance"]').fill('0.25');
+              await page.locator('[data-gt-field="tick"]').last().selectOption('true');
+              await page.locator('#gtCleanroom').selectOption('sterile_cleanroom');
+              await renderPreview(page, name);
+              assert.match(
+                await page.locator('#code').textContent(),
+                /scannerResearch\(java.util.function.UnaryOperator\)/,
+              );
+              const draft = await page.evaluate(
+                () => window.messages.filter((m) => m.type === 'preview').at(-1).draft,
+              );
+              assert.equal(draft.gregtech.operations[0].duration, 2400);
+              assert.equal(draft.gregtech.operations[1].tick, true);
+              assert.equal(draft.gregtech.operations[1].chance, 0.25);
+              await page.screenshot({
+                path: path.join(out, 'addon-gregtech-' + theme + '-' + viewport.width + '.png'),
+                fullPage: true,
+              });
+              await page.locator('.gt-operation').first().locator('button').click();
+              assert.equal(await page.locator('.gt-operation').count(), 1);
+              await select('gtceu:shaped');
+              assert.equal(await page.locator('#mechanicalGrid input').count(), 9);
+              assert.equal(await page.locator('#gtTools button').count(), 10);
+              await page.locator('#mechanicalGrid input').first().fill('d');
+              await page.locator('#gtMaterialInfo').check();
+              await renderPreview(page, name);
+              assert.match(await page.locator('#code').textContent(), /gtceu.shaped/);
+              assert.match(await page.locator('#code').textContent(), /addMaterialInfo/);
+              await page.screenshot({
+                path: path.join(
+                  out,
+                  'addon-gregtech-tools-' + theme + '-' + viewport.width + '.png',
+                ),
+                fullPage: true,
+              });
+              await page.locator('#openRecipeHome').click();
+              assert.ok(
+                await page.evaluate(() => window.messages.some((m) => m.type === 'openRecipeHome')),
+              );
+            },
+          );
+
+          await page.reload();
+          await page.locator('.recipe-preview > details').evaluate((el) => (el.open = true));
+          await page.addStyleTag({ content: themeCss(t) });
+          await runCheck(
             'mechanical crafting grid, preset and maximum size ' + theme + ' ' + viewport.width,
             async () => {
+              const createGroup = page
+                .locator('[data-type="create:mechanical_crafting"]')
+                .locator('xpath=ancestor::details[1]');
+              if ((await createGroup.count()) && (await createGroup.getAttribute('open')) === null)
+                await createGroup.locator('summary').first().click();
               await page.locator('[data-type="create:mechanical_crafting"]').click();
               assert.equal(await page.locator('#mechanicalSection').isVisible(), true);
               assert.equal(await page.locator('#itemIngredientsSection').isVisible(), false);
@@ -817,12 +898,16 @@ try {
                 type: 'saved',
                 path: 'server_scripts/kubevs/crafts/create/crushing_wheel.js',
               });
+              if ((await createGroup.count()) && (await createGroup.getAttribute('open')) === null)
+                await createGroup.locator('summary').first().click();
               await page.locator('[data-type="create:pressing"]').click();
               assert.equal(await page.locator('#mechanicalSection').isVisible(), false);
               assert.equal(
                 await page.locator('#outputs [data-field="item"]').first().inputValue(),
                 'minecraft:iron_plate',
               );
+              if ((await createGroup.count()) && (await createGroup.getAttribute('open')) === null)
+                await createGroup.locator('summary').first().click();
               await page.locator('[data-type="create:mechanical_crafting"]').click();
               assert.equal(
                 await page.locator('#outputs [data-field="item"]').first().inputValue(),
