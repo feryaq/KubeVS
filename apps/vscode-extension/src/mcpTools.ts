@@ -1015,7 +1015,7 @@ export function createMcpResources(ctx: McpToolsContext): readonly KubeVsMcpReso
               'ftbQuest: {id,reverse?}',
             ],
             caveat:
-              'Quest conditions require their integration mods. Dimension/biome/adjacency use fixed Java class factories; validate with a running 1.21 game before deployment.',
+              'Quest conditions require their integration mods; FTB quest IDs are nonzero hexadecimal codes of up to 16 digits. Dimension/biome/adjacency use fixed Java class factories; validate with a running 1.21 game before deployment.',
           },
           research: {
             operations: [

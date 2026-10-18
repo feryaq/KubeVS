@@ -161,6 +161,8 @@ test('advanced GTCEu operations reject unknown code and malformed values', () =>
     { op: 'posY', min: 100, max: 10 },
     { op: 'addDataString', key: 'x', value: 'ok', injected: '); throw Error()' },
     { op: 'daytime', value: 'false' },
+    { op: 'ftbQuest', id: 'quest_id' },
+    { op: 'ftbQuest', id: '0000000000000000' },
   ])
     assert.throws(() => generateGregtechRecipe({ ...recipe, operations: [operation] }));
 });
@@ -491,4 +493,14 @@ test('GT tool crafting preserves lowercase tool symbols and validates its 3×3 g
     { ...draft, count: 0 },
   ])
     assert.throws(() => generateGregtechShapedRecipe(invalid));
+});
+
+test('existing research identifiers retain the native arbitrary-string format', () => {
+  assert.match(
+    generateGregtechRecipe({
+      ...recipe,
+      researchWithoutRecipe: '1x gtceu:data_stick[gtceu:data_item={id:"custom"}]',
+    }),
+    /researchWithoutRecipe/,
+  );
 });

@@ -4,10 +4,10 @@
 
 - `pnpm install --frozen-lockfile`, production audit: успешно, известных уязвимостей нет.
 - `pnpm check:release`: метаданные, ESLint, TypeScript, тесты, сборка и Prettier прошли.
-- JavaScript: 7 parser + 4 protocol + 12 recipe-model + 73 extension + 3 MCP transport теста; 27 интеграционных тестов в установленном Code OSS на отдельном Xvfb-дисплее.
+- JavaScript: 7 parser + 4 protocol + 12 recipe-model + 74 extension + 3 MCP transport теста; 27 интеграционных тестов в установленном Code OSS на отдельном Xvfb-дисплее.
 - Все 55 операций GTCEu имеют форму и пример. Примеры выполнялись с записывающим builder, а затем через настоящий MCP SDK в extension host. Проверены области perTick, числовые границы, исследования, Java factory-вызовы, теги и крафты с инструментами.
 - Упакованный minified VSIX отдельно прошёл те же 27 интеграционных тестов в установленном Code OSS.
-- Connector: 23 теста без ошибок; production JAR собран Java 21 / Gradle 8.12.1.
+- Connector: 23 теста без ошибок; production JAR собран Java 21 / Gradle 8.12.1. Из итогового JAR прочитан NeoForge TOML: версия 1.6.0, название KubeVS: VS Code Connector, автор feryaq и полное описание с абзацами.
 - Калькулятор навыка проектирования рецептов: 8 тестов успешно.
 - Headless Chromium: 66 базовых рендеров, 64/64 проверки действий и layout без ошибок. Новые редакторы проверены при ширине 320, 390, 800 и 1440 px в светлой и тёмной теме. Дополнительные рендеры проверяют формы GTCEu и tool crafting.
 

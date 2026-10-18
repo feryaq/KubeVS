@@ -896,7 +896,7 @@ export const gregtechOperationControls: readonly GregtechOperationControl[] = [
     ],
     example: {
       op: 'ftbQuest',
-      id: 'quest_id',
+      id: '0000000000000001',
     },
   },
   {

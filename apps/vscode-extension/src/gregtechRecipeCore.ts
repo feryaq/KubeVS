@@ -248,7 +248,7 @@ export function generateGregtechRecipe(draft: GregtechRecipeDraft): string {
     );
   if (draft.researchWithoutRecipe)
     chain.push(
-      `.researchWithoutRecipe(${JSON.stringify(asResource(draft.researchWithoutRecipe, 'Research ID'))})`,
+      `.researchWithoutRecipe(${JSON.stringify(requiredString(draft.researchWithoutRecipe, 'Research ID'))})`,
     );
   if (draft.posY) {
     const { min, max } = draft.posY;
@@ -590,10 +590,12 @@ function compileGregtechOperation(op: GregtechOperation): CompiledOperation {
   }
   if (name === 'daytime') return result(`.daytime(${bool(op.value ?? false, 'daytime')})`);
   if (name === 'nighttime') return result('.nighttime()');
-  if (name === 'heraclesQuest' || name === 'ftbQuest')
-    return result(
-      `.${name}(${JSON.stringify(requiredString(op.id, `${name} ID`))}, ${bool(op.reverse ?? false, 'reverse')})`,
-    );
+  if (name === 'heraclesQuest' || name === 'ftbQuest') {
+    const id = requiredString(op.id, `${name} ID`);
+    if (name === 'ftbQuest' && (!/^[0-9a-fA-F]{1,16}$/.test(id) || /^0+$/.test(id)))
+      throw new Error('FTB quest ID must be a nonzero hexadecimal code of up to 16 digits.');
+    return result(`.${name}(${JSON.stringify(id)}, ${bool(op.reverse ?? false, 'reverse')})`);
+  }
   if (name === 'researchWithoutRecipe')
     return result(
       `.researchWithoutRecipe(${JSON.stringify(requiredString(op.id, 'Research ID'))}${op.dataItem ? `, Item.of(${JSON.stringify(asResource(op.dataItem, 'Data item'))})` : ''})`,
