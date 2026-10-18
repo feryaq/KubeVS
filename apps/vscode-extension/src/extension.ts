@@ -346,6 +346,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     };
   };
   const dashboard = new DashboardController(context, dashboardSnapshot);
+  context.subscriptions.push({
+    dispose: connectorClient.onEvent((event) => {
+      if (event.event === 'session.permissionsChanged') dashboard.refresh();
+    }),
+  });
   const mcpWorkspace = new McpWorkspace(connectorClient, () => connectionState === 'connected');
   const mcp = new McpController(
     context,

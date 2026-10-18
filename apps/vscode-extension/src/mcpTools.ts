@@ -534,11 +534,17 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
         throw new Error(
           'GTCEu integration is unavailable. Install GTCEu and update Connector to 1.5.0 or later.',
         );
-      return saveCode(
+      const result = await saveCode(
         args,
         generateGregtechRecipe(args),
         recipePath(args.recipeId, 'gtceu:' + args.machine),
       );
+      const [namespace, path] = args.recipeId.split(':');
+      return {
+        ...(result as Record<string, unknown>),
+        requestedRecipeId: args.recipeId,
+        effectiveRecipeId: `${namespace === 'kubejs' ? 'gtceu' : namespace}:${args.machine}/${path}`,
+      };
     },
     false,
   );
@@ -731,6 +737,19 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
     request('workspace.locks.list'),
   );
   tool(
+    'kubevs_set_reload_enabled',
+    'Admin only, Connector 1.7.0+: enable or disable resource reload by persisting permissions.allowReload. Changes all sessions immediately. Requires explicit user authorization to change this server setting. Does not restart Minecraft or reload resources; call kubevs_reload afterward.',
+    { enabled: z.boolean() },
+    async (args) => {
+      if (connected().session?.role !== 'admin')
+        throw new Error('Only a Connector administrator can change reload policy.');
+      const result = await request('reload.policy.set', { enabled: args.enabled });
+      await ctx.refresh();
+      return result;
+    },
+    false,
+  );
+  tool(
     'kubevs_reload',
     'Reload server resources to apply recipes and LootJS scripts. Never registers new items/blocks; startup_scripts require restart. Requires Connector reload capability and operator rights.',
     {},
@@ -901,7 +920,7 @@ export function createMcpResources(ctx: McpToolsContext): readonly KubeVsMcpReso
           'Search registries and recipes for real IDs.',
           'Preview a recipe, loot rule or startup item/block.',
           'Set save:true to create a file. To overwrite, read_file first and pass its revision.',
-          'Reload server resources explicitly to apply recipes/loot when allowed. Restart Minecraft for startup registrations.',
+          'Reload server resources explicitly to apply recipes/loot when allowed. With explicit user authorization, an admin can enable reload using kubevs_set_reload_enabled (Connector 1.7.0+). Restart Minecraft for startup registrations.',
         ],
         dependencies: {
           recipes: 'KubeJS',

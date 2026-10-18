@@ -96,6 +96,7 @@ suite('KubeVS MCP remote Connector', () => {
       );
       const source = await call('kubevs_get_recipe', { id: 'minecraft:test_sticks' });
       assert.equal(source.json.result.id, 'minecraft:stick');
+      await errorResult('kubevs_set_reload_enabled', { enabled: true }, /administrator/i);
       const graph = await call('kubevs_craft_graph', { item: 'minecraft:stick', amount: 8 });
       assert.equal(graph.tree.recipeId, 'minecraft:test_sticks');
       assert.equal(graph.totals.items['minecraft:oak_planks'], 2);
@@ -239,6 +240,13 @@ suite('KubeVS MCP remote Connector', () => {
         code: connectionCode(process.env.KUBEVS_TEST_MISSING_KUBEJS_TOKEN),
       });
       assert.equal((await call('kubevs_status')).kubejsVersion, null);
+      await errorResult('kubevs_reload', {}, /disabled|permitted/i);
+      assert.equal((await call('kubevs_set_reload_enabled', { enabled: true })).enabled, true);
+      assert.equal((await call('kubevs_reload')).reloaded, true);
+      assert.equal((await call('kubevs_set_reload_enabled', { enabled: false })).enabled, false);
+      await errorResult('kubevs_reload', {}, /disabled|permitted/i);
+      baselineUi();
+
       const missingPreview = await call('kubevs_generate_recipe', {
         root: 'server',
         recipeId: `kubevs:${id}_missing`,

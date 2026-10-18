@@ -112,7 +112,7 @@ final class ConnectorAuthCommands {
                 false);
         source.sendSuccess(
                 () -> Component.literal(config.publicHost() + ":" + config.publicPort()).withStyle(VALUE)
-                        .append(tr(config.allowReload() ? "status.reload_enabled" : "status.reload_disabled")
+                        .append(tr(server.reloadAllowed() ? "status.reload_enabled" : "status.reload_disabled")
                                 .withStyle(MUTED)),
                 false);
         MutableComponent actions = actionButton("action.connect", BRAND, ClickEvent.Action.RUN_COMMAND,
@@ -366,7 +366,7 @@ final class ConnectorAuthCommands {
     private static MutableComponent tr(String key, Object... args) {
         String fullKey = "command.kubevs." + key;
         return Component.translatableWithFallback(
-                fullKey, ConnectorTranslations.englishFallback(fullKey), args);
+                fullKey, ConnectorTranslations.russianFallback(fullKey), args);
     }
 
     private static MutableComponent roleName(ConnectorRole role) {

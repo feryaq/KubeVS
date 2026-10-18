@@ -201,6 +201,7 @@ export function addonRecipeEditorHtml(
     .recipe-addon .mod-group[hidden] { display: none; }
     .recipe-addon .recipe-context { display: grid; grid-template-columns: minmax(0,1fr); }
     .recipe-addon #selectedType { display: none; }
+    .gt-basics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.gt-basics label{margin:0}.gt-shortcuts{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}.gt-shortcuts button{font-size:11px;padding:5px 8px}.gt-simple:not(.gt-show-chances) .output-row{grid-template-columns:minmax(0,1fr) 64px 32px}.gt-simple:not(.gt-show-chances) [data-field="chance"],.gt-simple #outputLegend{display:none}.recipe-addon .gt-simple .section{padding:12px 0 0;margin-top:16px}.gt-simple .help,.gt-simple .row-legend{display:none}.gt-simple .recipe-context{margin-bottom:0}.gt-simple #optionsSection{display:none}@media(max-width:480px){.gt-basics{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.gt-basics label:first-child{grid-column:1/-1}}
     .recipe-addon .workspace { gap: 0; grid-template-columns:minmax(0,1fr); }
     .recipe-addon .section { padding: 16px 0; }
     .recipe-addon .section-head { margin-bottom: 10px; }
@@ -332,12 +333,16 @@ export function addonRecipeEditorHtml(
       </div>
       <div class="section" id="gregtechSection" hidden>
 
-        <div class="options">
-          <label>Recipe type<input id="gtMachine" value="assembler" spellcheck="false" placeholder="assembler"></label>
-          <label>EU/t<input id="gtEUt" type="number" step="1" value="30"></label>
-          <label>Circuit (optional)<input id="gtCircuit" type="number" min="0" max="32" step="1" placeholder="0–32"></label>
+        <div class="gt-basics">
+          <label>Machine<select id="gtMachineChoice"><option value="macerator">Macerator</option><option value="assembler" selected>Assembler</option><option value="bender">Bender</option><option value="mixer">Mixer</option><option value="chemical_reactor">Chemical reactor</option><option value="centrifuge">Centrifuge</option><option value="electrolyzer">Electrolyzer</option><option value="extruder">Extruder</option><option value="lathe">Lathe</option><option value="electric_blast_furnace">Electric blast furnace</option><option value="custom">Other machine…</option></select></label>
+          <label id="gtCustomMachine" hidden>Recipe type<input id="gtMachine" value="assembler" spellcheck="false" placeholder="assembler"></label>
+          <label>Time, seconds<input id="gtSeconds" type="number" min="0.05" step="0.05" value="5"></label>
+          <label>Power<select id="gtPower"><option value="2">2 EU/t</option><option value="7">ULV · 7 EU/t</option><option value="30" selected>LV · 30 EU/t</option><option value="120">MV · 120 EU/t</option><option value="480">HV · 480 EU/t</option><option value="1920">EV · 1920 EU/t</option><option value="7680">IV · 7680 EU/t</option><option value="30720">LuV · 30720 EU/t</option><option value="122880">ZPM · 122880 EU/t</option><option value="491520">UV · 491520 EU/t</option><option value="custom">Custom…</option></select></label>
+          <label id="gtCustomPower" hidden>EU/t<input id="gtEUt" type="number" step="1" value="30"></label>
         </div>
+        <div class="gt-shortcuts"><button type="button" id="gtFluidIn">+ Fluid input</button><button type="button" id="gtFluidOut">+ Fluid output</button><button type="button" id="gtChanceToggle" aria-pressed="false">Output chances</button></div>
         ${gregtechAdvancedHtml(`<div class="options">
+          <label>Circuit<input id="gtCircuit" type="number" min="0" max="32" step="1" placeholder="0–32"></label>
           <label>Y min (optional)<input id="gtYMin" type="number" step="1" placeholder="-64"></label>
           <label>Y max<input id="gtYMax" type="number" step="1" placeholder="320"></label>
         </div>
@@ -393,6 +398,31 @@ export function addonRecipeEditorHtml(
     const mechanicalKeysEl = document.getElementById('mechanicalKeys');
     const gridDrafts = {};
     document.getElementById('itemIngredientsSection').before(document.getElementById('gregtechSection'));
+    document.getElementById('optionsSection').before(document.getElementById('gtAdvanced'));
+    const gtMachineChoice = document.getElementById('gtMachineChoice');
+    const gtPower = document.getElementById('gtPower');
+    const gtSeconds = document.getElementById('gtSeconds');
+    function syncGtChoices() {
+      const machine = document.getElementById('gtMachine').value;
+      gtMachineChoice.value = [...gtMachineChoice.options].some(option=>option.value===machine) ? machine : 'custom';
+      document.getElementById('gtCustomMachine').hidden = gtMachineChoice.value !== 'custom';
+      const power = document.getElementById('gtEUt').value;
+      gtPower.value = [...gtPower.options].some(option=>option.value===power) ? power : 'custom';
+      document.getElementById('gtCustomPower').hidden = gtPower.value !== 'custom';
+      gtSeconds.value = String(Number(document.getElementById('processingTime').value)/20);
+    }
+    function syncGtSimple(event) {
+      if (event.target === gtMachineChoice) {
+        document.getElementById('gtCustomMachine').hidden = gtMachineChoice.value !== 'custom';
+        if (gtMachineChoice.value !== 'custom') document.getElementById('gtMachine').value = gtMachineChoice.value;
+      }
+      if (event.target === gtPower) {
+        document.getElementById('gtCustomPower').hidden = gtPower.value !== 'custom';
+        if (gtPower.value !== 'custom') document.getElementById('gtEUt').value = gtPower.value;
+      }
+      if (event.target === gtSeconds) document.getElementById('processingTime').value = String(Math.round(Number(gtSeconds.value)*20));
+    }
+
     const gtToolNames = {s:'Saw',h:'Hammer',r:'Soft mallet',w:'Wrench',f:'File',c:'Crowbar',d:'Screwdriver',m:'Mortar',x:'Wire cutter',k:'Knife'};
     for (const [symbol,name] of Object.entries(gtToolNames)) { const button = document.createElement('button'); button.type = 'button'; button.dataset.gtTool = symbol; button.textContent = symbol+' · '+name; button.title = name+' — enter '+symbol+' in a grid slot'; document.getElementById('gtTools').append(button); }
     let mechanicalPattern = [' AAA ', 'AAPAA', 'APSPA', 'AAPAA', ' AAA '];
@@ -605,6 +635,11 @@ export function addonRecipeEditorHtml(
       document.getElementById('mechanicalSection').hidden = !mechanical;
       document.getElementById('itemIngredientsSection').hidden = mechanical;
       const gregtech = next === 'gtceu:machine';
+      document.querySelector('.workspace').classList.toggle('gt-simple', gregtech);
+      document.getElementById('gtAdvanced').hidden = !gregtech;
+      syncGtChoices();
+      document.querySelector('.workspace').classList.toggle('gt-show-chances', outputs.some(output=>output.chance!==1) || document.getElementById('gtChanceToggle').getAttribute('aria-pressed')==='true');
+
       document.getElementById('gregtechSection').hidden = !gregtech;
       if (mechanical !== wasMechanical) {
         if (wasMechanical) mechanicalOutputs = outputs;
@@ -632,8 +667,8 @@ export function addonRecipeEditorHtml(
       const sequenced = next === 'create:sequenced_assembly';
       const basinRecipe = next === 'create:mixing' || next === 'create:compacting';
       document.getElementById('sequenceSection').hidden = !sequenced;
-      document.getElementById('fluidInputsSection').hidden = !basinRecipe && !gregtech;
-      document.getElementById('fluidOutputsSection').hidden = !basinRecipe && !gregtech;
+      document.getElementById('fluidInputsSection').hidden = !basinRecipe && (!gregtech || fluidInputs.length===0);
+      document.getElementById('fluidOutputsSection').hidden = !basinRecipe && (!gregtech || fluidOutputs.length===0);
       document.getElementById('toolLabel').hidden = next !== 'farmersdelight:cutting';
       document.getElementById('experience').closest('label').hidden = next !== 'farmersdelight:cooking';
       document.getElementById('heat').closest('label').hidden = next !== 'create:mixing' && next !== 'create:compacting';
@@ -642,6 +677,9 @@ export function addonRecipeEditorHtml(
       preview();
     }
     document.addEventListener('click', event => {
+      if(event.target.id==='gtFluidIn') {document.getElementById('addFluidInput').click();return;}
+      if(event.target.id==='gtFluidOut') {document.getElementById('addFluidOutput').click();return;}
+      if(event.target.id==='gtChanceToggle') {const show=!document.querySelector('.workspace').classList.contains('gt-show-chances');document.querySelector('.workspace').classList.toggle('gt-show-chances',show);event.target.setAttribute('aria-pressed',String(show));return;}
       if (event.target.dataset.gtTool) { const empty = [...mechanicalGrid.querySelectorAll('input')].find(input => !input.value.trim()) || mechanicalGrid.querySelector('input'); empty.value = event.target.dataset.gtTool; empty.dispatchEvent(new Event('input', {bubbles:true})); empty.focus(); return; }
       if (event.target.id === 'addMechanicalKey') {
         readMechanical();
@@ -684,8 +722,8 @@ export function addonRecipeEditorHtml(
       const typeButton = event.target.closest('[data-type]');
       if (typeButton) { selectType(typeButton.dataset.type); return; }
       if (event.target.id === 'addOutput') { readRows(); outputs.push({ item: 'minecraft:stone', count: 1, chance: 1 }); renderOutputs(); preview(); return; }
-      if (event.target.id === 'addFluidInput') { readRows(); fluidInputs.push({ fluid: 'minecraft:water', amount: 1000 }); renderFluids(fluidInputsEl, fluidInputs, false); preview(); return; }
-      if (event.target.id === 'addFluidOutput') { readRows(); fluidOutputs.push({ fluid: 'minecraft:water', amount: 1000 }); renderFluids(fluidOutputsEl, fluidOutputs, true); preview(); return; }
+      if (event.target.id === 'addFluidInput') { document.getElementById('fluidInputsSection').hidden=false; readRows(); fluidInputs.push({ fluid: 'minecraft:water', amount: 1000 }); renderFluids(fluidInputsEl, fluidInputs, false); preview(); return; }
+      if (event.target.id === 'addFluidOutput') { document.getElementById('fluidOutputsSection').hidden=false; readRows(); fluidOutputs.push({ fluid: 'minecraft:water', amount: 1000 }); renderFluids(fluidOutputsEl, fluidOutputs, true); preview(); return; }
       if (event.target.id === 'addStep') { readRows(); steps.push({ type: 'create:deploying', ingredient: 'minecraft:iron_ingot' }); renderSteps(); preview(); return; }
       if (event.target.dataset.removeOutput !== undefined) { readRows(); outputs.splice(Number(event.target.dataset.removeOutput), 1); renderOutputs(); preview(); return; }
       if (event.target.dataset.removeFluid !== undefined) {
@@ -703,6 +741,7 @@ export function addonRecipeEditorHtml(
       }
     });
     document.addEventListener('input', event => {
+      syncGtSimple(event);
       const input = event.target;
       if (input.hasAttribute('data-cell') && recipeType !== 'gtceu:shaped') input.value = input.value.toUpperCase();
       if (input instanceof HTMLInputElement) {
@@ -711,7 +750,7 @@ export function addonRecipeEditorHtml(
       }
       preview();
     });
-    document.addEventListener('change', event => { if (event.target.matches('[data-step-field="type"]')) { readRows(); renderSteps(); } if (event.target.id === 'mechanicalWidth' || event.target.id === 'mechanicalHeight') resizeMechanicalGrid(); preview(); });
+    document.addEventListener('change', event => { syncGtSimple(event); if (event.target.matches('[data-step-field="type"]')) { readRows(); renderSteps(); } if (event.target.id === 'mechanicalWidth' || event.target.id === 'mechanicalHeight') resizeMechanicalGrid(); preview(); });
     save.addEventListener('click', () => {
       if (busy) return; const snapshot = draft(); setBusy(true); save.textContent = 'Saving…'; status.textContent = 'Saving to kubevs/crafts/' + recipeType.split(':')[0] + '…';
       vscode.postMessage({ type: 'save', revision: ++revision, draft: snapshot });

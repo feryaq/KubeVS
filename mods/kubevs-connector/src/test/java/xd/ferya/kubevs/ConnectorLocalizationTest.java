@@ -26,10 +26,21 @@ class ConnectorLocalizationTest {
             String ru = russian.get(key).getAsString();
             assertTrue(!en.isBlank() && !ru.isBlank(), key);
             assertEquals(en.split("%s", -1).length, ru.split("%s", -1).length, key);
-            assertEquals(en, ConnectorTranslations.englishFallback(key), key);
+            assertEquals(ru, ConnectorTranslations.russianFallback(key), key);
         }
         assertThrows(IllegalArgumentException.class,
-                () -> ConnectorTranslations.englishFallback("command.kubevs.missing"));
+                () -> ConnectorTranslations.russianFallback("command.kubevs.missing"));
+    }
+
+    @Test
+    void packagedMetadataPreservesRussianText() throws Exception {
+        try (var stream = ConnectorLocalizationTest.class.getResourceAsStream("/META-INF/neoforge.mods.toml")) {
+            assertNotNull(stream);
+            String metadata = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(metadata.contains("KubeVS: подключение к VS Code"));
+            assertTrue(metadata.contains("Связывает Minecraft с расширением KubeVS"));
+            assertTrue(metadata.contains("authors = \"feryaq\""));
+        }
     }
 
     private static JsonObject language(String locale) throws Exception {

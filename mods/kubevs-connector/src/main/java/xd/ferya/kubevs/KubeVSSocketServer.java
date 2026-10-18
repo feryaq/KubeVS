@@ -59,6 +59,7 @@ final class KubeVSSocketServer extends WebSocketServer {
     private final long startedAtNanos = System.nanoTime();
     private final ConnectorConfig config;
     private volatile String authenticationToken;
+    private final ReloadPolicy reloadPolicy;
     private final Map<WebSocket, RateLimiter> rateLimiters = new ConcurrentHashMap<>();
     private final Map<WebSocket, SessionIdentity> identities = new ConcurrentHashMap<>();
     private final WorkspaceFileService workspaceFiles;
@@ -76,6 +77,7 @@ final class KubeVSSocketServer extends WebSocketServer {
         super(config.address());
         this.minecraftServer = minecraftServer;
         this.config = config;
+        this.reloadPolicy = new ReloadPolicy(config.allowReload());
         this.authenticationToken = config.token();
         this.workspaceFiles = new WorkspaceFileService(
                 minecraftServer
@@ -89,12 +91,12 @@ final class KubeVSSocketServer extends WebSocketServer {
 
     @Override
     public void onStart() {
-        appendLog("info", "transport", "Connector listening on " + config.address().getHostString() + ":" + getPort());
+        appendLog("info", "transport", "KubeVS принимает подключения на " + config.address().getHostString() + ":" + getPort());
         LOGGER.info(
-                "KubeVS Connector listening on {}:{} (reload={})",
+                "KubeVS KubeVS принимает подключения на {}:{} (reload={})",
                 config.address().getHostString(),
                 getPort(),
-                config.allowReload());
+                reloadPolicy.enabled());
     }
 
     @Override
@@ -113,7 +115,7 @@ final class KubeVSSocketServer extends WebSocketServer {
         Optional<SessionIdentity> identity = authenticate(authorization);
         if (identity.isEmpty()) {
             connection.close(1008, "Authentication failed");
-            appendLog("warning", "auth", "Rejected an unauthenticated connection");
+            appendLog("warning", "auth", "Отклонено подключение без действительного токена");
             return;
         }
 
@@ -128,7 +130,7 @@ final class KubeVSSocketServer extends WebSocketServer {
         appendLog(
                 "info",
                 "connection",
-                "VS Code client connected as " + identity.orElseThrow().displayName());
+                "Расширение VS Code подключено: " + identity.orElseThrow().displayName());
     }
 
     @Override
@@ -141,8 +143,8 @@ final class KubeVSSocketServer extends WebSocketServer {
         appendLog(
                 "info",
                 "connection",
-                (identity == null ? "Client" : identity.displayName())
-                        + " disconnected ("
+                (identity == null ? "Клиент" : identity.displayName())
+                        + " отключён ("
                         + code
                         + ")");
     }
@@ -184,7 +186,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             } catch (IllegalArgumentException exception) {
                 connection.send(error(requestId, "INVALID_MESSAGE", exception.getMessage()).toString());
             } catch (RuntimeException exception) {
-                LOGGER.warn("KubeVS Connector request failed: {}", exception.getMessage());
+                LOGGER.warn("Не удалось выполнить запрос KubeVS: {}", exception.getMessage());
                 connection.send(error(requestId, "INTERNAL_ERROR", "Connector request failed").toString());
             }
         });
@@ -199,7 +201,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                 workspaceLocks.releaseAll(identity.lockOwner());
             }
         }
-        LOGGER.warn("KubeVS Connector WebSocket error: {}", exception.getMessage());
+        LOGGER.warn("Ошибка подключения KubeVS: {}", exception.getMessage());
         appendLog("warning", "transport", exception.getClass().getSimpleName() + ": " + exception.getMessage());
     }
 
@@ -209,7 +211,7 @@ final class KubeVSSocketServer extends WebSocketServer {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
-        appendLog("info", "transport", "Connector stopped");
+        appendLog("info", "transport", "KubeVS остановлен");
     }
 
     void replaceAuthenticationToken(String token) {
@@ -217,10 +219,10 @@ final class KubeVSSocketServer extends WebSocketServer {
         for (WebSocket connection : getConnections()) {
             SessionIdentity identity = identities.remove(connection);
             if (identity != null) workspaceLocks.releaseAll(identity.lockOwner());
-            connection.close(1008, "Authentication token rotated");
+            connection.close(1008, "Токен подключения изменён");
         }
-        appendLog("info", "auth", "Authentication token rotated");
-        LOGGER.info("KubeVS Connector authentication token rotated");
+        appendLog("info", "auth", "Токен подключения изменён");
+        LOGGER.info("Токен подключения KubeVS изменён");
     }
 
     String authenticationToken() {
@@ -296,6 +298,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             case "workspace.locks.release" -> workspaceLockRelease(connection, requestId, params);
             case "workspace.locks.status" -> workspaceLockStatus(connection, requestId, params);
             case "workspace.locks.list" -> workspaceLocksList(connection, requestId);
+            case "reload.policy.set" -> setReloadPolicy(connection, requestId, params);
             case "reload.server" -> reloadAuthorized(connection, requestId);
             default -> connection.send(
                     error(requestId, "INVALID_MESSAGE", "Unsupported method: " + method).toString());
@@ -329,7 +332,7 @@ final class KubeVSSocketServer extends WebSocketServer {
         result.addProperty("maxPlayers", minecraftServer.getPlayerList().getMaxPlayers());
         result.addProperty("clients", connectedClientCount());
         SessionIdentity identity = identities.get(connection);
-        result.addProperty("reloadAllowed", config.allowReload() && identity != null
+        result.addProperty("reloadAllowed", reloadPolicy.enabled() && identity != null
                 && ConnectorPermissions.allows(identity.role(), ConnectorPermissions.RELOAD_SERVER));
         result.addProperty("kubejsVersion", optionalModVersion("kubejs"));
         return result;
@@ -374,7 +377,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                 ConnectorPermissions.allows(identity.role(), ConnectorPermissions.LOGS_READ));
         capabilities.addProperty(
                 "reload",
-                config.allowReload()
+                reloadPolicy.enabled()
                         && ConnectorPermissions.allows(
                                 identity.role(), ConnectorPermissions.RELOAD_SERVER));
         capabilities.addProperty(
@@ -451,7 +454,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                     requiredText(params, "expectedRevision"));
             connection.send(response(requestId, fileEntryJson(file)).toString());
             broadcastWorkspaceChange("changed", file.path(), null, identity(connection));
-            appendLog("info", "workspace", identity(connection).displayName() + " changed " + file.path());
+            appendLog("info", "workspace", identity(connection).displayName() + " изменил " + file.path());
         } catch (WorkspaceFileService.RevisionConflictException conflict) {
             sendRevisionConflict(connection, requestId, conflict);
         } catch (IOException exception) {
@@ -467,7 +470,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                     workspaceFiles.createDirectory(requiredString(params, "path"));
             connection.send(response(requestId, fileEntryJson(entry)).toString());
             broadcastWorkspaceChange("created", entry.path(), null, identity(connection));
-            appendLog("info", "workspace", identity(connection).displayName() + " created directory " + entry.path());
+            appendLog("info", "workspace", identity(connection).displayName() + " создал папку " + entry.path());
         } catch (IOException exception) {
             sendWorkspaceError(connection, requestId, exception);
         }
@@ -492,7 +495,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             workspaceLocks.releaseTree(key);
             connection.send(response(requestId, new JsonObject()).toString());
             broadcastWorkspaceChange("deleted", key, null, identity(connection));
-            appendLog("warning", "workspace", identity(connection).displayName() + " deleted " + key);
+            appendLog("warning", "workspace", identity(connection).displayName() + " удалил " + key);
         } catch (WorkspaceFileService.RevisionConflictException conflict) {
             sendRevisionConflict(connection, requestId, conflict);
         } catch (IOException exception) {
@@ -524,7 +527,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             connection.send(response(requestId, new JsonObject()).toString());
             broadcastWorkspaceChange("renamed", sourceKey, destinationKey, identity(connection));
             appendLog("info", "workspace", identity(connection).displayName()
-                    + " moved " + sourceKey + " -> " + destinationKey);
+                    + " переместил " + sourceKey + " -> " + destinationKey);
         } catch (WorkspaceFileService.RevisionConflictException conflict) {
             sendRevisionConflict(connection, requestId, conflict);
         } catch (IOException exception) {
@@ -552,7 +555,7 @@ final class KubeVSSocketServer extends WebSocketServer {
             connection.send(response(requestId, new JsonObject()).toString());
             broadcastWorkspaceChange("created", destinationKey, null, identity(connection));
             appendLog("info", "workspace", identity(connection).displayName()
-                    + " copied " + sourceKey + " -> " + destinationKey);
+                    + " скопировал " + sourceKey + " -> " + destinationKey);
         } catch (IOException exception) {
             sendWorkspaceError(connection, requestId, exception);
         }
@@ -632,6 +635,46 @@ final class KubeVSSocketServer extends WebSocketServer {
         if (requirePermission(connection, requestId, ConnectorPermissions.LOGS_READ)) {
             connection.send(response(requestId, logSnapshot()).toString());
         }
+    }
+
+    boolean reloadAllowed() {
+        return reloadPolicy.enabled();
+    }
+
+    private void setReloadPolicy(WebSocket connection, String requestId, JsonObject params) {
+        if (!requirePermission(connection, requestId, ConnectorPermissions.ACCOUNTS_MANAGE)) return;
+        if (!params.has("enabled") || !params.get("enabled").isJsonPrimitive()
+                || !params.getAsJsonPrimitive("enabled").isBoolean()) {
+            connection.send(error(requestId, "INVALID_MESSAGE", "Укажите enabled: true или false").toString());
+            return;
+        }
+        boolean enabled = params.get("enabled").getAsBoolean();
+        boolean previous = reloadPolicy.enabled();
+        try {
+            reloadPolicy.update(identities.get(connection).role(), enabled, value -> {
+                ConnectorConfigSpec.ALLOW_RELOAD.set(value);
+                ConnectorConfigSpec.ALLOW_RELOAD.save();
+            });
+        } catch (RuntimeException exception) {
+            ConnectorConfigSpec.ALLOW_RELOAD.set(previous);
+            connection.send(error(requestId, "FILE_ERROR", "Не удалось сохранить разрешение перезагрузки в конфигурации").toString());
+            return;
+        }
+        appendLog("info", "reload", identities.get(connection).displayName() + (enabled ? " разрешил перезагрузку ресурсов" : " запретил перезагрузку ресурсов"));
+        identities.forEach((client, identity) -> {
+            JsonObject event = new JsonObject();
+            event.addProperty("type", "event");
+            event.addProperty("event", "session.permissionsChanged");
+            JsonObject data = new JsonObject();
+            data.addProperty("reloadAllowed", enabled && ConnectorPermissions.allows(identity.role(), ConnectorPermissions.RELOAD_SERVER));
+            event.add("data", data);
+            if (client.isOpen()) client.send(event.toString());
+        });
+        JsonObject result = new JsonObject();
+        result.addProperty("enabled", enabled);
+        result.addProperty("persisted", true);
+        result.addProperty("config", ConnectorConfigSpec.FILE_NAME);
+        connection.send(response(requestId, result).toString());
     }
 
     private void reloadAuthorized(WebSocket connection, String requestId) {
@@ -1158,16 +1201,16 @@ final class KubeVSSocketServer extends WebSocketServer {
     }
 
     private void reload(WebSocket connection, String requestId) {
-        if (!config.allowReload()) {
+        if (!reloadPolicy.enabled()) {
             connection.send(
                     error(
                                     requestId,
                                     "PERMISSION_DENIED",
-                                    "Server reload is disabled; set permissions.allowReload=true in config/kubevs-connector.toml")
+                                    "Перезагрузка запрещена. Администратор может включить её через MCP или permissions.allowReload в config/kubevs-connector.toml")
                             .toString());
             return;
         }
-        appendLog("info", "reload", "Server resource reload requested");
+        appendLog("info", "reload", "Запрошена перезагрузка ресурсов сервера");
         minecraftServer.execute(
                 () ->
                         minecraftServer
@@ -1181,7 +1224,7 @@ final class KubeVSSocketServer extends WebSocketServer {
                                 .whenComplete(
                                         (ignored, throwable) -> {
                                             if (throwable == null) {
-                                                appendLog("info", "reload", "Server resource reload completed");
+                                                appendLog("info", "reload", "Ресурсы сервера перезагружены");
                                                 JsonObject result = new JsonObject();
                                                 result.addProperty("reloaded", true);
                                                 connection.send(response(requestId, result).toString());
@@ -1189,13 +1232,13 @@ final class KubeVSSocketServer extends WebSocketServer {
                                                 appendLog(
                                                         "error",
                                                         "reload",
-                                                        "Server resource reload failed: "
+                                                        "Не удалось перезагрузить ресурсы сервера: "
                                                                 + throwable.getMessage());
                                                 connection.send(
                                                         error(
                                                                         requestId,
                                                                         "INTERNAL_ERROR",
-                                                                        "Server resource reload failed")
+                                                                        "Не удалось перезагрузить ресурсы сервера")
                                                                 .toString());
                                             }
                                         }));

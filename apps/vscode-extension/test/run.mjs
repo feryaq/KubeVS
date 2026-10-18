@@ -39,6 +39,7 @@ const recipeFixtures = [
   },
 ];
 let clock = Date.now();
+let reloadEnabled = false;
 
 for (const folder of ['server_scripts', 'client_scripts', 'startup_scripts', 'assets']) {
   entries.set(folder, { type: 'directory', data: Buffer.alloc(0), mtime: clock++ });
@@ -208,6 +209,33 @@ server.on('connection', (socket, request) => {
     }
     if (method === 'registry.items' || method === 'registry.tags' || method === 'recipes.list') {
       respond(socket, requestId, { entries: [], offset: 0, total: 0, hasMore: false });
+      return;
+    }
+    if (method === 'reload.policy.set') {
+      reloadEnabled = params.enabled;
+      socket.send(
+        JSON.stringify({
+          type: 'event',
+          event: 'session.permissionsChanged',
+          data: { reloadAllowed: reloadEnabled },
+        }),
+      );
+      respond(socket, requestId, { enabled: reloadEnabled, persisted: true });
+      return;
+    }
+    if (method === 'reload.server') {
+      if (!reloadEnabled) {
+        socket.send(
+          JSON.stringify({
+            type: 'error',
+            requestId,
+            code: 'PERMISSION_DENIED',
+            message: 'Reload disabled',
+          }),
+        );
+        return;
+      }
+      respond(socket, requestId, { reloaded: true });
       return;
     }
     if (method === 'mods.list') {

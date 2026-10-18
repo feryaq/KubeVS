@@ -792,6 +792,44 @@ try {
               assert.equal(await page.locator('[data-type="create:pressing"]').isVisible(), false);
               await page.locator('#typeSearch').fill('');
               await select('gtceu:machine');
+              assert.equal(await page.locator('#gtAdvanced').getAttribute('open'), null);
+              assert.equal(await page.locator('#gtCustomMachine').isVisible(), false);
+              assert.equal(await page.locator('#fluidInputsSection').isVisible(), false);
+              assert.equal(await page.locator('#outputs [data-field="chance"]').isVisible(), false);
+              await page.locator('#gtMachineChoice').selectOption('bender');
+              await page.locator('#gtPower').selectOption('120');
+              await page.locator('#gtSeconds').fill('2.5');
+              await renderPreview(page, name);
+              let simpleDraft = await page.evaluate(
+                () => window.messages.filter((m) => m.type === 'preview').at(-1).draft.gregtech,
+              );
+              assert.equal(simpleDraft.machine, 'bender');
+              assert.equal(simpleDraft.eut, 120);
+              assert.equal(simpleDraft.duration, 50);
+              await page.screenshot({
+                path: path.join(
+                  out,
+                  'addon-gregtech-simple-' + theme + '-' + viewport.width + '.png',
+                ),
+                fullPage: true,
+              });
+              await page.locator('#gtMachineChoice').selectOption('custom');
+              await page.locator('#gtMachine').fill('custom_machine');
+              await page.locator('#gtPower').selectOption('custom');
+              await page.locator('#gtEUt').fill('-32');
+              await renderPreview(page, name);
+              simpleDraft = await page.evaluate(
+                () => window.messages.filter((m) => m.type === 'preview').at(-1).draft.gregtech,
+              );
+              assert.equal(simpleDraft.machine, 'custom_machine');
+              assert.equal(simpleDraft.eut, -32);
+              await page.locator('#gtMachineChoice').selectOption('macerator');
+              await page.locator('#gtPower').selectOption('2');
+              await page.locator('#gtChanceToggle').click();
+              assert.equal(await page.locator('#outputs [data-field="chance"]').isVisible(), true);
+              await page.locator('#gtFluidIn').click();
+              assert.equal(await page.locator('#fluidInputsSection').isVisible(), true);
+              await page.locator('#fluidInputs [data-remove-fluid]').click();
               await page.locator('#gtAdvanced > summary').click();
               await page.locator('#gtOperationType').selectOption('scannerResearch');
               await page.locator('#gtAddOperation').click();

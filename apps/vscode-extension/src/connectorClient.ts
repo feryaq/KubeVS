@@ -119,6 +119,12 @@ export class ConnectorClient {
           return;
         }
         if (value.type === 'event') {
+          if (
+            value.event === 'session.permissionsChanged' &&
+            typeof value.data.reloadAllowed === 'boolean' &&
+            this.hello
+          )
+            Object.assign(this.hello.capabilities, { reload: value.data.reloadAllowed });
           for (const listener of this.eventListeners) listener(value);
           return;
         }
@@ -165,10 +171,13 @@ export class ConnectorClient {
     const requestId = String(this.nextRequestId++);
     const message: ConnectorRequest = { type: 'request', requestId, method, params };
     return await new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(requestId);
-        reject(new Error(`Connector request timed out: ${method}`));
-      }, 10_000);
+      const timer = setTimeout(
+        () => {
+          this.pending.delete(requestId);
+          reject(new Error(`Connector request timed out: ${method}`));
+        },
+        method === 'reload.server' ? 120_000 : 10_000,
+      );
       this.pending.set(requestId, {
         resolve: (value) => resolve(value as T),
         reject,

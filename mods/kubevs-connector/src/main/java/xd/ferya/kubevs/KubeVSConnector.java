@@ -27,7 +27,7 @@ public final class KubeVSConnector {
         container.registerConfig(
                 ModConfig.Type.COMMON, ConnectorConfigSpec.SPEC, ConnectorConfigSpec.FILE_NAME);
         NeoForge.EVENT_BUS.register(this);
-        LOGGER.info("KubeVS Connector {} loaded", container.getModInfo().getVersion());
+        LOGGER.info("KubeVS {} загружен", container.getModInfo().getVersion());
     }
 
     @SubscribeEvent
@@ -42,10 +42,10 @@ public final class KubeVSConnector {
             socketServer = new KubeVSSocketServer(event.getServer(), connectorConfig);
             socketServer.start();
             LOGGER.info(
-                    "KubeVS authentication is ready. VS Code discovers the token at {}",
+                    "KubeVS готов к подключению. Расширение VS Code читает токен из {}",
                     connectorConfig.tokenFile().toAbsolutePath().normalize());
         } catch (Exception exception) {
-            LOGGER.error("Unable to start KubeVS Connector", exception);
+            LOGGER.error("Не удалось запустить KubeVS", exception);
         }
     }
 

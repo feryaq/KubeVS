@@ -6,7 +6,7 @@
 
 ## Установка
 
-1. Установите `kubevs-1.6.0.vsix` командой VS Code **Install from VSIX…**.
+1. Установите `kubevs-1.7.0.vsix` командой VS Code **Install from VSIX…**.
 2. Поместите JAR Connector в папку `mods` сервера Minecraft.
 3. Выполните в игре `/kvs join`, затем в VS Code запустите **KubeVS: Connect with /kvs join code**.
 4. Откройте KubeVS значком куба на панели действий. Рабочая среда откроется автоматически; в боковой панели доступен тот же интерфейс.
@@ -15,8 +15,8 @@
 
 | Компонент          | Версия | Платформа                                        |
 | ------------------ | -----: | ------------------------------------------------ |
-| Расширение KubeVS  |  1.6.0 | VS Code 1.105+; проверен Code OSS                |
-| KubeVS Connector   |  1.6.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
+| Расширение KubeVS  |  1.7.0 | VS Code 1.105+; проверен Code OSS                |
+| KubeVS Connector   |  1.7.0 | Minecraft 1.21.1, NeoForge 21.x, Java 21         |
 | Протокол WebSocket |      2 | С аутентификацией; по умолчанию только localhost |
 
 ## Возможности
@@ -46,7 +46,7 @@ pnpm --filter kubevs-extension package:vsix
 bash gradlew :mods:kubevs-connector:test :mods:kubevs-connector:build
 ```
 
-Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.6.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.6.0.jar`.
+Локальные артефакты: `apps/vscode-extension/kubevs-extension-1.7.0.vsix` и `mods/kubevs-connector/build/libs/kubevs-1.7.0.jar`.
 
 В релизах GitHub распространяются расширение VSIX и Connector JAR; Connector также доступен через Modrinth. Перед выпуском следуйте [инструкции по релизу](RELEASE.md). Сборка сама по себе не публикует новую версию.
 
@@ -70,6 +70,10 @@ KubeVS распространяется по лицензии [KubeVS Community 
 
 ### GregTech CEu Modern · Minecraft 1.21.1
 
-В **Mod recipe → GregTech CEu** доступны машинные рецепты и крафты с инструментами. Тип машины задаётся именем зарегистрированного recipe type; отдельный шаблон для каждой машины не нужен. **Advanced GTCEu** добавляет операции через форму: вероятностные и потактовые предметы/жидкости, диапазоны количества, EU/CWU, исследования сканера и станции, cleanroom, окружение, квесты, данные и переработку материалов.
+В **Mod recipe → GregTech CEu** выберите машину, ингредиенты, результат, время в секундах и питание ULV/LV/MV и выше. Жидкости и шансы добавляются по необходимости. **Advanced GTCEu** сохраняет все специальные условия и операции; произвольные recipe types и EU/t доступны через Other machine / Custom. Игровой баланс не меняется.
 
 ИИ использует `kubevs_generate_gregtech_recipe`, `kubevs_generate_gregtech_shaped_recipe` и справочник `kubevs://gregtech-guide` с точными полями, единицами и примерами. Общие инструменты чтения и записи сохраняют исходный JSON рецепта, включая дополнительные поля аддонов. [Матрица покрытия GTCEu](docs/gregtech-coverage.md) описывает штатные возможности и границы: произвольные Java-объекты сторонних аддонов редактируются в обычном KubeJS-скрипте. Наличие генератора не доказывает загрузку рецепта конкретной сборкой Minecraft.
+
+### Перезагрузка через ИИ
+
+Администратор Connector может разрешить агенту перезагрузку ресурсов через MCP: `kubevs_set_reload_enabled({enabled:true})`, затем `kubevs_reload`. Настройка `permissions.allowReload` сохраняется в конфигурации; отключение использует `{enabled:false}`. По умолчанию reload запрещён. Обновите мод и расширение до 1.7.0. Это аналог перезагрузки ресурсов, а не рестарт Minecraft; новые предметы из startup_scripts по-прежнему требуют перезапуска.

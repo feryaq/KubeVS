@@ -27,56 +27,56 @@ final class ConnectorConfigSpec {
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
 
-        builder.comment("KubeVS Connector network settings.").push("network");
+        builder.comment("Подключение KubeVS к Visual Studio Code.").push("network");
         HOST =
                 builder.comment(
-                                "Address to listen on.",
-                                "Keep 127.0.0.1 for a local game.",
-                                "For a dedicated server use its bind address or 0.0.0.0 and enable allowRemote.",
-                                "A bind address is not the address copied to players; set publicHost for that.")
+                                "Адрес, на котором Connector принимает подключения.",
+                                "Для игры на этом компьютере оставьте 127.0.0.1.",
+                                "На выделенном сервере укажите его адрес или 0.0.0.0 и включите allowRemote.",
+                                "Адрес для кода подключения игроков задаётся отдельно в publicHost.")
                         .define("host", DEFAULT_HOST, ConnectorConfigSpec::isValidHost);
         PORT =
-                builder.comment("WebSocket port used by KubeVS and the VS Code extension.")
+                builder.comment("Отдельный TCP-порт для расширения KubeVS. Не используйте порт Minecraft.")
                         .defineInRange("port", DEFAULT_PORT, 1024, 65535);
         PUBLIC_HOST =
                 builder.comment(
-                                "Public hostname copied by /kvs join.",
-                                "Required when host is 0.0.0.0 or a TLS reverse proxy is used.",
-                                "Use a hostname or IP that players can reach; do not include a scheme or port.")
+                                "Адрес сервера, который /kvs join добавляет в код подключения.",
+                                "Обязателен при host = 0.0.0.0 и при использовании TLS-прокси.",
+                                "Укажите доступный игрокам домен или IP без ws://, wss:// и порта.")
                         .define("publicHost", DEFAULT_PUBLIC_HOST, ConnectorConfigSpec::isValidPublicHost);
         PUBLIC_PORT =
-                builder.comment("Port copied into connection codes. 0 uses network.port.")
+                builder.comment("Порт в кодах подключения. 0 — использовать network.port.")
                         .defineInRange("publicPort", DEFAULT_PUBLIC_PORT, 0, 65535);
         PUBLIC_SECURE =
                 builder.comment(
-                                "Generate connection codes for wss://.",
-                                "Enable only when a TLS reverse proxy terminates this endpoint.",
-                                "This setting changes connection codes; it does not enable TLS in the Connector.")
+                                "Создавать коды подключения с wss://.",
+                                "Включайте, только если перед Connector настроен TLS-прокси.",
+                                "Настройка меняет код подключения, но сама не включает TLS.")
                         .define("publicSecure", false);
         ALLOW_REMOTE =
                 builder.comment(
-                                "Allow listening on a non-loopback address.",
-                                "Remote connections use ws:// unless you provide a TLS reverse proxy.",
-                                "Expose this port only to trusted networks.")
+                                "Разрешить подключения с других компьютеров.",
+                                "Без TLS-прокси удалённые подключения используют ws://.",
+                                "Открывайте этот порт только в доверенных сетях.")
                         .define("allowRemote", DEFAULT_ALLOW_REMOTE);
         builder.pop();
 
-        builder.comment("Authentication and server action settings.").push("permissions");
+        builder.comment("Права игроков и действия с сервером.").push("permissions");
         ALLOW_RELOAD =
-                builder.comment("Allow operator/admin clients to request a server_scripts reload.")
+                builder.comment("Разрешить операторам и администраторам перезагружать рецепты из KubeVS и MCP.")
                         .define("allowReload", DEFAULT_ALLOW_RELOAD);
         JOIN_PERMISSION_LEVEL =
                 builder.comment(
-                                "Minimum Minecraft command permission level required for /kvs join.",
-                                "0 = everyone, 2 = operators, 4 = administrators.",
-                                "The singleplayer world owner can use /kvs join without cheats.")
+                                "Минимальный уровень прав Minecraft для /kvs join.",
+                                "0 — все игроки, 2 — операторы, 4 — администраторы.",
+                                "Владелец одиночного мира может подключиться без включения читов.")
                         .defineInRange(
                                 "joinPermissionLevel", DEFAULT_JOIN_PERMISSION_LEVEL, 0, 4);
         DEFAULT_JOIN_ROLE =
                 builder.comment(
-                                "Role assigned when a player first uses /kvs join.",
-                                "An administrator can change it with /kvs role <player> <role>.",
-                                "Existing player accounts keep their assigned roles.")
+                                "Роль игрока при первом подключении через /kvs join.",
+                                "Администратор меняет роль командой /kvs role <игрок> <роль>.",
+                                "viewer — просмотр, editor — правка файлов, operator — перезагрузка, admin — управление доступом. Старые учётные записи сохраняют свои роли.")
                         .defineEnum("defaultRole", DEFAULT_ROLE);
         builder.pop();
 

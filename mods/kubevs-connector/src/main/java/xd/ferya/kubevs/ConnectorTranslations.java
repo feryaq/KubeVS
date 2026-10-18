@@ -7,25 +7,25 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-/** English chat fallbacks for players who have not installed the optional client mod. */
+/** Russian chat fallbacks for clients without the mod language resources. */
 final class ConnectorTranslations {
-    private static final Map<String, String> ENGLISH = loadEnglish();
+    private static final Map<String, String> RUSSIAN = loadRussian();
 
     private ConnectorTranslations() {}
 
-    static String englishFallback(String fullKey) {
-        String fallback = ENGLISH.get(fullKey);
+    static String russianFallback(String fullKey) {
+        String fallback = RUSSIAN.get(fullKey);
         if (fallback == null) {
-            throw new IllegalArgumentException("Missing KubeVS English translation: " + fullKey);
+            throw new IllegalArgumentException("Нет русского перевода KubeVS: " + fullKey);
         }
         return fallback;
     }
 
-    private static Map<String, String> loadEnglish() {
+    private static Map<String, String> loadRussian() {
         try (var stream = ConnectorTranslations.class.getResourceAsStream(
-                        "/assets/kubevs/lang/en_us.json")) {
+                        "/assets/kubevs/lang/ru_ru.json")) {
             if (stream == null) {
-                throw new IllegalStateException("KubeVS English language resource is missing");
+                throw new IllegalStateException("Не найден файл русского перевода KubeVS");
             }
             try (var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
                 var json = JsonParser.parseReader(reader).getAsJsonObject();
@@ -38,7 +38,7 @@ final class ConnectorTranslations {
                 return Map.copyOf(translations);
             }
         } catch (IOException exception) {
-            throw new IllegalStateException("Could not read KubeVS English translations", exception);
+            throw new IllegalStateException("Не удалось прочитать русский перевод KubeVS", exception);
         }
     }
 }

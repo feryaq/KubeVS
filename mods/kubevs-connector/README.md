@@ -1,4 +1,4 @@
-# KubeVS: VS Code Connector 1.6.0
+# KubeVS: подключение к VS Code 1.7.0
 
 Разработчик: **feryaq**.
 
@@ -72,3 +72,7 @@ allowReload = false
 ```powershell
 .\gradlew.bat :mods:kubevs-connector:test :mods:kubevs-connector:build --no-daemon
 ```
+
+## Перезагрузка из MCP
+
+Администратор может вызвать `kubevs_set_reload_enabled` с `enabled:true`, чтобы сохранить `permissions.allowReload` и включить перезагрузку ресурсов для операторов и администраторов. Изменение действует сразу, без нового подключения. `enabled:false` запрещает её снова. Саму перезагрузку выполняет `kubevs_reload`; новые предметы и блоки требуют полного перезапуска Minecraft. Новый инструмент требует Connector и расширение 1.7.0+.

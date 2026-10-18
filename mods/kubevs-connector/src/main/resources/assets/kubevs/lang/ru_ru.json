@@ -15,7 +15,7 @@
   "command.kubevs.hover.connect": "Создать личный код подключения",
   "command.kubevs.hover.extension": "Скачать расширение KubeVS",
   "command.kubevs.hover.manage": "Управлять ролями и доступом",
-  "command.kubevs.hover.role": "Выбрать viewer, editor, operator или admin",
+  "command.kubevs.hover.role": "Наблюдатель (viewer), редактор (editor), оператор (operator) или администратор (admin)",
   "command.kubevs.hover.revoke": "Отключить игрока и удалить его токен",
   "command.kubevs.hover.copy": "Скопировать личный код, затем открыть VS Code → KubeVS → Connect",
   "command.kubevs.hover.confirm_rotation": "Отключить сеансы администраторов и создать новый токен",

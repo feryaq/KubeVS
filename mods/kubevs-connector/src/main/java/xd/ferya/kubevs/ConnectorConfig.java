@@ -27,7 +27,7 @@ record ConnectorConfig(
         boolean allowRemote = ConnectorConfigSpec.ALLOW_REMOTE.get();
         if (!address.isLoopbackAddress() && !allowRemote) {
             throw new IllegalStateException(
-                    "Refusing non-loopback bind while network.allowRemote is false in "
+                    "Для внешнего адреса включите network.allowRemote в "
                             + ConnectorConfigSpec.FILE_NAME);
         }
 
@@ -38,7 +38,7 @@ record ConnectorConfig(
         String advertisedHost = ConnectorConfigSpec.PUBLIC_HOST.get().trim();
         if (advertisedHost.isEmpty() && address.isAnyLocalAddress()) {
             throw new IllegalStateException(
-                    "network.publicHost is required when network.host binds to all interfaces");
+                    "При network.host = 0.0.0.0 укажите доступный игрокам адрес в network.publicHost");
         }
         if (advertisedHost.isEmpty()) {
             advertisedHost = address.getHostAddress();
@@ -67,9 +67,9 @@ record ConnectorConfig(
     static void requireDedicatedPort(int connectorPort, int minecraftPort) {
         if (connectorPort == minecraftPort) {
             throw new IllegalStateException(
-                    "KubeVS Connector cannot share Minecraft TCP port "
+                    "Порт KubeVS совпадает с TCP-портом Minecraft: "
                             + minecraftPort
-                            + ". Allocate a separate TCP port in the hosting panel and set network.port to it.");
+                            + ". Выделите отдельный TCP-порт в панели хостинга и укажите его в network.port.");
         }
     }
 

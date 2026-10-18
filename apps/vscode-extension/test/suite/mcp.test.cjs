@@ -178,6 +178,7 @@ suite('KubeVS MCP in installed Code', () => {
       const gtFile = remember(gt);
       assert.match(gtFile.content, /event\.recipes\.gtceu\.assembler/);
       assert.match(gtFile.content, /notConsumableItem/);
+      assert.equal(gtFile.effectiveRecipeId, `kubevs:assembler/${testId}_gregtech`);
       assert.match(gtFile.content, /\.EUt\(30, 1\)/);
       await expectToolError(
         'kubevs_generate_gregtech_recipe',

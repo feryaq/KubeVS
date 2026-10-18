@@ -298,3 +298,58 @@ test('rejects malformed capabilities before accepting a connection', async () =>
     await closeFixture(server, client);
   }
 });
+
+test('reload policy events immediately update the shared hello capability', async () => {
+  const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+  await new Promise((resolve) => server.once('listening', resolve));
+  let peer;
+  server.on('connection', (socket) => {
+    peer = socket;
+    socket.send(
+      JSON.stringify({
+        type: 'hello',
+        protocolVersion: 2,
+        connectorVersion: '1.7.0',
+        minecraftVersion: '1.21.1',
+        kubejsVersion: 'test',
+        capabilities: {
+          registries: true,
+          recipes: true,
+          logs: true,
+          reload: false,
+          inspect: false,
+          integrations: [],
+        },
+      }),
+    );
+  });
+  const client = new ConnectorClient();
+  try {
+    const hello = await client.connect(`ws://127.0.0.1:${server.address().port}`, 'test-token');
+    const changed = () =>
+      new Promise((resolve) => {
+        const stop = client.onEvent((event) => {
+          if (event.event === 'session.permissionsChanged') {
+            stop();
+            resolve();
+          }
+        });
+      });
+    for (const enabled of [true, false]) {
+      const pending = changed();
+      peer.send(
+        JSON.stringify({
+          type: 'event',
+          event: 'session.permissionsChanged',
+          data: { reloadAllowed: enabled },
+        }),
+      );
+      await pending;
+      assert.equal(client.capabilities.reload, enabled);
+      assert.equal(hello.capabilities.reload, enabled);
+    }
+  } finally {
+    client.disconnect();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
