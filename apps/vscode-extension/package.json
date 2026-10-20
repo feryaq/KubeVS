@@ -65,12 +65,12 @@
     "@kubevs/protocol": "workspace:*",
     "@kubevs/recipe-model": "workspace:*",
     "@modelcontextprotocol/sdk": "1.32.1",
-    "ws": "^8.18.3",
-    "zod": "^3.25.76"
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
-    "@types/ws": "^8.18.1",
+    "@types/ws": "^8.18.2",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.25.8",
