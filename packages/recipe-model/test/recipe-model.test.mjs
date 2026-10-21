@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildRecipeFromSchema,
   generateKubeJs,
+  inferRecipeSchemaFromJson,
   importRecipeJson,
   parseRecipeSchema,
 } from '../dist/index.js';
@@ -248,4 +249,155 @@ test('parsed recipe schemas can be passed back through MCP without losing valida
     () => parseRecipeSchema({ ...raw, fields: [{ ...raw.fields[0], minItems: 1 }] }),
     /only valid when multiple/,
   );
+});
+
+test('infers a lossless editable template for nested custom recipes', () => {
+  const source = {
+    type: 'pneumaticcraft:pressure_chamber',
+    inputs: [{ type: 'pneumaticcraft:stacked_item', item: 'minecraft:iron_ingot', count: 3 }],
+    outputs: [
+      {
+        item: {
+          id: 'minecraft:compressed_iron',
+          count: 2,
+          components: { 'minecraft:custom_data': { grade: 1 } },
+        },
+        chance: 0.75,
+      },
+    ],
+    fluid: { type: 'pneumaticcraft:fluid', fluid: 'minecraft:water', amount: 250 },
+    conditions: [{ type: 'pneumaticcraft:air', min_pressure: 2.5 }],
+    tags: ['kubejs:custom'],
+    static: { keep: true },
+  };
+  const schema = inferRecipeSchemaFromJson({
+    id: 'kubevs:pressure',
+    label: 'Pressure Chamber',
+    json: source,
+  });
+
+  assert.equal(schema.recipeType, source.type);
+  assert.ok(schema.fields.some((field) => field.path === 'outputs.0.chance') === false);
+  assert.ok(schema.fields.some((field) => field.path === 'outputs' && field.kind === 'json'));
+  assert.ok(
+    schema.fields.some((field) => field.path === 'fluid.amount' && field.kind === 'integer'),
+  );
+  assert.ok(schema.fields.some((field) => field.path === 'conditions' && field.kind === 'json'));
+  assert.deepEqual(buildRecipeFromSchema(schema, { values: {} }), source);
+
+  const edited = buildRecipeFromSchema(schema, {
+    values: {
+      'fluid.amount': '500',
+      outputs: JSON.stringify([{ ...source.outputs[0], chance: 0.4 }]),
+    },
+  });
+  assert.equal(edited.fluid.amount, 500);
+  assert.equal(edited.outputs[0].chance, 0.4);
+  assert.deepEqual(edited.inputs, source.inputs);
+  assert.deepEqual(edited.conditions, source.conditions);
+  assert.deepEqual(edited.tags, source.tags);
+  assert.deepEqual(source.fluid, {
+    type: 'pneumaticcraft:fluid',
+    fluid: 'minecraft:water',
+    amount: 250,
+  });
+});
+
+test('inferred templates reject unsafe JSON keys', () => {
+  const source = JSON.parse('{"type":"example:machine","__proto__":{"polluted":true}}');
+  assert.throws(
+    () => inferRecipeSchemaFromJson({ id: 'kubevs:unsafe', label: 'Unsafe', json: source }),
+    /unsafe JSON key/u,
+  );
+});
+
+test('infers exact native ingredient and stack list fields', () => {
+  const source = {
+    type: 'example:machine',
+    ingredients: [{ item: 'minecraft:iron_ingot' }, { item: 'minecraft:copper_ingot' }],
+    ingredientTags: [{ tag: 'c:dusts/iron' }, { tag: 'c:dusts/copper' }],
+    outputs: [{ id: 'minecraft:iron_block', count: 2 }, { id: 'minecraft:gold_ingot' }],
+    labels: ['primary', 'secondary'],
+    itemIds: ['minecraft:stone', 'minecraft:dirt'],
+  };
+  const schema = inferRecipeSchemaFromJson({
+    id: 'kubevs:native_fields',
+    label: 'Native fields',
+    json: source,
+  });
+  const ingredients = schema.fields.find((field) => field.path === 'ingredients');
+  const outputs = schema.fields.find((field) => field.path === 'outputs');
+
+  assert.equal(ingredients.kind, 'ingredient');
+  assert.equal(ingredients.multiple, true);
+  assert.deepEqual(ingredients.default, ['minecraft:iron_ingot', 'minecraft:copper_ingot']);
+  const ingredientTags = schema.fields.find((field) => field.path === 'ingredientTags');
+  assert.equal(ingredientTags.kind, 'ingredient');
+  assert.deepEqual(ingredientTags.default, ['#c:dusts/iron', '#c:dusts/copper']);
+  assert.equal(outputs.kind, 'item_stack');
+  assert.equal(outputs.multiple, true);
+  assert.deepEqual(outputs.default, ['minecraft:iron_block x 2', 'minecraft:gold_ingot']);
+  assert.equal(schema.fields.find((field) => field.path === 'labels').kind, 'string');
+  assert.equal(schema.fields.find((field) => field.path === 'itemIds').kind, 'resource_id');
+  assert.deepEqual(buildRecipeFromSchema(schema, { values: {} }), source);
+  assert.deepEqual(
+    buildRecipeFromSchema(schema, {
+      values: {
+        ingredients: ['minecraft:copper_ingot', '#c:ingots/iron'],
+        ingredientTags: ['#c:ingots/copper'],
+        outputs: ['minecraft:gold_block', 'minecraft:iron_ingot x 3'],
+      },
+    }).outputs,
+    [{ id: 'minecraft:gold_block' }, { id: 'minecraft:iron_ingot', count: 3 }],
+  );
+});
+
+test('keeps non-exact stack shapes as JSON fields', () => {
+  const source = {
+    type: 'example:machine',
+    explicitOne: [{ id: 'minecraft:iron_ingot', count: 1 }],
+    withComponents: [
+      {
+        id: 'minecraft:iron_ingot',
+        count: 2,
+        components: { 'minecraft:custom_data': { grade: 1 } },
+      },
+    ],
+    withChance: [{ id: 'minecraft:iron_ingot', chance: 0.25 }],
+    singleExplicitOne: { id: 'minecraft:gold_ingot', count: 1 },
+  };
+  const schema = inferRecipeSchemaFromJson({
+    id: 'kubevs:json_fallbacks',
+    label: 'JSON fallbacks',
+    json: source,
+  });
+
+  for (const path of ['explicitOne', 'withComponents', 'withChance', 'singleExplicitOne']) {
+    assert.equal(schema.fields.find((field) => field.path === path).kind, 'json');
+  }
+  assert.deepEqual(buildRecipeFromSchema(schema, { values: {} }), source);
+});
+
+test('infers a single plain ingredient or item stack only when exactly representable', () => {
+  const source = {
+    type: 'example:machine',
+    ingredient: { tag: 'c:ingots/iron' },
+    result: { id: 'minecraft:iron_block', count: 4 },
+  };
+  const schema = inferRecipeSchemaFromJson({
+    id: 'kubevs:single_fields',
+    label: 'Single fields',
+    json: source,
+  });
+  assert.equal(schema.fields.find((field) => field.path === 'ingredient').kind, 'ingredient');
+  assert.equal(
+    schema.fields.find((field) => field.path === 'ingredient').default,
+    '#c:ingots/iron',
+  );
+  assert.equal(schema.fields.find((field) => field.path === 'result').kind, 'item_stack');
+  assert.equal(
+    schema.fields.find((field) => field.path === 'result').default,
+    'minecraft:iron_block x 4',
+  );
+  assert.deepEqual(buildRecipeFromSchema(schema, { values: {} }), source);
 });

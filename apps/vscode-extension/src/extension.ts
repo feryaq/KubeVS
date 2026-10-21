@@ -29,6 +29,7 @@ import { ConnectorClient } from './connectorClient.js';
 import { openContentBuilder } from './contentBuilder.js';
 import { loadRecipes, openCraftGraph } from './craftGraph.js';
 import { registerDataTools } from './dataTools.js';
+import { importRecipePack } from './recipeTemplateEditor.js';
 import { createRecipeSchema, openGenericRecipeEditor } from './genericRecipeEditor.js';
 import { registerLanguageSupport } from './languageSupport.js';
 import { openLootRuleEditor } from './lootRuleEditor.js';
@@ -956,6 +957,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       void vscode.window.showErrorMessage(`KubeVS could not create the recipe schema: ${message}`);
+    }
+  });
+  register('kubevs.importRecipePack', async () => {
+    try {
+      await importRecipePack(context);
+    } catch (error) {
+      void vscode.window.showErrorMessage(error instanceof Error ? error.message : String(error));
     }
   });
   register('kubevs.openCraftGraph', () =>

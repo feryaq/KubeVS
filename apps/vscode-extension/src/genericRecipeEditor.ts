@@ -10,13 +10,12 @@ import {
 import {
   createRecipeSchemaWatcher,
   loadRecipeSchemas,
-  recipeSchemaTemplate,
-  schemaDirectory,
   type RecipeSchemaCatalog,
 } from './recipeSchemas.js';
 import type { RegistryCatalog } from './registryCatalog.js';
 import { generatedCraftTarget } from './generatedTarget.js';
 import { handleRegistryIconMessage, handleRegistryPickMessage } from './registryWebview.js';
+import { openRecipeTemplateEditor } from './recipeTemplateEditor.js';
 import { writeFileWithDiff } from './safeWrite.js';
 
 interface RecipeValuesMessage {
@@ -137,35 +136,8 @@ export async function openGenericRecipeEditor(
 export async function createRecipeSchema(
   context: vscode.ExtensionContext,
 ): Promise<vscode.Uri | undefined> {
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  if (!folder) throw new Error('Open a workspace folder before creating a recipe schema.');
-  const directory = vscode.Uri.joinPath(folder.uri, ...schemaDirectory().split('/'));
-  await vscode.workspace.fs.createDirectory(directory);
-  const target = await vscode.window.showSaveDialog({
-    defaultUri: vscode.Uri.joinPath(directory, 'my-machine.recipe-schema.json'),
-    filters: { 'KubeVS Recipe Schema': ['json'] },
-    saveLabel: 'Create recipe schema',
-    title: 'Create KubeVS recipe schema',
-  });
-  if (!target) return undefined;
-  if (
-    target.scheme !== directory.scheme ||
-    target.authority !== directory.authority ||
-    !target.path.startsWith(`${directory.path}/`)
-  ) {
-    throw new Error(
-      `Recipe schemas must be saved inside ${vscode.workspace.asRelativePath(directory)}.`,
-    );
-  }
-
-  const written = await writeFileWithDiff(context, target, recipeSchemaTemplate(), {
-    diffTitle: 'KubeVS recipe schema: current ↔ template',
-    confirmation: `Replace ${vscode.workspace.asRelativePath(target)} with the schema template?`,
-  });
-  if (!written) return undefined;
-  const document = await vscode.workspace.openTextDocument(target);
-  await vscode.window.showTextDocument(document, { preview: false });
-  return target;
+  await openRecipeTemplateEditor(context);
+  return undefined;
 }
 
 function generateSchemaRecipe(
@@ -365,7 +337,7 @@ function genericRecipeEditorHtml(
         <div class="muted" id="schemaDescription"></div>
         <div class="origin" id="schemaOrigin"></div>
       </div>
-      <div class="rail-actions"><button type="button" id="newSchema">New schema</button></div>
+      <div class="rail-actions"><button type="button" id="newSchema">New template</button></div>
       <details class="schema-library"><summary>Schema library</summary><code id="schemaDirectory"></code></details>
       <ul class="errors" id="catalogErrors"></ul>
     </aside>

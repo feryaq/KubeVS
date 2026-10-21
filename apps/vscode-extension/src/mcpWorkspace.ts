@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { RECIPE_PACK_MAX_BYTES } from './recipePacks.js';
 import type { ConnectorClient } from './connectorClient.js';
 
 const MAX_BYTES = 512 * 1024;
@@ -53,13 +54,20 @@ function cleanPath(value: string, allowRoot = false, remote = false): string {
     fail('Hidden paths are not available');
   if (!(
     ALLOWED.has(parts[0] ?? '') ||
-    (!remote && parts[0] === '.kubevs' && (parts[1] === undefined || parts[1] === 'recipe-schemas'))
+    (!remote &&
+      parts[0] === '.kubevs' &&
+      (parts[1] === undefined || ['recipe-schemas', 'recipe-packs'].includes(parts[1] ?? '')))
   ))
     fail('Path is outside KubeJS content');
   return parts.join('/');
 }
-function decode(bytes: Buffer): string {
-  if (bytes.length > MAX_BYTES) fail('File exceeds 512 KiB');
+function byteLimit(relative: string): number {
+  return relative.startsWith('.kubevs/recipe-packs/') && relative.endsWith('.kubevs-pack.json')
+    ? RECIPE_PACK_MAX_BYTES
+    : MAX_BYTES;
+}
+function decode(bytes: Buffer, limit = MAX_BYTES): string {
+  if (bytes.length > limit) fail(`File exceeds ${limit / 1024} KiB`);
   if (bytes.includes(0)) fail('Binary files are not supported');
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -67,11 +75,11 @@ function decode(bytes: Buffer): string {
     return fail('File is not valid UTF-8');
   }
 }
-function encoded(content: string): Buffer {
+function encoded(content: string, limit = MAX_BYTES): Buffer {
   if (typeof content !== 'string' || content.includes('\0')) fail('Text content is required');
   const bytes = Buffer.from(content, 'utf8');
-  if (bytes.length > MAX_BYTES) fail('File exceeds 512 KiB');
-  if (decode(bytes) !== content) fail('Text content is not valid UTF-8');
+  if (bytes.length > limit) fail(`File exceeds ${limit / 1024} KiB`);
+  if (decode(bytes, limit) !== content) fail('Text content is not valid UTF-8');
   return bytes;
 }
 function revision(bytes: Buffer): string {
@@ -159,8 +167,10 @@ export class McpWorkspace {
     relative: string,
     mode: 'existing' | 'parent' | 'createParents',
   ): Promise<string> {
-    const disk = root.disk;
     const folder = root.folder;
+    // Project metadata lives beside the workspace, even when scripts are in kubejs/.
+    const disk =
+      relative === '.kubevs' || relative.startsWith('.kubevs/') ? folder?.uri.fsPath : root.disk;
     if (!disk || !folder) fail('Local workspace root is unavailable');
     const folderPath = folder.uri.fsPath;
     const realFolder = await fs.realpath(folderPath);
@@ -265,9 +275,14 @@ export class McpWorkspace {
     const target = await this.diskPath(root, relative, 'existing');
     if (!(await fs.lstat(target)).isFile()) fail('Path is not a file');
     const stat = await fs.stat(target);
-    if (stat.size > MAX_BYTES) fail('File exceeds 512 KiB');
+    if (stat.size > byteLimit(relative)) fail(`File exceeds ${byteLimit(relative) / 1024} KiB`);
     const bytes = await fs.readFile(target);
-    return { root: root.id, path: relative, content: decode(bytes), revision: revision(bytes) };
+    return {
+      root: root.id,
+      path: relative,
+      content: decode(bytes, byteLimit(relative)),
+      revision: revision(bytes),
+    };
   }
   async list(
     args: {
@@ -378,7 +393,7 @@ export class McpWorkspace {
     return this.serialize(async () => {
       const root = await this.choose(args.root),
         relative = cleanPath(args.path, false, root.remote),
-        bytes = encoded(args.content);
+        bytes = encoded(args.content, root.remote ? MAX_BYTES : byteLimit(relative));
       if (root.remote) {
         this.remoteWriteAllowed();
         if (
@@ -415,7 +430,7 @@ export class McpWorkspace {
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
-      if (current) decode(current);
+      if (current) decode(current, byteLimit(relative));
       assertRevision(args.expectedRevision, current ? revision(current) : undefined);
       const temp = path.join(
         path.dirname(target),

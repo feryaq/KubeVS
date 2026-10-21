@@ -337,7 +337,7 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
     {
       root: rootArg,
       path: pathArg,
-      content: text,
+      content: z.string().max(1024 * 1024),
       includeContent: z.boolean().default(false),
       expectedRevision: revision.nullable().optional(),
     },
@@ -1067,7 +1067,7 @@ export function createMcpTools(ctx: McpToolsContext): readonly KubeVsMcpTool[] {
   );
   tool(
     'kubevs_recipe_schema',
-    'Validate a custom recipe schema, preview its JSON or save a recipe from schema values. Schemas use the same parser as the UI. To store the schema itself use write_file in .kubevs/recipe-schemas.',
+    'Validate a custom recipe schema, preview its JSON or save a recipe from schema values. Schemas use the same parser as the UI. Store standalone schemas in .kubevs/recipe-schemas or data-only *.kubevs-pack.json packs in .kubevs/recipe-packs using a local root and write_file. These metadata paths are relative to the open project folder.',
     {
       schema: z.record(z.unknown()),
       values: z.record(z.unknown()).default({}),

@@ -30,6 +30,8 @@ export interface RecipeSchemaDefinition {
   readonly label: string;
   readonly recipeType?: ResourceId;
   readonly description?: string;
+  /** Immutable recipe data copied before editable fields are applied. */
+  readonly base?: Readonly<Record<string, unknown>>;
   readonly fields: readonly RecipeSchemaField[];
 }
 
@@ -60,6 +62,10 @@ export function parseRecipeSchema(input: unknown): RecipeSchemaDefinition {
   const recipeType =
     source.recipeType === undefined ? undefined : resourceId(source.recipeType, '$.recipeType');
   const description = optionalText(source.description, '$.description', 500);
+  const base =
+    source.base === undefined
+      ? undefined
+      : objectValue(structuredValue(source.base, '$.base'), '$.base');
   if (!Array.isArray(source.fields)) throw new Error('$.fields: expected an array');
   if (source.fields.length === 0) throw new Error('$.fields: add at least one field');
   if (source.fields.length > 100) throw new Error('$.fields: at most 100 fields are allowed');
@@ -136,6 +142,7 @@ export function parseRecipeSchema(input: unknown): RecipeSchemaDefinition {
     fields,
     ...(recipeType === undefined ? {} : { recipeType }),
     ...(description === undefined ? {} : { description }),
+    ...(base === undefined ? {} : { base }),
   };
 }
 
@@ -143,7 +150,10 @@ export function buildRecipeFromSchema(
   schema: RecipeSchemaDefinition,
   form: RecipeSchemaForm,
 ): Readonly<Record<string, unknown>> {
-  const raw: Record<string, unknown> = {};
+  const raw: Record<string, unknown> =
+    schema.base === undefined
+      ? {}
+      : (structuredValue(schema.base, 'Recipe base') as Record<string, unknown>);
   const knownPaths = new Set(schema.fields.map((field) => field.path));
   for (const suppliedPath of Object.keys(form.values)) {
     if (!knownPaths.has(suppliedPath)) {

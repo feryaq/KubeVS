@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KubeVS recipe template",
+  "type": "object",
+  "required": ["version", "id", "label", "fields"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "recipeType": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+    },
+    "base": {
+      "type": "object",
+      "description": "Recipe data preserved before editable fields are applied."
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["path", "label", "kind"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "kind": {
+            "enum": [
+              "string",
+              "resource_id",
+              "ingredient",
+              "item_stack",
+              "number",
+              "integer",
+              "boolean",
+              "enum",
+              "json"
+            ]
+          },
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
+          "multiple": {
+            "type": "boolean",
+            "default": false
+          },
+          "minItems": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "placeholder": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "options": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "default": {}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

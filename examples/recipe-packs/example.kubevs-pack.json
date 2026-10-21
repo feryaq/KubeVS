@@ -1,0 +1,119 @@
+{
+  "format": "kubevs-recipe-pack",
+  "version": 1,
+  "id": "kubevs:recipe_pack_examples",
+  "name": "Recipe pack examples",
+  "schemas": [
+    {
+      "version": 1,
+      "id": "kubevs:vanilla_torch",
+      "label": "Torch from coal and stick",
+      "recipeType": "minecraft:crafting_shapeless",
+      "description": "A Minecraft shapeless recipe using vanilla item ingredients.",
+      "base": {
+        "type": "minecraft:crafting_shapeless",
+        "ingredients": [{ "item": "minecraft:coal" }, { "item": "minecraft:stick" }],
+        "result": { "id": "minecraft:torch", "count": 4 }
+      },
+      "fields": [
+        {
+          "path": "ingredients",
+          "label": "Ingredients",
+          "kind": "ingredient",
+          "required": false,
+          "multiple": true,
+          "minItems": 0,
+          "default": ["minecraft:coal", "minecraft:stick"]
+        },
+        {
+          "path": "result.id",
+          "label": "Result · Id",
+          "kind": "resource_id",
+          "required": false,
+          "multiple": false,
+          "minItems": 0,
+          "default": "minecraft:torch"
+        },
+        {
+          "path": "result.count",
+          "label": "Result · Count",
+          "kind": "integer",
+          "required": false,
+          "multiple": false,
+          "minItems": 0,
+          "default": 4
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "id": "kubevs:synthetic_pressure_chamber",
+      "label": "Synthetic pressure chamber",
+      "recipeType": "modid:pressure_chamber",
+      "description": "Teaching example only; this recipe type is synthetic.",
+      "base": {
+        "type": "modid:pressure_chamber",
+        "inputs": [{ "item": "minecraft:iron_ingot", "count": 2 }],
+        "outputs": [
+          {
+            "item": {
+              "id": "minecraft:iron_block",
+              "count": 1,
+              "components": { "minecraft:custom_data": { "grade": 1 } }
+            },
+            "chance": 0.75
+          }
+        ],
+        "fluid": { "fluid": "minecraft:water", "amount": 250 },
+        "conditions": [{ "type": "modid:minimum_pressure", "pressure": 1.5 }]
+      },
+      "fields": [
+        {
+          "path": "inputs",
+          "label": "Inputs JSON",
+          "kind": "json",
+          "required": false,
+          "multiple": false,
+          "minItems": 0,
+          "default": [{ "item": "minecraft:iron_ingot", "count": 2 }]
+        },
+        {
+          "path": "outputs",
+          "label": "Outputs JSON",
+          "kind": "json",
+          "required": false,
+          "multiple": false,
+          "minItems": 0,
+          "default": [
+            {
+              "item": {
+                "id": "minecraft:iron_block",
+                "count": 1,
+                "components": { "minecraft:custom_data": { "grade": 1 } }
+              },
+              "chance": 0.75
+            }
+          ]
+        },
+        {
+          "path": "fluid.amount",
+          "label": "Fluid · Amount",
+          "kind": "integer",
+          "required": false,
+          "multiple": false,
+          "minItems": 0,
+          "default": 250
+        },
+        {
+          "path": "conditions",
+          "label": "Conditions JSON",
+          "kind": "json",
+          "required": false,
+          "multiple": false,
+          "minItems": 0,
+          "default": [{ "type": "modid:minimum_pressure", "pressure": 1.5 }]
+        }
+      ]
+    }
+  ]
+}

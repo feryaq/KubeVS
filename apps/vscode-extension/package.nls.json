@@ -13,7 +13,7 @@
   "command.createRecipe": "Create Vanilla recipe",
   "command.createAddonRecipe": "Create Create / Oritech / Farmer\u2019s Delight recipe",
   "command.createGenericRecipe": "Create recipe from schema",
-  "command.createRecipeSchema": "Create recipe schema",
+  "command.createRecipeSchema": "Create recipe template",
   "command.deleteRecipe": "Delete recipe",
   "command.replaceRecipe": "Replace recipe",
   "command.restoreRecipe": "Restore deleted recipe",

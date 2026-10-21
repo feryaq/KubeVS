@@ -24,6 +24,67 @@ suite('KubeVS workbench', () => {
     }
   });
 
+  test('custom pack files use native JSON validation and registered template commands', async () => {
+    const extension = vscode.extensions.getExtension('kubevs.kubevs-extension');
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(extension.extensionPath, 'package.json'), 'utf8'),
+    );
+    assert.ok(
+      manifest.contributes.jsonValidation.some((entry) => entry.fileMatch === '*.kubevs-pack.json'),
+    );
+    const commands = new Set(await vscode.commands.getCommands(true));
+    assert.ok(commands.has('kubevs.createRecipeSchema'));
+    assert.ok(commands.has('kubevs.importRecipePack'));
+    const jsonExtension = vscode.extensions.getExtension('vscode.json-language-features');
+    assert.ok(jsonExtension, 'Native JSON support is installed');
+    await jsonExtension.activate();
+    const folder = vscode.workspace.workspaceFolders.find((folder) => folder.uri.scheme === 'file');
+    const uri = vscode.Uri.joinPath(folder.uri, 'acceptance-invalid.kubevs-pack.json');
+    try {
+      await vscode.workspace.fs.writeFile(
+        uri,
+        new TextEncoder().encode(
+          JSON.stringify({
+            format: 'kubevs-recipe-pack',
+            version: 1,
+            id: 'test:invalid',
+            name: 'Invalid',
+            schemas: [
+              {
+                version: 1,
+                id: 'test:machine',
+                label: 'Machine',
+                recipeType: 'test:machine',
+                fields: [{ path: 'pressure', label: 'Pressure', kind: 'invalid_kind' }],
+              },
+            ],
+          }),
+        ),
+      );
+      const document = await vscode.workspace.openTextDocument(uri);
+      assert.equal(document.languageId, 'json');
+      await vscode.window.showTextDocument(document, { preview: true, preserveFocus: true });
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (
+          vscode.languages
+            .getDiagnostics(uri)
+            .some(
+              (diagnostic) =>
+                (diagnostic.severity === vscode.DiagnosticSeverity.Warning ||
+                  diagnostic.severity === vscode.DiagnosticSeverity.Error) &&
+                /Value is not accepted|Valid values/i.test(diagnostic.message),
+            )
+        )
+          return;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      assert.fail('Native JSON diagnostics did not reject the invalid pack');
+    } finally {
+      await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+      await vscode.workspace.fs.delete(uri);
+    }
+  });
+
   test('dashboard reflects current indexed workspace, not decorative script counts', async () => {
     await vscode.commands.executeCommand('kubevs.refreshProject');
     const snapshot = await vscode.commands.executeCommand('kubevs.__test.dashboardSnapshot');

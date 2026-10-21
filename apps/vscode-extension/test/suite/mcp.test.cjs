@@ -115,6 +115,91 @@ suite('KubeVS MCP in installed Code', () => {
         createdDirectories.push('startup_scripts');
       }
 
+      const templateId = `acceptance:${testId}`;
+      const packPath = `.kubevs/recipe-packs/${testId}.kubevs-pack.json`;
+      const template = {
+        version: 1,
+        id: templateId,
+        label: 'Custom machine',
+        recipeType: 'example:machine',
+        base: {
+          type: 'example:machine',
+          pressure: 2,
+          conditions: [{ type: 'example:preserve', nested: { enabled: true } }],
+        },
+        fields: [{ path: 'pressure', label: 'Pressure', kind: 'number', default: 2 }],
+      };
+      const pack = {
+        format: 'kubevs-recipe-pack',
+        version: 1,
+        id: templateId,
+        name: 'Acceptance pack',
+        schemas: [template],
+      };
+      await call('kubevs_write_file', {
+        root,
+        path: packPath,
+        content: JSON.stringify(pack),
+        expectedRevision: null,
+      });
+      created.set(packPath, root);
+      const projectFolder = vscode.workspace.workspaceFolders[Number(root.slice('local:'.length))];
+      assert.ok(
+        await vscode.workspace.fs.stat(vscode.Uri.joinPath(projectFolder.uri, packPath)),
+        'Pack must be in project metadata, outside nested kubejs/',
+      );
+      const packed = await call('kubevs_list_recipe_schemas', { schemaId: templateId });
+      assert.deepEqual(packed.errors, []);
+      assert.equal(packed.entries.length, 1);
+      assert.equal(packed.entries[0].packId, templateId);
+      const generated = await call('kubevs_recipe_schema', {
+        schema: packed.entries[0].schema,
+        values: { pressure: 5 },
+        recipeId: templateId,
+      });
+      assert.equal(generated.saved, false);
+      assert.match(generated.code, /"pressure": 5/);
+      assert.match(generated.code, /example:preserve/);
+      assert.match(generated.code, /"enabled": true/);
+      const largePack = {
+        ...pack,
+        id: `${templateId}_large`,
+        schemas: Array.from({ length: 12 }, (_, index) => ({
+          ...template,
+          id: `acceptance:large_${index}`,
+          base: { ...template.base, padding: 'x'.repeat(48000) },
+        })),
+      };
+      const largePath = `.kubevs/recipe-packs/${testId}_large.kubevs-pack.json`;
+      const largeContent = JSON.stringify(largePack);
+      assert.ok(Buffer.byteLength(largeContent) > 512 * 1024);
+      const largeWrite = await call('kubevs_write_file', {
+        root,
+        path: largePath,
+        content: largeContent,
+        expectedRevision: null,
+      });
+      created.set(largePath, root);
+      assert.equal(
+        (await call('kubevs_read_file', { root, path: largePath })).revision,
+        largeWrite.revision,
+      );
+      assert.equal(
+        (await call('kubevs_list_recipe_schemas', { schemaId: 'acceptance:large_0' })).entries
+          .length,
+        1,
+      );
+      const unchangedPack = await call('kubevs_list_recipe_schemas', {
+        schemaId: templateId,
+        ifRevision: packed.revision,
+      });
+      assert.equal(unchangedPack.unchanged, true);
+      await expectToolError(
+        'kubevs_write_file',
+        { root, path: '.kubevs/secrets.json', content: '{}' },
+        /path|allowed|hidden/i,
+      );
+
       const vanilla = await call('kubevs_generate_recipe', {
         root,
         recipeId: `kubevs:${testId}_vanilla`,

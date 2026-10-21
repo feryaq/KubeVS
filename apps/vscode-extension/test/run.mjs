@@ -9,7 +9,7 @@ import { WebSocketServer } from 'ws';
 const directory = path.dirname(fileURLToPath(import.meta.url));
 process.env.KUBEVS_MCP_EFFICIENCY_REPORT = path.resolve(
   directory,
-  '../../../artifacts/mcp-context-1.8.0.json',
+  '../../../artifacts/mcp-context-1.9.0.json',
 );
 const localExecutable = process.env.KUBEVS_VSCODE_EXECUTABLE_PATH;
 const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kubevs-vscode-test-'));

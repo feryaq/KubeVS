@@ -8,6 +8,7 @@ export {
   type RecipeSchemaFieldKind,
   type RecipeSchemaForm,
 } from './schema.js';
+export { inferRecipeSchemaFromJson, type InferRecipeSchemaFromJsonInput } from './template.js';
 
 export type Ingredient =
   | { readonly kind: 'item'; readonly id: ResourceId }

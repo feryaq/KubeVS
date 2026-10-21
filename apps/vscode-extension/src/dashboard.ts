@@ -118,8 +118,8 @@ export const dashboardActions = [
   },
   {
     command: 'kubevs.createRecipeSchema',
-    title: 'New schema',
-    hint: 'Typed recipe fields',
+    title: 'Recipe templates',
+    hint: 'Create · import · export',
     icon: 'code',
     group: 'tools',
   },

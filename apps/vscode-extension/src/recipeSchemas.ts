@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
 import { parseRecipeSchema, type RecipeSchemaDefinition } from '@kubevs/recipe-model';
+import { parseRecipePack, RECIPE_PACK_MAX_BYTES } from './recipePacks.js';
 
 export interface RecipeSchemaCatalogEntry {
   readonly schema: RecipeSchemaDefinition;
   readonly source: string;
   readonly builtIn: boolean;
+  readonly packId?: string;
+  readonly packName?: string;
 }
 
 export interface RecipeSchemaCatalog {
@@ -26,6 +29,7 @@ const MAX_DIRECTORIES = 256;
 const MAX_DEPTH = 8;
 const MAX_FILES = 200;
 const MAX_FILE_BYTES = 256 * 1024;
+const PACK_DIRECTORY = '.kubevs/recipe-packs';
 const IO_CONCURRENCY = 4;
 
 const RAW_SCHEMA = parseRecipeSchema({
@@ -66,19 +70,30 @@ export async function loadRecipeSchemas(
   const errors: string[] = [];
   const seen = new Set(entries.map((entry) => entry.schema.id));
 
-  const candidates: { uri: vscode.Uri; relative: string }[] = [];
+  const candidates: { uri: vscode.Uri; relative: string; kind: 'schema' | 'pack' }[] = [];
   let scannedDirectories = 0;
-  let fileLimitReported = false;
-  for (const folder of folders) {
+  const reportedFileLimits = new Set<'schema' | 'pack'>();
+  const roots = folders.flatMap((folder) => [
+    {
+      uri: vscode.Uri.joinPath(folder.uri, ...directory.split('/')),
+      relative: directory,
+      kind: 'schema' as const,
+    },
+    {
+      uri: vscode.Uri.joinPath(folder.uri, ...PACK_DIRECTORY.split('/')),
+      relative: PACK_DIRECTORY,
+      kind: 'pack' as const,
+    },
+  ]);
+  for (const root of roots) {
     if (scannedDirectories >= MAX_DIRECTORIES) {
       errors.push(
         `workspace folders: directory count limit (${MAX_DIRECTORIES}) reached; scan truncated`,
       );
       break;
     }
-    const root = vscode.Uri.joinPath(folder.uri, ...directory.split('/'));
-    const queue: { uri: vscode.Uri; relative: string; depth: number }[] = [
-      { uri: root, relative: directory, depth: 0 },
+    const queue: { uri: vscode.Uri; relative: string; depth: number; kind: 'schema' | 'pack' }[] = [
+      { ...root, depth: 0 },
     ];
     while (queue.length > 0) {
       const batch = queue.splice(0, IO_CONCURRENCY);
@@ -90,7 +105,7 @@ export async function loadRecipeSchemas(
             if (isFileNotFound(error) && current.depth === 0)
               return { current, entries: [] as [string, vscode.FileType][] };
             const message = error instanceof Error ? error.message : String(error);
-            errors.push(`${current.relative}: unable to list schema directory: ${message}`);
+            errors.push(`${current.relative}: unable to list recipe data directory: ${message}`);
             return { current, entries: [] as [string, vscode.FileType][] };
           }
         }),
@@ -99,6 +114,12 @@ export async function loadRecipeSchemas(
         scannedDirectories += 1;
         const sorted = [...entries].sort(([a], [b]) => a.localeCompare(b));
         for (const [name, type] of sorted) {
+          if (name === '.' || name === '..' || name.includes('/') || name.includes('\\')) {
+            errors.push(
+              `${current.relative}: ignored unsafe directory entry name ${JSON.stringify(name)}`,
+            );
+            continue;
+          }
           if ((type & vscode.FileType.SymbolicLink) !== 0) continue;
           const relative = `${current.relative}/${name}`;
           const uri = vscode.Uri.joinPath(current.uri, name);
@@ -108,40 +129,68 @@ export async function loadRecipeSchemas(
                 `${relative}: directory depth limit (${MAX_DEPTH}) reached; scan truncated`,
               );
             } else if (scannedDirectories + queue.length < MAX_DIRECTORIES) {
-              queue.push({ uri, relative, depth: current.depth + 1 });
+              queue.push({ uri, relative, depth: current.depth + 1, kind: current.kind });
             } else {
               errors.push(
                 `${relative}: directory count limit (${MAX_DIRECTORIES}) reached; scan truncated`,
               );
             }
-          } else if ((type & vscode.FileType.File) !== 0 && name.endsWith('.recipe-schema.json')) {
-            if (candidates.length >= MAX_FILES) {
-              if (!fileLimitReported) {
+          } else if (
+            (type & vscode.FileType.File) !== 0 &&
+            ((current.kind === 'schema' && name.endsWith('.recipe-schema.json')) ||
+              (current.kind === 'pack' && name.endsWith('.kubevs-pack.json')))
+          ) {
+            const sameKindCount = candidates.filter(
+              (candidate) => candidate.kind === current.kind,
+            ).length;
+            if (sameKindCount >= MAX_FILES) {
+              if (!reportedFileLimits.has(current.kind)) {
                 errors.push(
-                  `${relative}: schema file limit (${MAX_FILES}) reached; scan truncated`,
+                  `${relative}: ${current.kind} file limit (${MAX_FILES}) reached; additional files ignored`,
                 );
-                fileLimitReported = true;
+                reportedFileLimits.add(current.kind);
               }
-              queue.length = 0;
-              break;
+              continue;
             }
-            candidates.push({ uri, relative });
+            candidates.push({ uri, relative, kind: current.kind });
           }
         }
       }
     }
   }
 
-  candidates.sort((left, right) => left.relative.localeCompare(right.relative));
-  for (let offset = 0; offset < candidates.length; offset += IO_CONCURRENCY) {
-    const batch = candidates.slice(offset, offset + IO_CONCURRENCY);
+  const schemaCandidates = candidates
+    .filter((candidate) => candidate.kind === 'schema')
+    .sort((left, right) => left.relative.localeCompare(right.relative));
+  const packCandidates = candidates
+    .filter((candidate) => candidate.kind === 'pack')
+    .sort((left, right) => left.relative.localeCompare(right.relative));
+  const readCandidate = async ({ uri, relative }: { uri: vscode.Uri; relative: string }) => {
+    try {
+      const bytes = await fs.readFile(uri);
+      const limit = relative.endsWith('.kubevs-pack.json') ? RECIPE_PACK_MAX_BYTES : MAX_FILE_BYTES;
+      if (bytes.byteLength > limit) {
+        throw new Error(
+          `${relative.endsWith('.kubevs-pack.json') ? 'pack' : 'schema'} exceeds the ${limit / 1024} KiB size limit`,
+        );
+      }
+      return { bytes, relative };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`${relative}: ${message}`);
+      return undefined;
+    }
+  };
+
+  // Standalone project schemas deliberately win over schemas contributed by packs.
+  for (let offset = 0; offset < schemaCandidates.length; offset += IO_CONCURRENCY) {
+    const batch = schemaCandidates.slice(offset, offset + IO_CONCURRENCY);
     const loaded = await Promise.all(
       batch.map(async ({ uri, relative }) => {
+        const result = await readCandidate({ uri, relative });
+        if (!result) return undefined;
         try {
-          const bytes = await fs.readFile(uri);
-          if (bytes.byteLength > MAX_FILE_BYTES) {
-            throw new Error(`schema exceeds the ${MAX_FILE_BYTES / 1024} KiB size limit`);
-          }
+          const { bytes } = result;
           const parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
           const schema = parseRecipeSchema(parsed);
           return { schema, source: relative };
@@ -160,6 +209,51 @@ export async function loadRecipeSchemas(
       }
       seen.add(item.schema.id);
       entries.push({ ...item, builtIn: false });
+    }
+  }
+
+  const seenPackIds = new Set<string>();
+  for (let offset = 0; offset < packCandidates.length; offset += IO_CONCURRENCY) {
+    const batch = packCandidates.slice(offset, offset + IO_CONCURRENCY);
+    const loaded = await Promise.all(
+      batch.map(async ({ uri, relative }) => {
+        const result = await readCandidate({ uri, relative });
+        if (!result) return undefined;
+        try {
+          const pack = parseRecipePack(
+            JSON.parse(new TextDecoder().decode(result.bytes)) as unknown,
+          );
+          return { pack, source: relative };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push(`${relative}: ${message}`);
+          return undefined;
+        }
+      }),
+    );
+    for (const item of loaded) {
+      if (!item) continue;
+      if (seenPackIds.has(item.pack.id)) {
+        errors.push(`${item.source}: duplicate recipe pack id ${item.pack.id}`);
+        continue;
+      }
+      seenPackIds.add(item.pack.id);
+      for (const schema of item.pack.schemas) {
+        if (seen.has(schema.id)) {
+          errors.push(
+            `${item.source}: duplicate schema id ${schema.id}; existing schema takes precedence`,
+          );
+          continue;
+        }
+        seen.add(schema.id);
+        entries.push({
+          schema,
+          source: item.source,
+          builtIn: false,
+          packId: item.pack.id,
+          packName: item.pack.name,
+        });
+      }
     }
   }
 
@@ -184,20 +278,43 @@ function isFileNotFound(error: unknown): boolean {
 }
 
 export function createRecipeSchemaWatcher(callback: () => void): vscode.Disposable {
-  const disposables: vscode.Disposable[] = [];
   const directory = schemaDirectory();
-  for (const folder of vscode.workspace.workspaceFolders ?? []) {
-    const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(folder, `${directory}/**/*.recipe-schema.json`),
-    );
-    disposables.push(
-      watcher,
-      watcher.onDidCreate(callback),
-      watcher.onDidChange(callback),
-      watcher.onDidDelete(callback),
-    );
-  }
-  return vscode.Disposable.from(...disposables);
+  let disposed = false;
+  let watchers: vscode.Disposable[] = [];
+  const attach = (): void => {
+    for (const watcher of watchers) watcher.dispose();
+    watchers = [];
+    if (disposed) return;
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      for (const pattern of [
+        `${directory}/**/*.recipe-schema.json`,
+        `${PACK_DIRECTORY}/**/*.kubevs-pack.json`,
+      ]) {
+        const watcher = vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(folder, pattern),
+        );
+        watchers.push(
+          watcher,
+          watcher.onDidCreate(callback),
+          watcher.onDidChange(callback),
+          watcher.onDidDelete(callback),
+        );
+      }
+    }
+  };
+  attach();
+  const folderWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    attach();
+    callback();
+  });
+  return {
+    dispose() {
+      disposed = true;
+      folderWatcher.dispose();
+      for (const watcher of watchers) watcher.dispose();
+      watchers = [];
+    },
+  };
 }
 
 export function recipeSchemaTemplate(): string {

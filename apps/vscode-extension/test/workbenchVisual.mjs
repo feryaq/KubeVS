@@ -69,7 +69,12 @@ async function renderPreview(page, name) {
     });
   }
 }
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.KUBEVS_PLAYWRIGHT_EXECUTABLE_PATH
+    ? { executablePath: process.env.KUBEVS_PLAYWRIGHT_EXECUTABLE_PATH }
+    : {}),
+});
 const failures = [],
   results = [],
   checks = [];

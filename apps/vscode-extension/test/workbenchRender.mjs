@@ -12,6 +12,7 @@ const expose = {
   recipeEditor: 'recipeEditorHtml',
   contentBuilder: 'contentBuilderHtml',
   genericRecipeEditor: 'genericRecipeEditorHtml',
+  recipeTemplateEditor: 'recipeTemplateEditorHtml',
   lootRuleEditor: 'lootRuleEditorHtml',
 };
 const hasRegistry = await fs.access(root + '/apps/vscode-extension/src/registryBrowser.ts').then(
@@ -28,7 +29,7 @@ const entry =
   })
     .map(([file, fn]) => `export {${fn}} from '${root}/apps/vscode-extension/src/${file}.ts';`)
     .join('\n') +
-  `\nexport { vanillaRecipeCode } from '${root}/apps/vscode-extension/src/recipeEditor.ts';\nexport { generateSchemaRecipe } from '${root}/apps/vscode-extension/src/genericRecipeEditor.ts';\nexport { generateContentScript } from '${root}/apps/vscode-extension/src/contentBuilderCore.ts';\nexport { generateAddonRecipe } from '${root}/apps/vscode-extension/src/addonRecipeCore.ts';\nexport { generateLootRule } from '${root}/apps/vscode-extension/src/lootRuleCore.ts';\nexport { normalizeRecipe, buildCraftTree, calculateCraftTotals } from '${root}/apps/vscode-extension/src/craftGraphCore.ts';`;
+  `\nexport { inferRecipeSchemaFromJson, parseRecipeSchema, buildRecipeFromSchema } from '${root}/packages/recipe-model/src/index.ts';\nexport { vanillaRecipeCode } from '${root}/apps/vscode-extension/src/recipeEditor.ts';\nexport { generateSchemaRecipe } from '${root}/apps/vscode-extension/src/genericRecipeEditor.ts';\nexport { generateContentScript } from '${root}/apps/vscode-extension/src/contentBuilderCore.ts';\nexport { generateAddonRecipe } from '${root}/apps/vscode-extension/src/addonRecipeCore.ts';\nexport { generateLootRule } from '${root}/apps/vscode-extension/src/lootRuleCore.ts';\nexport { normalizeRecipe, buildCraftTree, calculateCraftTotals } from '${root}/apps/vscode-extension/src/craftGraphCore.ts';`;
 await build({
   stdin: { contents: entry, resolveDir: root },
   bundle: true,
@@ -90,6 +91,7 @@ const renders = {
       errors: [],
       directory: '.kubevs/recipe-schemas',
     }),
+  templates: () => views.recipeTemplateEditorHtml(w, 'preview'),
   loot: () => views.lootRuleEditorHtml(w, 'preview'),
   graph: () => views.craftGraphHtml(w, 'preview', false),
   calculator: () => views.craftGraphHtml(w, 'preview', true),
